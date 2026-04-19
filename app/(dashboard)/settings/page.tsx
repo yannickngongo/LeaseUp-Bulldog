@@ -16,23 +16,23 @@ export default function SettingsPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">First Name</label>
-                <input defaultValue="Marcus" className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                <input defaultValue="Marcus" className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none" />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700">Last Name</label>
-                <input defaultValue="Thompson" className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                <input defaultValue="Thompson" className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none" />
               </div>
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Email</label>
-              <input type="email" defaultValue="marcus@sunriseproperties.com" className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input type="email" defaultValue="marcus@sunriseproperties.com" className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none" />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700">Company Name</label>
-              <input defaultValue="Sunrise Properties LLC" className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              <input defaultValue="Sunrise Properties LLC" className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:border-gray-400 focus:outline-none" />
             </div>
             <div className="flex justify-end">
-              <button className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+              <button className="rounded-lg bg-[#C8102E] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#A50D25]">
                 Save Changes
               </button>
             </div>
@@ -60,14 +60,14 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-gray-900">Payment method</p>
                 <p className="text-xs text-gray-500">Visa ending in 4242</p>
               </div>
-              <button className="text-xs text-blue-600 hover:underline">Update</button>
+              <button className="text-xs font-medium text-[#C8102E] hover:underline">Update</button>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-gray-900">Billing history</p>
                 <p className="text-xs text-gray-500">Invoices and receipts</p>
               </div>
-              <button className="text-xs text-blue-600 hover:underline">View</button>
+              <button className="text-xs font-medium text-[#C8102E] hover:underline">View</button>
             </div>
           </div>
 
