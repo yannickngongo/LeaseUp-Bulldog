@@ -8,15 +8,17 @@ export async function middleware(req: NextRequest) {
   const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
   if (!isProtected) return NextResponse.next();
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      global: {
-        headers: { Cookie: req.headers.get("cookie") ?? "" },
-      },
-    }
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // Skip auth when env vars not configured (demo / preview mode)
+  if (!supabaseUrl || !supabaseKey) return NextResponse.next();
+
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    global: {
+      headers: { Cookie: req.headers.get("cookie") ?? "" },
+    },
+  });
 
   const { data: { session } } = await supabase.auth.getSession();
 
