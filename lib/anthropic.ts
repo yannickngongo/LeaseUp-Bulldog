@@ -20,7 +20,8 @@ export interface GenerateLeadReplyInput {
   budgetMin?: number;
   budgetMax?: number;
   trigger: "new_lead" | "inbound_sms" | "follow_up";
-  conversationHistory: string; // pre-formatted prior messages, newest last
+  conversationHistory: string; // pre-formatted prior messages, oldest first
+  propertyContext?: string;    // formatted output of formatPropertyAIContext()
 }
 
 export interface GenerateLeadReplyOutput {
@@ -72,9 +73,13 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
       ? `Up to $${input.budgetMax}/mo`
       : "Unknown";
 
+  const contextBlock = input.propertyContext
+    ? `${input.propertyContext}\n`
+    : `Active special: ${input.activeSpecial ?? "None — do not mention any specials"}\n`;
+
   return `
+${contextBlock}
 Property: ${input.propertyName}
-Active special: ${input.activeSpecial ?? "None — do not mention any specials"}
 Lead name: ${input.leadName}
 Trigger: ${input.trigger}
 
