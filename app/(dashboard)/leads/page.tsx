@@ -1,9 +1,5 @@
-// Leads dashboard — full table view with status filter tabs.
-// TODO: replace MOCK_LEADS / MOCK_PROPERTIES with Supabase queries once DB is connected.
-
 import Link from "next/link";
 import type { Lead, LeadStatus } from "@/lib/types";
-import { StatusBadge } from "@/components/StatusBadge";
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 
@@ -25,6 +21,7 @@ const MOCK_LEADS: Lead[] = [
     status: "engaged",
     preferred_contact: "sms",
     move_in_date: "2025-08-01",
+    ai_score: 8,
   },
   {
     id: "2",
@@ -38,6 +35,7 @@ const MOCK_LEADS: Lead[] = [
     status: "new",
     preferred_contact: "email",
     move_in_date: "2025-07-15",
+    ai_score: 6,
   },
   {
     id: "3",
@@ -51,6 +49,7 @@ const MOCK_LEADS: Lead[] = [
     status: "tour_scheduled",
     preferred_contact: "sms",
     move_in_date: "2025-09-01",
+    ai_score: 9,
   },
   {
     id: "4",
@@ -64,6 +63,7 @@ const MOCK_LEADS: Lead[] = [
     status: "contacted",
     preferred_contact: "call",
     move_in_date: undefined,
+    ai_score: 5,
   },
   {
     id: "5",
@@ -77,10 +77,11 @@ const MOCK_LEADS: Lead[] = [
     status: "lost",
     preferred_contact: "sms",
     move_in_date: "2025-07-01",
+    ai_score: 2,
   },
 ];
 
-// ─── Status filter tabs ───────────────────────────────────────────────────────
+// ─── Config ───────────────────────────────────────────────────────────────────
 
 const STATUS_TABS: { label: string; value: LeadStatus | "all" }[] = [
   { label: "All", value: "all" },
@@ -93,6 +94,24 @@ const STATUS_TABS: { label: string; value: LeadStatus | "all" }[] = [
   { label: "Lost", value: "lost" },
 ];
 
+const STATUS_CONFIG: Record<LeadStatus, { label: string; dot: string; bg: string; text: string }> = {
+  new:            { label: "New",            dot: "#6366F1", bg: "#EEF2FF", text: "#4338CA" },
+  contacted:      { label: "Contacted",      dot: "#0EA5E9", bg: "#E0F2FE", text: "#0369A1" },
+  engaged:        { label: "Engaged",        dot: "#8B5CF6", bg: "#F3E8FF", text: "#6D28D9" },
+  tour_scheduled: { label: "Tour Scheduled", dot: "#F59E0B", bg: "#FEF3C7", text: "#B45309" },
+  applied:        { label: "Applied",        dot: "#F97316", bg: "#FFF7ED", text: "#C2410C" },
+  won:            { label: "Won",            dot: "#10B981", bg: "#D1FAE5", text: "#065F46" },
+  lost:           { label: "Lost",           dot: "#94A3B8", bg: "#F1F5F9", text: "#475569" },
+};
+
+const SOURCE_ICONS: Record<string, string> = {
+  zillow: "Z",
+  website: "W",
+  "apartments.com": "A",
+  facebook: "f",
+  manual: "M",
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso?: string) {
@@ -102,6 +121,56 @@ function formatDate(iso?: string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  { bg: "#FEE2E2", text: "#991B1B" },
+  { bg: "#DBEAFE", text: "#1E40AF" },
+  { bg: "#D1FAE5", text: "#065F46" },
+  { bg: "#F3E8FF", text: "#6D28D9" },
+  { bg: "#FEF3C7", text: "#92400E" },
+];
+
+function avatarColor(id: string) {
+  const idx = id.charCodeAt(0) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[idx];
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatCard({
+  label,
+  value,
+  accent,
+  sub,
+}: {
+  label: string;
+  value: number | string;
+  accent: string;
+  sub?: string;
+}) {
+  return (
+    <div
+      className="flex-1 rounded-2xl bg-white px-6 py-5"
+      style={{
+        boxShadow: "0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05)",
+        borderTop: `3px solid ${accent}`,
+      }}
+    >
+      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">{label}</p>
+      <p className="mt-1.5 text-3xl font-black tracking-tight text-gray-900">{value}</p>
+      {sub && <p className="mt-1 text-xs text-gray-400">{sub}</p>}
+    </div>
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -114,115 +183,282 @@ export default async function LeadsPage({
   const { status: statusParam } = await searchParams;
   const activeStatus = statusParam ?? "all";
 
-  // TODO: replace with real Supabase query
-  // const db = getSupabaseAdmin();
-  // let query = db
-  //   .from("leads")
-  //   .select("*, properties(name)")
-  //   .order("created_at", { ascending: false });
-  // if (activeStatus !== "all") query = query.eq("status", activeStatus);
-  // const { data: leads } = await query;
-
+  const allLeads = MOCK_LEADS;
   const leads =
     activeStatus === "all"
-      ? MOCK_LEADS
-      : MOCK_LEADS.filter((l) => l.status === activeStatus);
+      ? allLeads
+      : allLeads.filter((l) => l.status === activeStatus);
+
+  const countByStatus = (s: LeadStatus) => allLeads.filter((l) => l.status === s).length;
+  const tourCount = countByStatus("tour_scheduled");
+  const wonCount = countByStatus("won");
+  const newCount = countByStatus("new");
+  const conversionRate = allLeads.length > 0 ? Math.round((wonCount / allLeads.length) * 100) : 0;
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <div className="min-h-screen px-8 py-8" style={{ background: "#F9F8F7" }}>
+      <div className="mx-auto max-w-7xl space-y-7">
 
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Leads</h1>
-            <p className="text-sm text-gray-500">
-              {leads.length} lead{leads.length !== 1 ? "s" : ""}
+            <h1
+              className="text-2xl font-black tracking-tight text-gray-900"
+              style={{ letterSpacing: "-0.03em" }}
+            >
+              Leads
+            </h1>
+            <p className="mt-0.5 text-sm text-gray-400">
+              {allLeads.length} total lead{allLeads.length !== 1 ? "s" : ""} across all properties
             </p>
           </div>
           <Link
             href="/leads/new"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white"
+            style={{
+              background: "#C8102E",
+              boxShadow: "0 2px 8px rgba(200,16,46,0.30), 0 0 0 1px rgba(200,16,46,0.15)",
+            }}
           >
-            + Add Lead
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            Add Lead
           </Link>
         </div>
 
-        {/* Status filter tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {STATUS_TABS.map((tab) => (
-            <Link
-              key={tab.value}
-              href={tab.value === "all" ? "/leads" : `/leads?status=${tab.value}`}
-              className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium ${
-                activeStatus === tab.value
-                  ? "bg-blue-600 text-white"
-                  : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          ))}
+        {/* ── Stat cards ── */}
+        <div className="flex gap-4">
+          <StatCard label="Total Leads" value={allLeads.length} accent="#C8102E" sub="all time" />
+          <StatCard label="New" value={newCount} accent="#6366F1" sub="awaiting contact" />
+          <StatCard label="Tours Scheduled" value={tourCount} accent="#F59E0B" sub="upcoming" />
+          <StatCard label="Conversion Rate" value={`${conversionRate}%`} accent="#10B981" sub={`${wonCount} lease${wonCount !== 1 ? "s" : ""} signed`} />
         </div>
 
-        {/* Table */}
+        {/* ── Filter tabs ── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          {STATUS_TABS.map((tab) => {
+            const count =
+              tab.value === "all"
+                ? allLeads.length
+                : allLeads.filter((l) => l.status === tab.value).length;
+            const active = activeStatus === tab.value;
+            return (
+              <Link
+                key={tab.value}
+                href={tab.value === "all" ? "/leads" : `/leads?status=${tab.value}`}
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3.5 py-1.5 text-sm font-medium"
+                style={
+                  active
+                    ? {
+                        background: "#C8102E",
+                        color: "#fff",
+                        boxShadow: "0 1px 4px rgba(200,16,46,0.25)",
+                      }
+                    : {
+                        background: "#fff",
+                        color: "#6B7280",
+                        boxShadow: "0 0 0 1px rgba(0,0,0,0.08)",
+                      }
+                }
+              >
+                {tab.label}
+                <span
+                  className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                  style={
+                    active
+                      ? { background: "rgba(255,255,255,0.25)", color: "#fff" }
+                      : { background: "#F3F4F6", color: "#6B7280" }
+                  }
+                >
+                  {count}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* ── Table ── */}
         {leads.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 p-12 text-center text-sm text-gray-400">
-            No leads with this status.
+          <div
+            className="rounded-2xl bg-white px-8 py-16 text-center"
+            style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05)" }}
+          >
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full" style={{ background: "#FEE2E2" }}>
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <circle cx="11" cy="8" r="4" stroke="#C8102E" strokeWidth="1.5" />
+                <path d="M3 19c0-4 3.6-7 8-7s8 3 8 7" stroke="#C8102E" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-gray-700">No leads with this status</p>
+            <p className="mt-1 text-xs text-gray-400">Try a different filter or add a new lead</p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-gray-100 text-sm">
-              <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Property</th>
-                  <th className="px-4 py-3 text-left">Phone</th>
-                  <th className="px-4 py-3 text-left">Email</th>
-                  <th className="px-4 py-3 text-left">Source</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Move Date</th>
-                  <th className="px-4 py-3 text-left">Created</th>
+          <div
+            className="overflow-hidden rounded-2xl bg-white"
+            style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05)" }}
+          >
+            <table className="min-w-full">
+              <thead>
+                <tr style={{ borderBottom: "1px solid #F1F0EF" }}>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-gray-400">Lead</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-gray-400">Property</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-gray-400">Source</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-gray-400">Status</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-gray-400">AI Score</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-gray-400">Move-in</th>
+                  <th className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-widest text-gray-400">Added</th>
+                  <th className="px-5 py-3.5" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
-                {leads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      <Link
-                        href={`/leads/${lead.id}`}
-                        className="text-blue-600 hover:underline"
-                      >
-                        {lead.name}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {MOCK_PROPERTIES[lead.property_id] ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{lead.phone}</td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {lead.email ?? <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-4 py-3 capitalize text-gray-500">
-                      {lead.source}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={lead.status} />
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {formatDate(lead.move_in_date)}
-                    </td>
-                    <td className="px-4 py-3 text-gray-400">
-                      {formatDate(lead.created_at)}
-                    </td>
-                  </tr>
-                ))}
+              <tbody>
+                {leads.map((lead, i) => {
+                  const av = avatarColor(lead.id);
+                  const st = STATUS_CONFIG[lead.status];
+                  const isLast = i === leads.length - 1;
+                  return (
+                    <tr
+                      key={lead.id}
+                      style={{
+                        borderBottom: isLast ? "none" : "1px solid #F9F8F7",
+                      }}
+                      className="group"
+                    >
+                      {/* Lead cell */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                            style={{ background: av.bg, color: av.text }}
+                          >
+                            {getInitials(lead.name)}
+                          </div>
+                          <div className="min-w-0">
+                            <Link
+                              href={`/leads/${lead.id}`}
+                              className="block truncate text-sm font-semibold text-gray-900 hover:text-[#C8102E]"
+                              style={{ transition: "color 0.15s" }}
+                            >
+                              {lead.name}
+                            </Link>
+                            <p className="truncate text-xs text-gray-400">
+                              {lead.email ?? lead.phone}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Property */}
+                      <td className="px-5 py-4">
+                        <span className="text-sm text-gray-600">
+                          {MOCK_PROPERTIES[lead.property_id] ?? "—"}
+                        </span>
+                      </td>
+
+                      {/* Source */}
+                      <td className="px-5 py-4">
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium capitalize"
+                          style={{ background: "#F3F4F6", color: "#374151" }}
+                        >
+                          <span
+                            className="flex h-4 w-4 items-center justify-center rounded text-[9px] font-black text-white"
+                            style={{ background: "#9CA3AF" }}
+                          >
+                            {SOURCE_ICONS[lead.source] ?? lead.source[0].toUpperCase()}
+                          </span>
+                          {lead.source}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-5 py-4">
+                        <span
+                          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold"
+                          style={{ background: st.bg, color: st.text }}
+                        >
+                          <span
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ background: st.dot }}
+                          />
+                          {st.label}
+                        </span>
+                      </td>
+
+                      {/* AI Score */}
+                      <td className="px-5 py-4">
+                        {lead.ai_score != null ? (
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-1.5 w-16 overflow-hidden rounded-full"
+                              style={{ background: "#F3F4F6" }}
+                            >
+                              <div
+                                className="h-full rounded-full"
+                                style={{
+                                  width: `${lead.ai_score * 10}%`,
+                                  background:
+                                    lead.ai_score >= 7
+                                      ? "#10B981"
+                                      : lead.ai_score >= 4
+                                      ? "#F59E0B"
+                                      : "#EF4444",
+                                }}
+                              />
+                            </div>
+                            <span
+                              className="text-sm font-semibold"
+                              style={{
+                                color:
+                                  lead.ai_score >= 7
+                                    ? "#065F46"
+                                    : lead.ai_score >= 4
+                                    ? "#92400E"
+                                    : "#991B1B",
+                              }}
+                            >
+                              {lead.ai_score}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+
+                      {/* Move-in */}
+                      <td className="px-5 py-4 text-sm text-gray-500">
+                        {formatDate(lead.move_in_date)}
+                      </td>
+
+                      {/* Added */}
+                      <td className="px-5 py-4 text-sm text-gray-400">
+                        {formatDate(lead.created_at)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-5 py-4">
+                        <Link
+                          href={`/leads/${lead.id}`}
+                          className="rounded-lg px-3 py-1.5 text-xs font-medium opacity-0 group-hover:opacity-100"
+                          style={{
+                            background: "#F9F8F7",
+                            color: "#374151",
+                            boxShadow: "0 0 0 1px rgba(0,0,0,0.08)",
+                            transition: "opacity 0.15s",
+                          }}
+                        >
+                          View →
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
 
       </div>
-    </main>
+    </div>
   );
 }
