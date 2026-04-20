@@ -6,13 +6,14 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const db = getSupabaseAdmin();
   const { data, error } = await db
     .from("units")
     .select("*")
-    .eq("property_id", params.id)
+    .eq("property_id", id)
     .order("unit_name");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -33,8 +34,9 @@ interface UnitRow {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const body = await req.json();
   const units: UnitRow[] = body.units;
 
@@ -46,7 +48,7 @@ export async function POST(
 
   // Upsert all units (insert or update by unit_name within this property)
   const rows = units.map((u) => ({
-    property_id:      params.id,
+    property_id:      id,
     unit_name:        u.unit_name.trim(),
     unit_type:        u.unit_type?.toLowerCase() ?? null,
     bedrooms:         u.bedrooms ?? null,
@@ -70,7 +72,7 @@ export async function POST(
   const { data: allUnits } = await db
     .from("units")
     .select("status")
-    .eq("property_id", params.id);
+    .eq("property_id", id);
 
   const total    = allUnits?.length ?? 0;
   const occupied = (allUnits ?? []).filter(u =>
@@ -80,7 +82,7 @@ export async function POST(
   await db
     .from("properties")
     .update({ total_units: total, occupied_units: occupied })
-    .eq("id", params.id);
+    .eq("id", id);
 
   return NextResponse.json({ ok: true, total, occupied, upserted: rows.length });
 }

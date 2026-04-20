@@ -38,7 +38,7 @@ export async function POST() {
 
     if (error || !tours) continue;
 
-    for (const tour of tours as TourRow[]) {
+    for (const tour of tours as unknown as TourRow[]) {
       const lead     = tour.leads;
       const property = tour.properties;
       if (!lead || !property) { skipped++; continue; }
@@ -64,7 +64,7 @@ export async function POST() {
 
       const result = await sendSms({ to: lead.phone, body, from: property.phone_number });
 
-      if (result.success) {
+      if (result.sid) {
         await db.from("activity_logs").insert({
           action:      "tour_reminder_sent",
           actor:       "system",

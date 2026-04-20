@@ -31,7 +31,7 @@ export async function POST() {
     return NextResponse.json({ ok: false, error: error?.message }, { status: 500 });
   }
 
-  for (const property of properties as PropertyRow[]) {
+  for (const property of properties as unknown as PropertyRow[]) {
     const { data: leads } = await db
       .from("leads")
       .select("status, created_at")

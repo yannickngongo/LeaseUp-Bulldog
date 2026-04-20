@@ -145,6 +145,7 @@ function applyPropertyFilter(leads: Lead[], propertyFilter: PropertyFilter): Lea
 // ─────────────────────────────────────────────────────────────────────────────
 
 function AddLeadModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState("");
   const [firstName, setFirstName]   = useState("");
