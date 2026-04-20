@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getOperatorEmail } from "@/lib/demo-auth";
@@ -72,55 +72,64 @@ function parseRentRollCsv(raw: string): ParsedUnit[] {
 // ─── Rent Roll Upload Component ───────────────────────────────────────────────
 
 function RentRollUpload({
-  value,
   onChange,
 }: {
   value: string;
-  onChange: (csv: string) => void;
+  onChange: (units: ParsedUnit[]) => void;
 }) {
-  const [preview, setPreview] = useState<ParsedUnit[]>([]);
-  const [showPreview, setShowPreview] = useState(false);
+  const [preview, setPreview]   = useState<ParsedUnit[]>([]);
+  const [parsing, setParsing]   = useState(false);
+  const [msg, setMsg]           = useState("");
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const text = ev.target?.result as string;
-      onChange(text);
-      const parsed = parseRentRollCsv(text);
-      setPreview(parsed);
-      setShowPreview(true);
-    };
-    reader.readAsText(file);
-  }
+    e.target.value = "";
 
-  function handlePaste(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    onChange(e.target.value);
-    const parsed = parseRentRollCsv(e.target.value);
-    setPreview(parsed);
-    setShowPreview(parsed.length > 0);
-  }
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
+    const isCsv = file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".txt");
+
+    if (!isPdf && !isCsv) { setMsg("Only PDF or CSV files are supported."); return; }
+
+    setParsing(true);
+    setMsg("");
+    setPreview([]);
+    onChange([]);
+
+    if (isPdf) {
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        // Use "new" as placeholder — parse-rent-roll doesn't need a real property ID
+        const res = await fetch("/api/properties/new/parse-rent-roll", { method: "POST", body: fd });
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.units)) {
+          setPreview(data.units);
+          onChange(data.units);
+          setMsg(`AI extracted ${data.units.length} units from PDF.`);
+        } else {
+          setMsg(data.error ?? "Failed to read PDF.");
+        }
+      } catch {
+        setMsg("Network error reading PDF. Try again.");
+      } finally {
+        setParsing(false);
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const text = ev.target?.result as string;
+        const parsed = parseRentRollCsv(text);
+        setPreview(parsed);
+        onChange(parsed);
+        setMsg(`Parsed ${parsed.length} units from CSV.`);
+        setParsing(false);
+      };
+      reader.readAsText(file);
+    }
+  }, [onChange]);
 
   const occupied = preview.filter(u => u.status === "occupied" || u.status === "notice").length;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <label className="cursor-pointer rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-          Upload CSV
-          <input type="file" accept=".csv,.txt" className="hidden" onChange={handleFile} />
-        </label>
-        <span className="text-xs text-gray-400">or paste below</span>
-      </div>
-
-      <textarea
-        value={value}
-        onChange={handlePaste}
-        rows={4}
-        placeholder={`Unit Number,Unit Type,Status,Current Resident,Lease End Date,Monthly Rent\n101,1BR,Occupied,John Smith,2025-12-31,1250\n102,2BR,Vacant,,,1600`}
-        className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#16161F] px-4 py-3 text-xs font-mono text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:border-[#C8102E] focus:outline-none resize-none"
-      />
 
       {showPreview && preview.length > 0 && (
         <div className="rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
