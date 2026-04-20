@@ -72,7 +72,7 @@ Important:
 - Do not skip units — include vacant units too
 - If rent roll shows a "market rent" vs "actual rent", use actual rent for monthly_rent
 - If a unit shows both a move-out date and no current resident, mark as "vacant"
-- Return ONLY the raw JSON array. No markdown code blocks. No explanation. No summary.`,
+- Return ONLY a raw JSON array starting with [ and ending with ]. No markdown fences, no explanation, no summary, no object wrapper. Just the array.`,
             },
           ],
         },
@@ -80,13 +80,33 @@ Important:
     });
 
     const text = (response.content[0] as { type: string; text: string }).text.trim();
-    const clean = text.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
 
     let units;
     try {
+      // Strip markdown code fences (```json ... ``` or ``` ... ```)
+      let clean = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+
+      // If Claude wrapped in an object like {"units": [...]} extract the array
+      if (clean.startsWith("{")) {
+        const obj = JSON.parse(clean);
+        clean = JSON.stringify(obj.units ?? obj.data ?? Object.values(obj)[0]);
+      }
+
+      // If there's leading/trailing prose, extract the first [...] array
+      if (!clean.startsWith("[")) {
+        const match = clean.match(/\[[\s\S]*\]/);
+        if (!match) throw new Error("No JSON array found");
+        clean = match[0];
+      }
+
       units = JSON.parse(clean);
     } catch {
-      return NextResponse.json({ error: "Failed to parse Claude response", raw: text }, { status: 500 });
+      console.error("Claude raw response:", text);
+      return NextResponse.json({ error: "Failed to parse Claude response — try a different PDF or contact support", raw: text.slice(0, 500) }, { status: 500 });
+    }
+
+    if (!Array.isArray(units) || units.length === 0) {
+      return NextResponse.json({ error: "No units found in PDF. Make sure it contains a rent roll table." }, { status: 422 });
     }
 
     return NextResponse.json({ ok: true, units, source: "pdf" });
