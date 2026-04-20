@@ -47,6 +47,7 @@ interface Unit {
   lease_start?: string;
   lease_end: string;
   monthly_rent: number | null;
+  updated_at?: string;
 }
 
 interface OccupancyAnalysis {
@@ -260,10 +261,12 @@ function OccupancyIntelligenceSection({
   property,
   units,
   leads,
+  daysSinceRentRoll,
 }: {
   property: Property;
   units: Unit[];
   leads: Lead[];
+  daysSinceRentRoll: number | null;
 }) {
   const [analysis, setAnalysis] = useState<OccupancyAnalysis | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -352,10 +355,17 @@ function OccupancyIntelligenceSection({
             </span>
           )}
           {!loading && (
-            <button onClick={fetchAnalysis}
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors dark:border-white/10 dark:text-gray-300">
-              Refresh analysis
-            </button>
+            <div className="flex items-center gap-2">
+              {daysSinceRentRoll !== null && daysSinceRentRoll >= 7 && (
+                <span className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠ Based on {daysSinceRentRoll}d-old rent roll
+                </span>
+              )}
+              <button onClick={fetchAnalysis}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors dark:border-white/10 dark:text-gray-300">
+                Refresh analysis
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -578,7 +588,7 @@ function parseRentRollCsv(raw: string): Unit[] {
   }).filter(Boolean) as Unit[];
 }
 
-function RentRollSection({ propertyId }: { propertyId: string }) {
+function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; daysSinceUpdate: number | null }) {
   const [units, setUnits]           = useState<Unit[]>([]);
   const [loading, setLoading]       = useState(true);
   const [uploading, setUploading]   = useState(false);
@@ -651,7 +661,19 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <SectionLabel>Rent Roll & Occupancy</SectionLabel>
+        <div className="flex items-center gap-3">
+          <SectionLabel>Rent Roll & Occupancy</SectionLabel>
+          {daysSinceUpdate !== null && (
+            <span className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+              daysSinceUpdate >= 14 ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+              : daysSinceUpdate >= 7  ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"
+              : "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400"
+            )}>
+              {daysSinceUpdate === 0 ? "Updated today" : `Updated ${daysSinceUpdate}d ago`}
+            </span>
+          )}
+        </div>
         <div className="flex gap-2">
           <button onClick={() => { setShowAdd(a => !a); setShowUpload(false); }}
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-white/10 dark:text-gray-300">
@@ -827,6 +849,66 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
   );
 }
 
+// ─── Rent Roll Stale Banner ───────────────────────────────────────────────────
+
+function RentRollStaleBanner({
+  daysSince,
+  onUploadClick,
+}: {
+  daysSince: number;
+  onUploadClick: () => void;
+}) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  const isCritical = daysSince >= 14;
+  const isWarning  = daysSince >= 7;
+
+  if (!isWarning) return null;
+
+  return (
+    <div className={cn(
+      "flex items-center justify-between gap-4 rounded-xl border px-4 py-3",
+      isCritical
+        ? "border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-900/10"
+        : "border-amber-200 bg-amber-50 dark:border-amber-900/30 dark:bg-amber-900/10"
+    )}>
+      <div className="flex items-center gap-3">
+        <svg viewBox="0 0 20 20" fill="currentColor" className={cn("h-5 w-5 shrink-0", isCritical ? "text-red-500" : "text-amber-500")}>
+          <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+        </svg>
+        <div>
+          <p className={cn("text-sm font-semibold", isCritical ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400")}>
+            Rent roll is {daysSince} days old
+          </p>
+          <p className={cn("text-xs", isCritical ? "text-red-600 dark:text-red-500" : "text-amber-600 dark:text-amber-500")}>
+            Your occupancy analysis, issues, and projections are based on this data.{" "}
+            {isCritical
+              ? "Upload now to keep your dashboard accurate."
+              : "Upload an updated version weekly for accurate insights."}
+          </p>
+        </div>
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <button
+          onClick={onUploadClick}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-xs font-bold text-white transition-colors",
+            isCritical ? "bg-red-500 hover:bg-red-600" : "bg-amber-500 hover:bg-amber-600"
+          )}
+        >
+          Upload Now
+        </button>
+        <button onClick={() => setDismissed(true)} className="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+            <path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PropertyDetailPage() {
@@ -869,6 +951,19 @@ export default function PropertyDetailPage() {
         <Link href="/properties" className="mt-3 text-sm text-[#C8102E] hover:underline">← Back to Properties</Link>
       </div>
     );
+  }
+
+  // ── Rent roll staleness ──────────────────────────────────────────────────────
+
+  const rentRollLastUpdated = units.length > 0
+    ? Math.max(...units.map(u => u.updated_at ? new Date(u.updated_at).getTime() : 0))
+    : null;
+  const daysSinceRentRoll = rentRollLastUpdated
+    ? Math.floor((Date.now() - rentRollLastUpdated) / 86_400_000)
+    : null;
+
+  function scrollToRentRoll() {
+    document.getElementById("rent-roll-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   // ── Derived stats ────────────────────────────────────────────────────────────
@@ -990,8 +1085,13 @@ export default function PropertyDetailPage() {
         </div>
       </div>
 
+      {/* ── Rent Roll Stale Banner ──────────────────────────────────────── */}
+      {daysSinceRentRoll !== null && (
+        <RentRollStaleBanner daysSince={daysSinceRentRoll} onUploadClick={scrollToRentRoll} />
+      )}
+
       {/* ── Occupancy Intelligence ──────────────────────────────────────── */}
-      <OccupancyIntelligenceSection property={property} units={units} leads={leads} />
+      <OccupancyIntelligenceSection property={property} units={units} leads={leads} daysSinceRentRoll={daysSinceRentRoll} />
 
       {/* ── Pipeline KPIs ───────────────────────────────────────────────── */}
       <div>
@@ -1112,7 +1212,9 @@ export default function PropertyDetailPage() {
       )}
 
       {/* ── Rent Roll & Occupancy ───────────────────────────────────────── */}
-      <RentRollSection propertyId={propertyId} />
+      <div id="rent-roll-section">
+        <RentRollSection propertyId={propertyId} daysSinceUpdate={daysSinceRentRoll} />
+      </div>
 
       {/* ── Recent Lead Activity ────────────────────────────────────────── */}
       {recentLeads.length > 0 && (
