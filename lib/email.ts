@@ -1,13 +1,3 @@
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-});
-
 export async function sendInviteEmail({
   to,
   inviteUrl,
@@ -21,8 +11,13 @@ export async function sendInviteEmail({
   role: string;
   invitedBy: string;
 }) {
-  const subject = `You've been invited to join ${orgName} on LeaseUp Bulldog`;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY not set — skipping invite email");
+    return;
+  }
 
+  const subject = `You've been invited to join ${orgName} on LeaseUp Bulldog`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #111;">
       <div style="background: #C8102E; padding: 24px 32px; border-radius: 12px 12px 0 0;">
@@ -42,10 +37,23 @@ export async function sendInviteEmail({
     </div>
   `;
 
-  await transporter.sendMail({
-    from: `"LeaseUp Bulldog" <${process.env.GMAIL_USER}>`,
-    to,
-    subject,
-    html,
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "LeaseUp Bulldog <onboarding@resend.dev>",
+      to,
+      subject,
+      html,
+    }),
   });
+
+  if (!res.ok) {
+    const err = await res.text();
+    console.error("Resend error:", err);
+    throw new Error(`Email send failed: ${err}`);
+  }
 }
