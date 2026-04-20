@@ -123,10 +123,13 @@ export default function PropertiesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {properties.map((p) => (
             <div key={p.id}
-              className="group rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0_4px_24px_rgba(0,0,0,0.09)] dark:border-white/5 dark:bg-[#1C1F2E]">
+              className="group relative rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0_4px_24px_rgba(0,0,0,0.09)] dark:border-white/5 dark:bg-[#1C1F2E]">
+
+              {/* Clickable overlay — opens property dashboard */}
+              <Link href={`/properties/${p.id}`} className="absolute inset-0 z-0 rounded-2xl" aria-label={`View ${p.name} dashboard`} />
 
               {/* Header */}
-              <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C8102E]/10">
                   <svg viewBox="0 0 20 20" fill="#C8102E" className="h-5 w-5">
                     <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
@@ -140,21 +143,21 @@ export default function PropertiesPage() {
               </div>
 
               {/* Name + address */}
-              <h3 className="mb-0.5 font-bold text-gray-900 dark:text-gray-100">{p.name}</h3>
-              <p className="text-xs text-gray-400 dark:text-gray-500">{p.address}, {p.city}, {p.state} {p.zip}</p>
+              <h3 className="relative z-10 mb-0.5 font-bold text-gray-900 dark:text-gray-100">{p.name}</h3>
+              <p className="relative z-10 text-xs text-gray-400 dark:text-gray-500">{p.address}, {p.city}, {p.state} {p.zip}</p>
               {p.neighborhood && (
-                <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">📍 {p.neighborhood}</p>
+                <p className="relative z-10 mt-0.5 text-xs text-gray-400 dark:text-gray-500">📍 {p.neighborhood}</p>
               )}
 
               {/* Special */}
               {p.active_special && (
-                <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                <p className="relative z-10 mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
                   🎁 {p.active_special}
                 </p>
               )}
 
               {/* Stats */}
-              <div className={`mt-4 grid gap-3 border-t border-gray-50 pt-4 dark:border-white/5 ${p.total_units ? "grid-cols-3" : "grid-cols-2"}`}>
+              <div className={`relative z-10 mt-4 grid gap-3 border-t border-gray-50 pt-4 dark:border-white/5 ${p.total_units ? "grid-cols-3" : "grid-cols-2"}`}>
                 <div>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Active Leads</p>
                   <p className="mt-0.5 text-xl font-bold text-gray-900 dark:text-gray-100">{p.leadCount}</p>
@@ -179,7 +182,7 @@ export default function PropertiesPage() {
               </div>
 
               {/* AI number */}
-              <div className="mt-3 flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-white/5">
+              <div className="relative z-10 mt-3 flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2 dark:bg-white/5">
                 <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0 text-gray-400">
                   <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                 </svg>
@@ -190,7 +193,7 @@ export default function PropertiesPage() {
               {/* Website */}
               {p.website_url && (
                 <a href={p.website_url} target="_blank" rel="noopener noreferrer"
-                  className="mt-2 flex items-center gap-1.5 text-xs text-[#C8102E] hover:underline">
+                  className="relative z-10 mt-2 flex items-center gap-1.5 text-xs text-[#C8102E] hover:underline">
                   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-3.5 w-3.5">
                     <path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1V9M10 1h5v5M7.5 8.5l7-7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -199,8 +202,8 @@ export default function PropertiesPage() {
               )}
 
               {/* Actions */}
-              <div className="mt-4 flex gap-2">
-                <Link href="/leads"
+              <div className="relative z-10 mt-4 flex gap-2">
+                <Link href={`/leads?propertyId=${p.id}`}
                   className="flex-1 rounded-xl border border-gray-200 py-2 text-center text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors dark:border-white/10 dark:text-gray-300">
                   View Leads
                 </Link>

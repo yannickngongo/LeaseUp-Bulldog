@@ -9,161 +9,32 @@ import { SectionLabel } from "@/components/ui/SectionLabel";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface LeadSource {
-  name: string;
-  leads: number;
-  tours: number;
-  apps: number;
-  move_ins: number;
-  cost_per_lead?: number;
-}
-
-interface FunnelStage {
-  label: string;
-  value: number;
-  pct_of_top?: number;
-  note?: string;
-}
-
-interface Issue {
-  type: "warning" | "critical" | "opportunity";
-  title: string;
-  body: string;
-  action?: string;
-  href?: string;
-}
-
-interface Activity {
+interface Property {
   id: string;
-  lead: string;
-  event: string;
-  actor: "AI" | "Lead" | "System" | "Agent";
-  time: string;
-  status?: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone_number: string;
+  active_special?: string;
+  total_units?: number | null;
+  occupied_units?: number | null;
+  neighborhood?: string;
+  website_url?: string;
+  tour_booking_url?: string;
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const PROPERTY = {
-  id: "prop-1",
-  name: "The Monroe",
-  address: "3740 Desert Rose Blvd",
-  city: "Las Vegas",
-  state: "NV",
-  zip: "89101",
-  units: 48,
-  occupied: 43,
-  ai_number: "+1 (702) 555-0100",
-  manager: "Marcus Thompson",
-  active_special: "1 month free on 12-month leases",
-  avg_rent: 1_485,
-};
-
-const FUNNEL: FunnelStage[] = [
-  { label: "Leads",                  value: 64 },
-  { label: "Tours",                  value: 18, note: "28% tour rate" },
-  { label: "Applications Started",   value: 9,  note: "50% of toured" },
-  { label: "Applications Completed", value: 5,  note: "56% completion" },
-  { label: "Move-ins",               value: 3,  note: "60% of completed" },
-];
-
-const SOURCES: LeadSource[] = [
-  { name: "Zillow",   leads: 24, tours: 9,  apps: 4, move_ins: 2, cost_per_lead: 32 },
-  { name: "Website",  leads: 18, tours: 5,  apps: 3, move_ins: 1, cost_per_lead: 0  },
-  { name: "Facebook", leads: 12, tours: 2,  apps: 1, move_ins: 0, cost_per_lead: 18 },
-  { name: "ILS",      leads: 7,  tours: 1,  apps: 0, move_ins: 0, cost_per_lead: 41 },
-  { name: "Referral", leads: 3,  tours: 1,  apps: 1, move_ins: 1, cost_per_lead: 0  },
-];
-
-const PERF = [
-  { label: "Avg. First Response",     value: "1m 08s",  benchmark: "< 5 min",  good: true  },
-  { label: "Follow-up Completion",    value: "84%",     benchmark: "> 80%",    good: true  },
-  { label: "No-Show Rate",            value: "22%",     benchmark: "< 15%",    good: false },
-  { label: "Application Completion",  value: "56%",     benchmark: "> 70%",    good: false },
-  { label: "Avg. AI Lead Score",      value: "6.4 / 10", benchmark: "> 6.0",   good: true  },
-  { label: "Tour → App Rate",         value: "50%",     benchmark: "> 55%",    good: false },
-];
-
-const ISSUES: Issue[] = [
-  {
-    type: "critical",
-    title: "High no-show rate (22%)",
-    body: "1 in 5 tours is resulting in a no-show. The AI reminder is running 24h in advance — consider adding a 2-hour day-of reminder to reduce drop-off.",
-    action: "Edit automation",
-    href: "/automations",
-  },
-  {
-    type: "warning",
-    title: "Application drop-off after tour",
-    body: "Only 9 of 18 toured leads have started an application (50%). The industry average is 65%. Consider sending the application link immediately after tour completion.",
-    action: "Create nudge",
-    href: "/automations",
-  },
-  {
-    type: "critical",
-    title: "5 applications stalled > 5 days",
-    body: "Jordan Ellis, Priya Sharma, and 3 others started applications but haven't completed them. The application nudge automation is in Draft — publish it to recover these leads.",
-    action: "View leads",
-    href: "/leads?property=prop-1&status=applied",
-  },
-  {
-    type: "warning",
-    title: "Facebook ROI is negative",
-    body: "Facebook-sourced leads have a 17% tour rate and 0 move-ins this month vs. $18 cost-per-lead. Zillow is converting 4× better at $32 CPL. Consider reallocating budget.",
-  },
-  {
-    type: "opportunity",
-    title: "Referral channel outperforming",
-    body: "Referrals convert to move-ins at 33% — the highest of any source. You have 3 current residents. A small referral incentive could meaningfully increase lead volume at $0 CPL.",
-  },
-];
-
-const ACTIVITY: Activity[] = [
-  { id: "a1", lead: "Jordan Ellis",   event: "Tour completed — no application yet",        actor: "System", time: "2h ago",  status: "tour_scheduled" },
-  { id: "a2", lead: "Priya Sharma",   event: "AI sent follow-up: application reminder",    actor: "AI",     time: "4h ago" },
-  { id: "a3", lead: "Carlos Reyes",   event: "Application started (step 1 of 4)",          actor: "Lead",   time: "6h ago",  status: "applied" },
-  { id: "a4", lead: "Maya Thompson",  event: "Replied to AI: 'Can I reschedule my tour?'",  actor: "Lead",   time: "8h ago" },
-  { id: "a5", lead: "Sofia Ruiz",     event: "New lead — AI replied in 48s",               actor: "AI",     time: "10h ago", status: "new" },
-  { id: "a6", lead: "Derek Nguyen",   event: "Silent 11 days — flagged for manual review", actor: "System", time: "1d ago",  status: "contacted" },
-  { id: "a7", lead: "Aisha Patel",    event: "Lease signed — move-in June 1",              actor: "Agent",  time: "2d ago",  status: "applied" },
-  { id: "a8", lead: "Liam Chen",      event: "Tour reminder sent (24h in advance)",        actor: "AI",     time: "2d ago",  status: "tour_scheduled" },
-];
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function pct(a: number, b: number) {
-  return b === 0 ? 0 : Math.round((a / b) * 100);
+interface Lead {
+  id: string;
+  name: string;
+  source?: string;
+  status: string;
+  ai_score?: number | null;
+  created_at: string;
+  updated_at: string;
+  last_contacted_at?: string | null;
 }
-
-const ACTOR_STYLES: Record<Activity["actor"], string> = {
-  AI:     "bg-violet-50 text-violet-700",
-  Lead:   "bg-blue-50 text-blue-700",
-  System: "bg-gray-100 text-gray-600",
-  Agent:  "bg-green-50 text-green-700",
-};
-
-const ISSUE_STYLES: Record<Issue["type"], { bar: string; icon: string; badge: string; badgeText: string }> = {
-  critical:    { bar: "bg-red-500",   icon: "✕", badge: "bg-red-50 text-red-700",     badgeText: "Critical" },
-  warning:     { bar: "bg-amber-400", icon: "⚠", badge: "bg-amber-50 text-amber-700", badgeText: "Warning" },
-  opportunity: { bar: "bg-blue-400",  icon: "→", badge: "bg-blue-50 text-blue-700",   badgeText: "Opportunity" },
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-
-function MetricCell({ label, value, good, benchmark }: { label: string; value: string; good: boolean; benchmark: string }) {
-  return (
-    <div className="flex flex-col gap-0.5 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-      <p className="text-[11px] font-medium text-gray-400">{label}</p>
-      <p className={cn("mt-1 text-2xl font-bold", good ? "text-gray-900" : "text-red-500")}>{value}</p>
-      <p className={cn("mt-0.5 text-[11px]", good ? "text-green-600" : "text-gray-400")}>
-        {good ? "✓" : "↓"} Benchmark: {benchmark}
-      </p>
-    </div>
-  );
-}
-
-// ─── Rent Roll Section ────────────────────────────────────────────────────────
 
 interface Unit {
   id?: string;
@@ -173,9 +44,66 @@ interface Unit {
   sq_ft: number | null;
   status: string;
   current_resident: string;
+  lease_start?: string;
   lease_end: string;
   monthly_rent: number | null;
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function pct(a: number, b: number) {
+  return b === 0 ? 0 : Math.round((a / b) * 100);
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins  = Math.floor(diff / 60_000);
+  const hours = Math.floor(diff / 3_600_000);
+  const days  = Math.floor(diff / 86_400_000);
+  if (mins < 60)  return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${days}d ago`;
+}
+
+const LEAD_STATUSES = ["new", "contacted", "engaged", "tour_scheduled", "applied", "won", "lost"];
+
+function isTourOrBeyond(status: string) {
+  return ["tour_scheduled", "applied", "won"].includes(status);
+}
+function isAppliedOrBeyond(status: string) {
+  return ["applied", "won"].includes(status);
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  occupied:    "bg-green-100 text-green-700",
+  vacant:      "bg-gray-100 text-gray-600",
+  notice:      "bg-amber-100 text-amber-700",
+  unavailable: "bg-red-100 text-red-600",
+};
+
+const LEAD_STATUS_LABEL: Record<string, string> = {
+  new:             "New",
+  contacted:       "Contacted",
+  engaged:         "Engaged",
+  tour_scheduled:  "Tour Scheduled",
+  applied:         "Applied",
+  won:             "Won",
+  lost:            "Lost",
+};
+
+// ─── MetricCell ───────────────────────────────────────────────────────────────
+
+function MetricCell({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 rounded-xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+      <p className="text-[11px] font-medium text-gray-400">{label}</p>
+      <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+      {sub && <p className="mt-0.5 text-[11px] text-gray-400">{sub}</p>}
+    </div>
+  );
+}
+
+// ─── Rent Roll Section ────────────────────────────────────────────────────────
 
 function parseRentRollCsv(raw: string): Unit[] {
   const lines = raw.trim().split("\n").map(l => l.trim()).filter(Boolean);
@@ -207,13 +135,6 @@ function parseRentRollCsv(raw: string): Unit[] {
     } as Unit;
   }).filter(Boolean) as Unit[];
 }
-
-const STATUS_COLORS: Record<string, string> = {
-  occupied:    "bg-green-100 text-green-700",
-  vacant:      "bg-gray-100 text-gray-600",
-  notice:      "bg-amber-100 text-amber-700",
-  unavailable: "bg-red-100 text-red-600",
-};
 
 function RentRollSection({ propertyId }: { propertyId: string }) {
   const [units, setUnits]           = useState<Unit[]>([]);
@@ -257,30 +178,22 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
     const isCsv = file.name.toLowerCase().endsWith(".csv");
 
-    if (!isPdf && !isCsv) {
-      setUploadMsg("Only PDF or CSV files are supported.");
-      return;
-    }
+    if (!isPdf && !isCsv) { setUploadMsg("Only PDF or CSV files are supported."); return; }
 
     if (isCsv) {
-      // Fast client-side parse for CSV
       const text = await file.text();
       handleCsvChange(text);
       setUploadMsg("");
       return;
     }
 
-    // PDF: send to server — Claude reads it
     setParsing(true);
     setUploadMsg("Reading PDF with AI… this may take 10–20 seconds.");
     setPreview([]);
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch(`/api/properties/${propertyId}/parse-rent-roll`, {
-        method: "POST",
-        body: fd,
-      });
+      const res = await fetch(`/api/properties/${propertyId}/parse-rent-roll`, { method: "POST", body: fd });
       const data = await res.json();
       if (data.ok && Array.isArray(data.units)) {
         setPreview(data.units);
@@ -353,7 +266,6 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
         </div>
       </div>
 
-      {/* Stats bar */}
       {units.length > 0 && (
         <div className="mb-4 flex gap-4">
           {[
@@ -370,7 +282,6 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
         </div>
       )}
 
-      {/* Add unit form */}
       {showAdd && (
         <div className="mb-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
           <p className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">Add a Unit</p>
@@ -426,13 +337,11 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
         </div>
       )}
 
-      {/* Upload panel */}
       {showUpload && (
         <div className="mb-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
           <p className="mb-1 text-sm font-semibold text-gray-800 dark:text-gray-100">Upload Rent Roll</p>
-          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">Upload your rent roll PDF — AI reads it and extracts all units, occupancy status, residents, and rents automatically.</p>
+          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">Upload your rent roll PDF — AI reads it and extracts all units automatically.</p>
 
-          {/* PDF drop zone — primary */}
           <label className={cn(
             "mb-3 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors",
             parsing ? "border-[#C8102E]/40 bg-[#C8102E]/5" : "border-gray-200 hover:border-[#C8102E]/40 dark:border-white/10"
@@ -463,15 +372,13 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
             )}
           </label>
 
-          {/* Preview with occupancy summary */}
           {preview.length > 0 && (() => {
-            const occ = preview.filter(u => u.status === "occupied").length;
-            const vac = preview.filter(u => u.status === "vacant").length;
-            const ntv = preview.filter(u => u.status === "notice").length;
+            const occ     = preview.filter(u => u.status === "occupied").length;
+            const vac     = preview.filter(u => u.status === "vacant").length;
+            const ntv     = preview.filter(u => u.status === "notice").length;
             const unavail = preview.filter(u => u.status === "unavailable").length;
             return (
               <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-white/5 dark:bg-white/5">
-                {/* Summary stats */}
                 <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-200">AI extracted {preview.length} units — review before saving</p>
                 <div className="mb-3 grid grid-cols-4 gap-2">
                   {[
@@ -486,7 +393,6 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
                     </div>
                   ))}
                 </div>
-                {/* Occupancy bar */}
                 <div className="mb-3">
                   <div className="mb-1 flex justify-between text-[10px] text-gray-400">
                     <span>Occupancy</span>
@@ -496,15 +402,11 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
                     <div className="h-full rounded-full bg-green-500" style={{ width: `${Math.round((occ / preview.length) * 100)}%` }} />
                   </div>
                 </div>
-                {/* Unit table */}
                 <div className="max-h-48 overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead><tr className="text-left text-gray-400 sticky top-0 bg-gray-50 dark:bg-[#1C1F2E]">
-                      <th className="pb-1.5 pr-3">Unit</th>
-                      <th className="pb-1.5 pr-3">Status</th>
-                      <th className="pb-1.5 pr-3">Type</th>
-                      <th className="pb-1.5 pr-3">Resident</th>
-                      <th className="pb-1.5">Rent</th>
+                      <th className="pb-1.5 pr-3">Unit</th><th className="pb-1.5 pr-3">Status</th>
+                      <th className="pb-1.5 pr-3">Type</th><th className="pb-1.5 pr-3">Resident</th><th className="pb-1.5">Rent</th>
                     </tr></thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-white/5">
                       {preview.map((u, i) => (
@@ -540,7 +442,6 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
         </div>
       )}
 
-      {/* Unit table */}
       <Card padding="none">
         {loading ? (
           <div className="p-5 text-sm text-gray-400">Loading units…</div>
@@ -575,484 +476,417 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
   );
 }
 
-// ─── AI Configuration Section ─────────────────────────────────────────────────
-
-function AIConfigSection() {
-  const [saved, setSaved] = useState(false);
-  const [config, setConfig] = useState({
-    leasing_special_title:       "",
-    leasing_special_description: "",
-    pricing_notes:               "",
-    application_link:            "",
-    tour_instructions:           "",
-    office_hours:                "",
-    objection_handling_notes:    "",
-    allowed_messaging:           "",
-    disallowed_claims:           "",
-    escalation_triggers:         "",
-  });
-
-  function handleChange(field: keyof typeof config, value: string) {
-    setConfig(prev => ({ ...prev, [field]: value }));
-    setSaved(false);
-  }
-
-  return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <SectionLabel>AI Configuration</SectionLabel>
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          The AI can ONLY reference what you define here. It will never invent pricing, specials, or policies.
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-gray-100 bg-white shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-        {/* What the AI can say */}
-        <div className="border-b border-gray-100 px-6 py-5 dark:border-white/5">
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">What the AI can reference</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Current Special — Title</label>
-              <input
-                placeholder="e.g. 1 Month Free on 12-Month Leases"
-                value={config.leasing_special_title}
-                onChange={e => handleChange("leasing_special_title", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Current Special — Details</label>
-              <input
-                placeholder="e.g. Valid for move-ins before May 31"
-                value={config.leasing_special_description}
-                onChange={e => handleChange("leasing_special_description", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Pricing Notes</label>
-              <input
-                placeholder="e.g. 1BRs from $1,200, 2BRs from $1,500/mo"
-                value={config.pricing_notes}
-                onChange={e => handleChange("pricing_notes", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Application Link</label>
-              <input
-                type="url"
-                placeholder="https://apply.mypropertyportal.com/..."
-                value={config.application_link}
-                onChange={e => handleChange("application_link", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Tour Instructions</label>
-              <input
-                placeholder="e.g. Tours Mon–Fri 9am–5pm, call to schedule"
-                value={config.tour_instructions}
-                onChange={e => handleChange("tour_instructions", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Office Hours</label>
-              <input
-                placeholder="e.g. Mon–Sat 9am–6pm, Sun 11am–4pm"
-                value={config.office_hours}
-                onChange={e => handleChange("office_hours", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Guardrails */}
-        <div className="border-b border-gray-100 px-6 py-5 dark:border-white/5">
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Guardrails</h3>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Allowed Messaging</label>
-              <textarea
-                rows={3}
-                placeholder="What topics and messages the AI is allowed to discuss..."
-                value={config.allowed_messaging}
-                onChange={e => handleChange("allowed_messaging", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                Disallowed Claims
-                <span className="ml-1 text-red-500">*</span>
-              </label>
-              <textarea
-                rows={3}
-                placeholder="e.g. Do not promise specific move-in dates. Do not quote concessions not listed above."
-                value={config.disallowed_claims}
-                onChange={e => handleChange("disallowed_claims", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">Objection Handling Notes</label>
-              <textarea
-                rows={3}
-                placeholder="e.g. If asked about pets: we allow cats and small dogs under 30lbs with a $300 deposit."
-                value={config.objection_handling_notes}
-                onChange={e => handleChange("objection_handling_notes", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                Escalation Triggers
-                <span className="ml-1.5 text-[10px] text-gray-400">(comma-separated)</span>
-              </label>
-              <textarea
-                rows={3}
-                placeholder="e.g. lease terms, eviction, legal, attorney, discrimination"
-                value={config.escalation_triggers}
-                onChange={e => handleChange("escalation_triggers", e.target.value)}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              />
-              <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
-                When a lead mentions these topics, AI stops and escalates to a human.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Save */}
-        <div className="flex items-center justify-between px-6 py-4">
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            Changes take effect on the next AI reply sent to any lead at this property.
-          </p>
-          <button
-            onClick={() => setSaved(true)}
-            className="rounded-lg bg-[#C8102E] px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#A50D25]"
-          >
-            {saved ? "Saved ✓" : "Save AI Config"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PropertyDetailPage() {
   const params     = useParams();
   const propertyId = params.id as string;
-  const occupied   = PROPERTY.occupied;
-  const units      = PROPERTY.units;
-  const available  = units - occupied;
-  const occPct     = pct(occupied, units);
-  const occColor   = occPct >= 90 ? "text-green-600" : occPct >= 78 ? "text-amber-600" : "text-red-500";
 
-  const funnelMax = FUNNEL[0].value;
-  const criticalCount = ISSUES.filter((i) => i.type === "critical").length;
+  const [property, setProperty] = useState<Property | null>(null);
+  const [leads, setLeads]       = useState<Lead[]>([]);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      const [propRes, leadsRes] = await Promise.all([
+        fetch(`/api/properties/${propertyId}/details`),
+        fetch(`/api/leads?propertyId=${propertyId}`),
+      ]);
+      if (propRes.ok)  { const j = await propRes.json();  setProperty(j.property ?? null); }
+      if (leadsRes.ok) { const j = await leadsRes.json(); setLeads(j.leads ?? []); }
+      setLoading(false);
+    }
+    load();
+  }, [propertyId]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 p-6">
+        {[1,2,3].map(i => (
+          <div key={i} className="h-24 animate-pulse rounded-2xl bg-gray-100 dark:bg-white/5" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!property) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">Property not found</p>
+        <Link href="/properties" className="mt-3 text-sm text-[#C8102E] hover:underline">← Back to Properties</Link>
+      </div>
+    );
+  }
+
+  // ── Derived stats ────────────────────────────────────────────────────────────
+
+  const activeLeads  = leads.filter(l => !["won","lost"].includes(l.status));
+  const tourLeads    = leads.filter(l => isTourOrBeyond(l.status));
+  const appliedLeads = leads.filter(l => isAppliedOrBeyond(l.status));
+  const wonLeads     = leads.filter(l => l.status === "won");
+
+  const totalUnits   = property.total_units ?? 0;
+  const occupiedUnits = property.occupied_units ?? 0;
+  const occPct       = totalUnits > 0 ? pct(occupiedUnits, totalUnits) : null;
+  const availUnits   = totalUnits > 0 ? totalUnits - occupiedUnits : null;
+
+  // Average rent from leads budget (rough proxy — rent roll is more accurate)
+  const avgScore = leads.filter(l => l.ai_score != null).length > 0
+    ? (leads.reduce((s, l) => s + (l.ai_score ?? 0), 0) / leads.filter(l => l.ai_score != null).length).toFixed(1)
+    : "—";
+
+  // ── Funnel ───────────────────────────────────────────────────────────────────
+
+  const funnel = [
+    { label: "Leads",        value: activeLeads.length },
+    { label: "Tours",        value: tourLeads.length },
+    { label: "Applications", value: appliedLeads.length },
+    { label: "Move-ins",     value: wonLeads.length },
+  ];
+  const funnelMax = funnel[0].value || 1;
+
+  // ── Lead sources ─────────────────────────────────────────────────────────────
+
+  const sourceMap: Record<string, { leads: number; tours: number; apps: number; move_ins: number }> = {};
+  for (const l of leads) {
+    const src = l.source || "Unknown";
+    if (!sourceMap[src]) sourceMap[src] = { leads: 0, tours: 0, apps: 0, move_ins: 0 };
+    sourceMap[src].leads++;
+    if (isTourOrBeyond(l.status))    sourceMap[src].tours++;
+    if (isAppliedOrBeyond(l.status)) sourceMap[src].apps++;
+    if (l.status === "won")          sourceMap[src].move_ins++;
+  }
+  const sources = Object.entries(sourceMap)
+    .map(([name, s]) => ({ name, ...s }))
+    .sort((a, b) => b.move_ins - a.move_ins || b.leads - a.leads);
+
+  // ── Dynamic issues ───────────────────────────────────────────────────────────
+
+  const issues: { type: "critical" | "warning" | "opportunity"; title: string; body: string; href?: string }[] = [];
+
+  if (occPct !== null && occPct < 80) {
+    issues.push({
+      type: "critical",
+      title: `Low occupancy (${occPct}%)`,
+      body: `Only ${occupiedUnits} of ${totalUnits} units are occupied. Upload a fresh rent roll if this looks outdated, or focus leasing efforts on converting current leads to applications.`,
+      href: `/leads?propertyId=${propertyId}`,
+    });
+  } else if (occPct !== null && occPct < 90) {
+    issues.push({
+      type: "warning",
+      title: `Occupancy below 90% (${occPct}%)`,
+      body: `You have ${availUnits} available ${availUnits === 1 ? "unit" : "units"}. Industry target is 95%+. Review your pipeline to see which leads are closest to converting.`,
+      href: `/leads?propertyId=${propertyId}`,
+    });
+  }
+
+  const staleNew = leads.filter(l => {
+    if (l.status !== "new") return false;
+    return Date.now() - new Date(l.created_at).getTime() > 24 * 60 * 60 * 1000;
+  });
+  if (staleNew.length > 0) {
+    issues.push({
+      type: "critical",
+      title: `${staleNew.length} new ${staleNew.length === 1 ? "lead" : "leads"} without a reply`,
+      body: `${staleNew.map(l => l.name).slice(0,3).join(", ")}${staleNew.length > 3 ? ` and ${staleNew.length - 3} more` : ""} ${staleNew.length === 1 ? "has" : "have"} not received a reply yet. Speed of response directly impacts tour rates.`,
+      href: `/leads?propertyId=${propertyId}&status=new`,
+    });
+  }
+
+  const staleContacted = leads.filter(l => {
+    if (!["contacted","engaged"].includes(l.status)) return false;
+    const lastTouch = l.last_contacted_at ?? l.updated_at;
+    return Date.now() - new Date(lastTouch).getTime() > 3 * 24 * 60 * 60 * 1000;
+  });
+  if (staleContacted.length > 0) {
+    issues.push({
+      type: "warning",
+      title: `${staleContacted.length} leads silent for 3+ days`,
+      body: `${staleContacted.map(l => l.name).slice(0,3).join(", ")}${staleContacted.length > 3 ? ` and ${staleContacted.length - 3} more` : ""} ${staleContacted.length === 1 ? "hasn't" : "haven't"} engaged in over 3 days. A follow-up now can recover these leads.`,
+      href: `/leads?propertyId=${propertyId}`,
+    });
+  }
+
+  if (tourLeads.length > 0 && appliedLeads.length === 0) {
+    issues.push({
+      type: "warning",
+      title: "No applications from toured leads",
+      body: `You have ${tourLeads.length} leads who have toured but none have started an application. Consider sending the application link immediately after each tour.`,
+      href: `/leads?propertyId=${propertyId}`,
+    });
+  }
+
+  if (wonLeads.length > 0 && issues.length === 0) {
+    issues.push({
+      type: "opportunity",
+      title: `${wonLeads.length} move-in${wonLeads.length > 1 ? "s" : ""} this cycle`,
+      body: "Great conversion! Your pipeline is healthy. Consider asking new residents for referrals — referrals typically convert at 3× the rate of cold leads at $0 cost.",
+    });
+  }
+
+  if (issues.length === 0 && activeLeads.length === 0) {
+    issues.push({
+      type: "opportunity",
+      title: "No active leads right now",
+      body: "Your pipeline is empty. Make sure your AI phone number is published on your listing sites to start capturing inbound leads automatically.",
+    });
+  }
+
+  // ── Recent activity (latest 8 leads by updated_at) ───────────────────────────
+
+  const recentLeads = [...leads]
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .slice(0, 8);
+
+  const ISSUE_STYLES = {
+    critical:    { bar: "bg-red-500",   badge: "bg-red-50 text-red-700",     icon: "✕", label: "Critical" },
+    warning:     { bar: "bg-amber-400", badge: "bg-amber-50 text-amber-700", icon: "⚠", label: "Warning" },
+    opportunity: { bar: "bg-blue-400",  badge: "bg-blue-50 text-blue-700",   icon: "→", label: "Opportunity" },
+  };
+
+  const criticalCount = issues.filter(i => i.type === "critical").length;
 
   return (
     <div className="space-y-8 p-6">
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div>
-        {/* Breadcrumb */}
         <div className="mb-3 flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/properties" className="hover:text-gray-700 transition-colors">Properties</Link>
+          <Link href="/properties" className="hover:text-gray-700 transition-colors dark:hover:text-gray-300">Properties</Link>
           <span>/</span>
-          <span className="text-gray-600">{PROPERTY.name}</span>
+          <span className="text-gray-600 dark:text-gray-300">{property.name}</span>
         </div>
 
         <div className="flex flex-wrap items-start gap-6">
-          {/* Identity */}
           <div className="flex-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{PROPERTY.name}</h1>
-              <span className="rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{property.name}</h1>
+              <span className="rounded-full bg-green-50 px-2.5 py-1 text-[11px] font-semibold text-green-700 dark:bg-green-900/20 dark:text-green-400">
                 Active
               </span>
               {criticalCount > 0 && (
-                <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600">
+                <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 dark:bg-red-900/20 dark:text-red-400">
                   {criticalCount} critical {criticalCount === 1 ? "issue" : "issues"}
                 </span>
               )}
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              {PROPERTY.address} · {PROPERTY.city}, {PROPERTY.state} {PROPERTY.zip}
+              {property.address} · {property.city}, {property.state} {property.zip}
             </p>
-            {PROPERTY.active_special && (
-              <p className="mt-1.5 text-xs text-amber-600">
-                Special offer: {PROPERTY.active_special}
+            {property.active_special && (
+              <p className="mt-1.5 text-xs text-amber-600 dark:text-amber-400">
+                Special: {property.active_special}
               </p>
             )}
           </div>
 
-          {/* Stat chips */}
           <div className="flex flex-wrap items-center gap-3">
-            {[
-              { label: "Occupancy",      value: `${occPct}%`,       valueClass: occColor },
-              { label: "Available",      value: `${available} units` },
-              { label: "Avg Rent",       value: `$${PROPERTY.avg_rent.toLocaleString()}` },
-              { label: "AI Number",      value: PROPERTY.ai_number,  mono: true },
-            ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-                <p className="text-[10px] font-medium text-gray-400">{s.label}</p>
-                <p className={cn("mt-0.5 text-sm font-bold text-gray-900", s.valueClass, s.mono && "font-mono")}>
-                  {s.value}
+            {occPct !== null && (
+              <div className="rounded-xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+                <p className="text-[10px] font-medium text-gray-400">Occupancy</p>
+                <p className={cn("mt-0.5 text-sm font-bold", occPct >= 90 ? "text-green-600" : occPct >= 78 ? "text-amber-600" : "text-red-500")}>
+                  {occPct}%
                 </p>
               </div>
-            ))}
+            )}
+            {availUnits !== null && (
+              <div className="rounded-xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+                <p className="text-[10px] font-medium text-gray-400">Available</p>
+                <p className="mt-0.5 text-sm font-bold text-gray-900 dark:text-gray-100">{availUnits} units</p>
+              </div>
+            )}
+            <div className="rounded-xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+              <p className="text-[10px] font-medium text-gray-400">Active Leads</p>
+              <p className="mt-0.5 text-sm font-bold text-gray-900 dark:text-gray-100">{activeLeads.length}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white px-4 py-2.5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+              <p className="text-[10px] font-medium text-gray-400">AI Number</p>
+              <p className="mt-0.5 font-mono text-sm font-bold text-gray-900 dark:text-gray-100">{property.phone_number}</p>
+            </div>
           </div>
 
-          {/* Quick actions */}
           <div className="flex items-center gap-2">
-            <Link
-              href={`/leads?property=${PROPERTY.id}`}
-              className="rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
-            >
+            <Link href={`/leads?propertyId=${propertyId}`}
+              className="rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
               View Leads
             </Link>
-            <Link
-              href="/calendar"
-              className="rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
-            >
-              Calendar
-            </Link>
-            <button className="rounded-lg bg-[#C8102E] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#A50D25]">
+            <Link href={`/properties/${propertyId}/edit`}
+              className="rounded-lg bg-[#C8102E] px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#A50D25]">
               Edit Property
-            </button>
+            </Link>
           </div>
+        </div>
+      </div>
+
+      {/* ── Pipeline KPIs ───────────────────────────────────────────────── */}
+      <div>
+        <SectionLabel>Pipeline Overview</SectionLabel>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <MetricCell label="Active Leads"    value={activeLeads.length}   sub="in pipeline" />
+          <MetricCell label="Tours Scheduled" value={tourLeads.length}     sub={`${pct(tourLeads.length, activeLeads.length || 1)}% tour rate`} />
+          <MetricCell label="Applications"    value={appliedLeads.length}  sub={`${pct(appliedLeads.length, tourLeads.length || 1)}% of toured`} />
+          <MetricCell label="Move-ins"        value={wonLeads.length}      sub={`${pct(wonLeads.length, activeLeads.length || 1)}% close rate`} />
         </div>
       </div>
 
       {/* ── Conversion Funnel ───────────────────────────────────────────── */}
-      <div>
-        <SectionLabel>Conversion Funnel — This Month</SectionLabel>
-        <Card padding="none">
-          <div className="flex divide-x divide-gray-50">
-            {FUNNEL.map((stage, i) => {
-              const widthPct = pct(stage.value, funnelMax);
-              const convPct  = i === 0 ? 100 : pct(stage.value, FUNNEL[i - 1].value);
-              const isWeak   = i > 0 && convPct < 50;
-              return (
-                <div key={stage.label} className="flex flex-1 flex-col gap-3 p-5">
-                  {/* Stage number */}
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500">
-                      {i + 1}
-                    </span>
-                    <p className="text-[11px] font-semibold text-gray-500">{stage.label}</p>
-                  </div>
-
-                  {/* Bar */}
-                  <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-                    <div
-                      className={cn("h-full rounded-full", isWeak ? "bg-red-400" : "bg-[#C8102E]")}
-                      style={{ width: `${widthPct}%` }}
-                    />
-                  </div>
-
-                  {/* Value */}
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">{stage.value}</p>
-                    {stage.note && (
-                      <p className={cn("mt-0.5 text-[11px]", isWeak ? "text-red-500" : "text-gray-400")}>
-                        {stage.note}
-                      </p>
+      {activeLeads.length > 0 && (
+        <div>
+          <SectionLabel>Conversion Funnel</SectionLabel>
+          <Card padding="none">
+            <div className="flex divide-x divide-gray-50 dark:divide-white/5">
+              {funnel.map((stage, i) => {
+                const widthPct = pct(stage.value, funnelMax);
+                const convPct  = i === 0 ? 100 : pct(stage.value, funnel[i - 1].value || 1);
+                const isWeak   = i > 0 && convPct < 40 && funnel[i-1].value > 0;
+                return (
+                  <div key={stage.label} className="flex flex-1 flex-col gap-3 p-5">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 dark:bg-white/10">{i + 1}</span>
+                      <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">{stage.label}</p>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                      <div className={cn("h-full rounded-full", isWeak ? "bg-red-400" : "bg-[#C8102E]")} style={{ width: `${widthPct}%` }} />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stage.value}</p>
+                    </div>
+                    {i > 0 && funnel[i-1].value > 0 && (
+                      <div className={cn("mt-auto rounded-lg px-2 py-1 text-center text-[10px] font-semibold", isWeak ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-500 dark:bg-white/5 dark:text-gray-400")}>
+                        {convPct}% from prev
+                      </div>
                     )}
                   </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      )}
 
-                  {/* Step conversion */}
-                  {i > 0 && (
-                    <div className={cn(
-                      "mt-auto rounded-lg px-2 py-1 text-center text-[10px] font-semibold",
-                      isWeak ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-500"
-                    )}>
-                      {convPct}% from prev
+      {/* ── Lead Source Performance ─────────────────────────────────────── */}
+      {sources.length > 0 && (
+        <div>
+          <SectionLabel>Lead Source Performance</SectionLabel>
+          <Card padding="none">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-white/5">
+                  {["Source", "Leads", "Tours", "Tour Rate", "Apps", "Move-ins", "Conv. Rate"].map((h) => (
+                    <th key={h} className={cn("px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400", h === "Source" ? "text-left" : "text-right")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-white/5">
+                {sources.map((src) => {
+                  const tourRate = pct(src.tours, src.leads);
+                  const convRate = pct(src.move_ins, src.leads);
+                  const isTop    = src.move_ins === Math.max(...sources.map(s => s.move_ins)) && src.move_ins > 0;
+                  const isDead   = src.move_ins === 0 && src.leads >= 5;
+                  return (
+                    <tr key={src.name} className="hover:bg-gray-50/60 dark:hover:bg-white/3">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{src.name}</span>
+                          {isTop && <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/20 dark:text-green-400">Top source</span>}
+                          {isDead && <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-900/20 dark:text-red-400">0 move-ins</span>}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-right text-gray-700 dark:text-gray-300">{src.leads}</td>
+                      <td className="px-5 py-3.5 text-right text-gray-700 dark:text-gray-300">{src.tours}</td>
+                      <td className={cn("px-5 py-3.5 text-right font-medium", tourRate >= 35 ? "text-green-600" : tourRate < 20 && src.leads >= 3 ? "text-red-500" : "text-gray-700 dark:text-gray-300")}>{tourRate}%</td>
+                      <td className="px-5 py-3.5 text-right text-gray-700 dark:text-gray-300">{src.apps}</td>
+                      <td className="px-5 py-3.5 text-right"><span className={cn("font-semibold", src.move_ins > 0 ? "text-gray-900 dark:text-gray-100" : "text-gray-400")}>{src.move_ins}</span></td>
+                      <td className={cn("px-5 py-3.5 text-right font-semibold", convRate >= 8 ? "text-green-600" : convRate === 0 && src.leads >= 5 ? "text-red-500" : "text-gray-700 dark:text-gray-300")}>{convRate}%</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      )}
+
+      {/* ── Issues & Opportunities ──────────────────────────────────────── */}
+      {issues.length > 0 && (
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <SectionLabel>Issues & Opportunities</SectionLabel>
+            <span className="text-xs text-gray-400">
+              {criticalCount > 0 && `${criticalCount} critical · `}
+              {issues.filter(i => i.type === "warning").length > 0 && `${issues.filter(i => i.type === "warning").length} warnings · `}
+              {issues.filter(i => i.type === "opportunity").length} opportunities
+            </span>
+          </div>
+          <div className="space-y-3">
+            {issues.map((issue, i) => {
+              const s = ISSUE_STYLES[issue.type];
+              return (
+                <div key={i} className="relative flex gap-4 overflow-hidden rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+                  <div className={cn("absolute bottom-0 left-0 top-0 w-1", s.bar)} />
+                  <div className="ml-3 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", s.badge)}>{s.icon} {s.label}</span>
                     </div>
-                  )}
+                    <h3 className="mt-1.5 text-sm font-semibold text-gray-900 dark:text-gray-100">{issue.title}</h3>
+                    <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{issue.body}</p>
+                    {issue.href && (
+                      <Link href={issue.href} className="mt-3 inline-block text-xs font-medium text-[#C8102E] hover:underline">
+                        View leads →
+                      </Link>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
-        </Card>
-      </div>
-
-      {/* ── Lead Source Performance ─────────────────────────────────────── */}
-      <div>
-        <SectionLabel>Lead Source Performance</SectionLabel>
-        <Card padding="none">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 dark:border-white/5">
-                {["Source", "Leads", "Tours", "Tour Rate", "Apps", "Move-ins", "Conv. Rate", "CPL"].map((h) => (
-                  <th
-                    key={h}
-                    className={cn(
-                      "px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400",
-                      h === "Source" ? "text-left" : "text-right"
-                    )}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {SOURCES.sort((a, b) => b.move_ins - a.move_ins).map((src) => {
-                const tourRate   = pct(src.tours, src.leads);
-                const convRate   = pct(src.move_ins, src.leads);
-                const isTopSrc   = src.move_ins === Math.max(...SOURCES.map((s) => s.move_ins));
-                const isDead     = src.move_ins === 0 && src.leads >= 7;
-                return (
-                  <tr key={src.name} className="hover:bg-gray-50/60">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{src.name}</span>
-                        {isTopSrc && (
-                          <span className="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">
-                            Top source
-                          </span>
-                        )}
-                        {isDead && (
-                          <span className="rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
-                            0 move-ins
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-right text-gray-700">{src.leads}</td>
-                    <td className="px-5 py-3.5 text-right text-gray-700">{src.tours}</td>
-                    <td className={cn("px-5 py-3.5 text-right font-medium", tourRate >= 35 ? "text-green-600" : tourRate < 20 ? "text-red-500" : "text-gray-700")}>
-                      {tourRate}%
-                    </td>
-                    <td className="px-5 py-3.5 text-right text-gray-700">{src.apps}</td>
-                    <td className="px-5 py-3.5 text-right">
-                      <span className={cn("font-semibold", src.move_ins > 0 ? "text-gray-900" : "text-gray-400")}>
-                        {src.move_ins}
-                      </span>
-                    </td>
-                    <td className={cn("px-5 py-3.5 text-right font-semibold", convRate >= 8 ? "text-green-600" : convRate === 0 ? "text-red-500" : "text-gray-700")}>
-                      {convRate}%
-                    </td>
-                    <td className="px-5 py-3.5 text-right text-gray-500">
-                      {src.cost_per_lead === 0 ? (
-                        <span className="text-green-600 font-medium">Free</span>
-                      ) : (
-                        `$${src.cost_per_lead}`
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
-      </div>
-
-      {/* ── Leasing Performance ─────────────────────────────────────────── */}
-      <div>
-        <SectionLabel>Leasing Performance</SectionLabel>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {PERF.map((m) => (
-            <MetricCell key={m.label} label={m.label} value={m.value} good={m.good} benchmark={m.benchmark} />
-          ))}
         </div>
-      </div>
-
-      {/* ── Issues & Opportunities ──────────────────────────────────────── */}
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <SectionLabel>Issues & Opportunities</SectionLabel>
-          <span className="text-xs text-gray-400">{criticalCount} critical · {ISSUES.filter(i => i.type === "warning").length} warnings · {ISSUES.filter(i => i.type === "opportunity").length} opportunities</span>
-        </div>
-        <div className="space-y-3">
-          {ISSUES.map((issue, i) => {
-            const s = ISSUE_STYLES[issue.type];
-            return (
-              <div key={i} className="relative flex gap-4 overflow-hidden rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-                <div className={cn("absolute bottom-0 left-0 top-0 w-1", s.bar)} />
-                <div className="ml-3 flex-1">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", s.badge)}>
-                          {s.icon} {s.badgeText}
-                        </span>
-                      </div>
-                      <h3 className="mt-1.5 text-sm font-semibold text-gray-900">{issue.title}</h3>
-                      <p className="mt-1 text-xs leading-relaxed text-gray-500">{issue.body}</p>
-                    </div>
-                  </div>
-                  {issue.action && issue.href && (
-                    <Link href={issue.href} className="mt-3 inline-block text-xs font-medium text-[#C8102E] hover:underline">
-                      {issue.action} →
-                    </Link>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
       {/* ── Rent Roll & Occupancy ───────────────────────────────────────── */}
       <RentRollSection propertyId={propertyId} />
 
-      {/* ── AI Configuration ────────────────────────────────────────────── */}
-      <AIConfigSection />
-
       {/* ── Recent Lead Activity ────────────────────────────────────────── */}
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <SectionLabel>Recent Lead Activity</SectionLabel>
-          <Link
-            href={`/leads?property=${PROPERTY.id}`}
-            className="text-xs font-medium text-[#C8102E] hover:underline"
-          >
-            View all leads →
-          </Link>
-        </div>
-        <Card padding="none">
-          <div className="divide-y divide-gray-50">
-            {ACTIVITY.map((item) => (
-              <div key={item.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50/50 transition-colors">
-                {/* Avatar */}
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-600">
-                  {item.lead.split(" ").map((n) => n[0]).join("").slice(0, 2)}
-                </div>
-
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{item.lead}</span>
-                    <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", ACTOR_STYLES[item.actor])}>
-                      {item.actor}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-gray-500">{item.event}</p>
-                </div>
-
-                {/* Time */}
-                <span className="shrink-0 text-[11px] text-gray-400">{item.time}</span>
-
-                {/* Link */}
-                <Link
-                  href={`/leads?lead=${item.id}`}
-                  className="shrink-0 text-[11px] font-medium text-gray-400 transition-colors hover:text-[#C8102E]"
-                >
-                  Open →
-                </Link>
-              </div>
-            ))}
+      {recentLeads.length > 0 && (
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <SectionLabel>Recent Lead Activity</SectionLabel>
+            <Link href={`/leads?propertyId=${propertyId}`} className="text-xs font-medium text-[#C8102E] hover:underline">
+              View all leads →
+            </Link>
           </div>
-        </Card>
-      </div>
+          <Card padding="none">
+            <div className="divide-y divide-gray-50 dark:divide-white/5">
+              {recentLeads.map((lead) => (
+                <div key={lead.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50/50 dark:hover:bg-white/3 transition-colors">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                    {lead.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{lead.name}</span>
+                      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-white/10 dark:text-gray-400 capitalize">
+                        {LEAD_STATUS_LABEL[lead.status] ?? lead.status}
+                      </span>
+                      {lead.source && (
+                        <span className="text-[11px] text-gray-400">{lead.source}</span>
+                      )}
+                    </div>
+                    {lead.ai_score != null && (
+                      <p className="mt-0.5 text-xs text-gray-500">AI score: {lead.ai_score}/10</p>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-[11px] text-gray-400">{timeAgo(lead.updated_at)}</span>
+                  <Link href={`/leads?lead=${lead.id}`} className="shrink-0 text-[11px] font-medium text-gray-400 transition-colors hover:text-[#C8102E]">
+                    Open →
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
     </div>
   );
