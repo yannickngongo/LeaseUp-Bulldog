@@ -47,25 +47,32 @@ export async function POST(
             },
             {
               type: "text",
-              text: `Extract all apartment units from this rent roll document and return a JSON array.
+              text: `You are a rent roll parser. Extract every apartment unit from this document and return a JSON array.
 
-Each unit object must have these exact fields:
-- unit_name: string (e.g. "101", "2A", "B-304")
-- status: one of "occupied", "vacant", "notice", "unavailable"
-- unit_type: one of "studio", "1br", "2br", "3br", "4br" or null
-- bedrooms: number or null
-- sq_ft: number or null
-- current_resident: string or "" (full name of current tenant, empty if vacant)
-- lease_end: string or "" (date in YYYY-MM-DD format if available)
-- monthly_rent: number or null (monthly rent amount in dollars, no symbols)
+This may be a property management software export (Yardi, AppFolio, RealPage, Entrata, MRI, etc.) or a custom spreadsheet. Look for tables, rows, or sections listing individual units.
 
-Rules:
-- "occupied" = currently leased
-- "notice" = tenant gave notice / month-to-month ending
-- "vacant" = empty unit
-- "unavailable" = offline/down unit
-- If a field is not in the document, use null or ""
-- Return ONLY the JSON array, no markdown, no explanation.`,
+Each unit object must have EXACTLY these fields:
+- unit_name: string — the unit number/identifier (e.g. "101", "2A", "B-304", "Unit 5")
+- status: exactly one of: "occupied", "vacant", "notice", "unavailable"
+- unit_type: exactly one of: "studio", "1br", "2br", "3br", "4br" — or null if unknown
+- bedrooms: number (0 for studio, 1, 2, 3, 4) or null
+- sq_ft: number (square footage, digits only) or null
+- current_resident: string — full name of current tenant, or "" if vacant/unknown
+- lease_end: string — lease expiration date in YYYY-MM-DD format, or "" if not shown
+- monthly_rent: number — monthly rent in dollars (digits only, no $ or commas), or null
+
+Status classification rules:
+- "occupied" = unit is currently leased and occupied (resident in place)
+- "notice" = tenant has given notice to vacate, month-to-month ending soon, or NTV/MTM
+- "vacant" = unit is empty and available (also: "available", "ready", "make-ready")
+- "unavailable" = unit is down, offline, under renovation, or not on market
+
+Important:
+- Include EVERY unit row you find, even if some fields are missing
+- Do not skip units — include vacant units too
+- If rent roll shows a "market rent" vs "actual rent", use actual rent for monthly_rent
+- If a unit shows both a move-out date and no current resident, mark as "vacant"
+- Return ONLY the raw JSON array. No markdown code blocks. No explanation. No summary.`,
             },
           ],
         },

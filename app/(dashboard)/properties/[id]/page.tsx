@@ -429,46 +429,106 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
       {/* Upload panel */}
       {showUpload && (
         <div className="mb-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-          <p className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">Upload Rent Roll</p>
-          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">Upload your rent roll as a <strong>PDF</strong> (AI reads it automatically) or <strong>CSV</strong> (instant parse). Or paste CSV text below.</p>
-          <label className="mb-3 flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-gray-200 px-4 py-5 text-center hover:border-gray-300 dark:border-white/10">
-            <input type="file" accept=".csv,.pdf" className="hidden" onChange={handleFileUpload} disabled={parsing} />
+          <p className="mb-1 text-sm font-semibold text-gray-800 dark:text-gray-100">Upload Rent Roll</p>
+          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">Upload your rent roll PDF — AI reads it and extracts all units, occupancy status, residents, and rents automatically.</p>
+
+          {/* PDF drop zone — primary */}
+          <label className={cn(
+            "mb-3 flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors",
+            parsing ? "border-[#C8102E]/40 bg-[#C8102E]/5" : "border-gray-200 hover:border-[#C8102E]/40 dark:border-white/10"
+          )}>
+            <input type="file" accept=".pdf,.csv" className="hidden" onChange={handleFileUpload} disabled={parsing} />
             {parsing ? (
-              <div className="mx-auto flex items-center gap-2 text-sm text-[#C8102E]">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#C8102E]/30 border-t-[#C8102E]" />
-                AI is reading your PDF…
+              <div className="flex flex-col items-center gap-2">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#C8102E]/30 border-t-[#C8102E]" />
+                <p className="text-sm font-semibold text-[#C8102E]">AI is reading your rent roll…</p>
+                <p className="text-xs text-gray-400">This takes 15–30 seconds for large files</p>
               </div>
             ) : (
               <>
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0 text-gray-400"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
-                <div className="text-left">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Choose PDF or CSV file</p>
-                  <p className="text-xs text-gray-400">PDF is read by AI · CSV is parsed instantly</p>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-50 dark:bg-[#C8102E]/10">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#C8102E" strokeWidth={1.5} className="h-6 w-6">
+                    <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Click to upload PDF or CSV</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Works with Yardi, AppFolio, RealPage, Entrata, MRI exports</p>
+                </div>
+                <div className="flex gap-2 mt-1">
+                  <span className="rounded-full bg-[#C8102E]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#C8102E]">PDF — AI reads it</span>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-[11px] font-semibold text-gray-500 dark:bg-white/10">CSV — instant parse</span>
                 </div>
               </>
             )}
           </label>
-          <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Or paste CSV text:</p>
-          <textarea rows={5} value={csvText} onChange={e => handleCsvChange(e.target.value)}
-            placeholder="unit,status,type,resident,rent,lease_end&#10;101,occupied,1br,Jane Smith,1250,2025-08-31"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-xs text-gray-700 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-300" />
-          {preview.length > 0 && (
-            <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-3 dark:border-white/5 dark:bg-white/5">
-              <p className="mb-2 text-xs font-semibold text-gray-600 dark:text-gray-300">{preview.length} units detected</p>
-              <div className="max-h-40 overflow-y-auto">
-                <table className="w-full text-xs">
-                  <thead><tr className="text-left text-gray-400"><th className="pb-1 pr-4">Unit</th><th className="pb-1 pr-4">Status</th><th className="pb-1 pr-4">Type</th><th className="pb-1">Resident</th></tr></thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-white/5">
-                    {preview.slice(0, 10).map((u, i) => (
-                      <tr key={i}><td className="py-0.5 pr-4 font-medium text-gray-900 dark:text-gray-100">{u.unit_name}</td><td className="py-0.5 pr-4"><span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-600")}>{u.status}</span></td><td className="py-0.5 pr-4 text-gray-500">{u.unit_type || "—"}</td><td className="py-0.5 text-gray-500">{u.current_resident || "—"}</td></tr>
-                    ))}
-                    {preview.length > 10 && <tr><td colSpan={4} className="pt-1 text-[10px] text-gray-400">…and {preview.length - 10} more</td></tr>}
-                  </tbody>
-                </table>
+
+          {/* Preview with occupancy summary */}
+          {preview.length > 0 && (() => {
+            const occ = preview.filter(u => u.status === "occupied").length;
+            const vac = preview.filter(u => u.status === "vacant").length;
+            const ntv = preview.filter(u => u.status === "notice").length;
+            const unavail = preview.filter(u => u.status === "unavailable").length;
+            return (
+              <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-white/5 dark:bg-white/5">
+                {/* Summary stats */}
+                <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-200">AI extracted {preview.length} units — review before saving</p>
+                <div className="mb-3 grid grid-cols-4 gap-2">
+                  {[
+                    { label: "Total", value: preview.length, color: "text-gray-900 dark:text-white" },
+                    { label: "Occupied", value: occ, color: "text-green-600" },
+                    { label: "Vacant", value: vac, color: "text-amber-600" },
+                    { label: "Notice/Other", value: ntv + unavail, color: "text-red-500" },
+                  ].map(s => (
+                    <div key={s.label} className="rounded-lg border border-gray-200 bg-white p-2 text-center dark:border-white/10 dark:bg-white/5">
+                      <p className={cn("text-lg font-bold", s.color)}>{s.value}</p>
+                      <p className="text-[10px] text-gray-400">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+                {/* Occupancy bar */}
+                <div className="mb-3">
+                  <div className="mb-1 flex justify-between text-[10px] text-gray-400">
+                    <span>Occupancy</span>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">{Math.round((occ / preview.length) * 100)}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+                    <div className="h-full rounded-full bg-green-500" style={{ width: `${Math.round((occ / preview.length) * 100)}%` }} />
+                  </div>
+                </div>
+                {/* Unit table */}
+                <div className="max-h-48 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead><tr className="text-left text-gray-400 sticky top-0 bg-gray-50 dark:bg-[#1C1F2E]">
+                      <th className="pb-1.5 pr-3">Unit</th>
+                      <th className="pb-1.5 pr-3">Status</th>
+                      <th className="pb-1.5 pr-3">Type</th>
+                      <th className="pb-1.5 pr-3">Resident</th>
+                      <th className="pb-1.5">Rent</th>
+                    </tr></thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+                      {preview.map((u, i) => (
+                        <tr key={i}>
+                          <td className="py-1 pr-3 font-medium text-gray-900 dark:text-gray-100">{u.unit_name}</td>
+                          <td className="py-1 pr-3"><span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold capitalize", STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-600")}>{u.status}</span></td>
+                          <td className="py-1 pr-3 text-gray-500">{u.unit_type || "—"}</td>
+                          <td className="py-1 pr-3 text-gray-500">{u.current_resident || "—"}</td>
+                          <td className="py-1 text-gray-500">{u.monthly_rent ? `$${u.monthly_rent.toLocaleString()}` : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            );
+          })()}
+
+          {uploadMsg && (
+            <p className={cn("mt-2 text-xs font-medium", uploadMsg.includes("saved") || uploadMsg.includes("extracted") ? "text-green-600" : uploadMsg.includes("AI is") ? "text-[#C8102E]" : "text-red-600")}>
+              {uploadMsg}
+            </p>
           )}
-          {uploadMsg && <p className={cn("mt-2 text-xs font-medium", uploadMsg.includes("saved") ? "text-green-600" : "text-red-600")}>{uploadMsg}</p>}
+
           <div className="mt-3 flex gap-2">
             <button onClick={submitCsv} disabled={uploading || preview.length === 0}
               className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] disabled:opacity-50">
