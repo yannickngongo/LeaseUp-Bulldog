@@ -29,16 +29,25 @@ function SignupForm() {
 
   useEffect(() => { if (inviteEmail) setEmail(inviteEmail); }, [inviteEmail]);
 
+  const [verified, setVerified] = useState(false);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
+    // Build the callback URL so the auth callback can accept the invite after email verification
+    const callbackBase = `${window.location.origin}/auth/callback`;
+    const emailRedirectTo = isInvite
+      ? `${callbackBase}?invite_token=${encodeURIComponent(inviteToken)}`
+      : callbackBase;
+
     const { data, error: signUpError } = await getSupabase().auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: `${firstName} ${lastName}`.trim(), company },
+        data:            { full_name: `${firstName} ${lastName}`.trim(), company },
+        emailRedirectTo,
       },
     });
 
@@ -48,16 +57,8 @@ function SignupForm() {
       return;
     }
 
-    if (data.user) {
-      // Always create an operators row — it's the user record for the app
-      await getSupabase().from("operators").insert({
-        id:    data.user.id,
-        name:  `${firstName} ${lastName}`.trim(),
-        email,
-        plan:  isInvite ? "member" : "starter",
-      });
-
-      // If joining via invite, accept it now
+    // If Supabase immediately issued a session (email confirm disabled), accept invite now
+    if (data.session) {
       if (isInvite) {
         await fetch("/api/org/accept-invite", {
           method:  "POST",
@@ -65,9 +66,13 @@ function SignupForm() {
           body:    JSON.stringify({ token: inviteToken }),
         });
       }
+      router.push("/dashboard");
+      return;
     }
 
-    router.push("/dashboard");
+    // Email confirmation required — show "check your email" message
+    setLoading(false);
+    setVerified(true);
   }
 
   async function handleGoogle() {
@@ -82,7 +87,23 @@ function SignupForm() {
 
   return (
     <div className="min-h-screen bg-[#08080F] text-white font-sans flex flex-col">
-      <header className="border-b border-[#1E1E2E] px-6 py-4">
+      {verified && (
+        <div className="flex min-h-screen items-center justify-center px-6">
+          <div className="w-full max-w-md rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-10 text-center">
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#C8102E]/10">
+              <svg className="h-8 w-8 text-[#C8102E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="mb-2 text-2xl font-black">Check your email</h2>
+            <p className="text-sm text-gray-500">
+              We sent a verification link to <strong className="text-white">{email}</strong>.
+              Click it to confirm your account{isInvite ? " and join the team" : ""}.
+            </p>
+          </div>
+        </div>
+      )}
+      {!verified && <><header className="border-b border-[#1E1E2E] px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="text-xl font-black tracking-tight">
             LeaseUp<span className="text-[#C8102E]">Bulldog</span>
@@ -179,6 +200,7 @@ function SignupForm() {
           </div>
         </div>
       </div>
+    </>}
     </div>
   );
 }
