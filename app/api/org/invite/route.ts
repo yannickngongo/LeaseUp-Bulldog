@@ -44,9 +44,16 @@ export async function POST(req: NextRequest) {
   // Ensure organization exists — create it if this is the first team invite
   let orgId = ctx.organizationId;
   if (!orgId) {
+    const { data: operatorRow } = await db
+      .from("operators")
+      .select("name")
+      .eq("id", ctx.operatorId)
+      .single();
+    const orgName = operatorRow?.name ?? callerEmail.split("@")[0];
+
     const { data: newOrg, error: orgErr } = await db
       .from("organizations")
-      .insert({ name: inviteEmail, operator_id: ctx.operatorId, plan: "starter" })
+      .insert({ name: orgName, operator_id: ctx.operatorId, plan: "starter" })
       .select("id")
       .single();
 

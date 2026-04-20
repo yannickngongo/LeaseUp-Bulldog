@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
@@ -11,32 +11,50 @@ function getSupabase() {
   );
 }
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
+function LoginForm() {
+  const router      = useRouter();
+  const params      = useSearchParams();
+  const inviteToken = params.get("invite_token") ?? "";
+  const isInvite    = Boolean(inviteToken);
+
+  const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
-    if (error) {
-      setError(error.message);
+    const { error: authError } = await getSupabase().auth.signInWithPassword({ email, password });
+    if (authError) {
+      setError(authError.message);
       setLoading(false);
-    } else {
-      router.push("/dashboard");
+      return;
     }
+
+    if (isInvite) {
+      await fetch("/api/org/accept-invite", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ token: inviteToken }),
+      });
+    }
+
+    router.push("/dashboard");
   }
 
   async function handleGoogle() {
+    const redirectTo = inviteToken
+      ? `${window.location.origin}/auth/callback?invite_token=${encodeURIComponent(inviteToken)}`
+      : `${window.location.origin}/auth/callback`;
     await getSupabase().auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options:  { redirectTo },
     });
   }
+
+  const signupHref = isInvite ? `/signup?invite_token=${encodeURIComponent(inviteToken)}` : "/signup";
 
   return (
     <div className="min-h-screen bg-[#08080F] text-white font-sans flex flex-col">
@@ -47,7 +65,7 @@ export default function LoginPage() {
           </Link>
           <p className="text-sm text-gray-500">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-[#C8102E] hover:underline font-medium">Sign up free</Link>
+            <Link href={signupHref} className="text-[#C8102E] hover:underline font-medium">Sign up free</Link>
           </p>
         </div>
       </header>
@@ -59,7 +77,9 @@ export default function LoginPage() {
           <div className="relative rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8">
             <div className="mb-8 text-center">
               <h1 className="text-3xl font-black">Welcome back.</h1>
-              <p className="mt-2 text-sm text-gray-500">Log in to your operator dashboard</p>
+              <p className="mt-2 text-sm text-gray-500">
+                {isInvite ? "Log in to accept your team invitation" : "Log in to your operator dashboard"}
+              </p>
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -99,7 +119,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="mt-2 block w-full rounded-xl bg-[#C8102E] py-3.5 text-center text-sm font-bold text-white hover:bg-[#A50D25] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Logging in…" : "Log In →"}
+                {loading ? "Logging in…" : isInvite ? "Log In & Join Team →" : "Log In →"}
               </button>
             </form>
 
@@ -119,11 +139,19 @@ export default function LoginPage() {
 
             <p className="mt-6 text-center text-xs text-gray-600">
               New to LeaseUp Bulldog?{" "}
-              <Link href="/signup" className="text-[#C8102E] hover:underline">Start your free trial</Link>
+              <Link href={signupHref} className="text-[#C8102E] hover:underline">Start your free trial</Link>
             </p>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#08080F]" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

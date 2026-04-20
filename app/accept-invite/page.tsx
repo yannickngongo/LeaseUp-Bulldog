@@ -15,15 +15,14 @@ interface Invitation {
 }
 
 function AcceptInviteContent() {
-  const params   = useSearchParams();
-  const router   = useRouter();
-  const token    = params.get("token") ?? "";
+  const params  = useSearchParams();
+  // router kept to satisfy import — navigation handled via Link hrefs
+  useRouter();
+  const token   = params.get("token") ?? "";
 
-  const [inv, setInv]           = useState<Invitation | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
-  const [accepting, setAccepting] = useState(false);
-  const [done, setDone]         = useState(false);
+  const [inv, setInv]         = useState<Invitation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState("");
 
   useEffect(() => {
     if (!token) { setError("Invalid invitation link."); setLoading(false); return; }
@@ -37,27 +36,9 @@ function AcceptInviteContent() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  async function accept() {
-    setAccepting(true);
-    setError("");
-    try {
-      const res = await fetch("/api/org/accept-invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error ?? "Failed to accept invitation."); return; }
-      setDone(true);
-      setTimeout(() => router.push("/"), 2000);
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setAccepting(false);
-    }
-  }
-
-  const orgName = inv?.organizations?.name ?? "your team";
+  const orgName   = inv?.organizations?.name ?? "your team";
+  const signupUrl = `/signup?invite_token=${encodeURIComponent(token)}&invite_email=${encodeURIComponent(inv?.email ?? "")}`;
+  const loginUrl  = `/login?invite_token=${encodeURIComponent(token)}`;
 
   return (
     <div className="w-full max-w-md">
@@ -87,7 +68,7 @@ function AcceptInviteContent() {
           </div>
         )}
 
-        {!loading && inv && !done && (
+        {!loading && inv && (
           <>
             <div className="mb-6 text-center">
               <div className="mb-3 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#C8102E]/10">
@@ -98,7 +79,9 @@ function AcceptInviteContent() {
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">You&rsquo;ve been invited</h2>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 Join <strong className="text-gray-900 dark:text-white">{orgName}</strong> as a{" "}
-                <span className="rounded-full bg-[#C8102E]/10 px-2 py-0.5 text-xs font-semibold text-[#C8102E]">{inv.role}</span>
+                <span className="rounded-full bg-[#C8102E]/10 px-2 py-0.5 text-xs font-semibold text-[#C8102E]">
+                  {inv.role.replace("_", " ")}
+                </span>
               </p>
             </div>
 
@@ -107,24 +90,25 @@ function AcceptInviteContent() {
               <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{inv.email}</p>
             </div>
 
-            {error && <p className="mb-4 text-sm text-red-500">{error}</p>}
+            <div className="space-y-3">
+              <Link
+                href={signupUrl}
+                className="flex w-full items-center justify-center rounded-xl bg-[#C8102E] py-3 text-sm font-semibold text-white hover:bg-[#A50D25] transition-colors"
+              >
+                Create Account →
+              </Link>
+              <Link
+                href={loginUrl}
+                className="flex w-full items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors"
+              >
+                I already have an account
+              </Link>
+            </div>
 
-            <button
-              onClick={accept}
-              disabled={accepting}
-              className="w-full rounded-xl bg-[#C8102E] py-3 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors"
-            >
-              {accepting ? "Accepting…" : "Accept Invitation →"}
-            </button>
+            <p className="mt-4 text-center text-xs text-gray-400">
+              Expires {new Date(inv.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </p>
           </>
-        )}
-
-        {done && (
-          <div className="text-center py-4">
-            <p className="text-4xl mb-4">✅</p>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Welcome aboard!</h2>
-            <p className="text-sm text-gray-500">Redirecting you to the dashboard…</p>
-          </div>
         )}
       </div>
     </div>

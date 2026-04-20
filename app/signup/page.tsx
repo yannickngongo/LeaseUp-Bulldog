@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
@@ -11,15 +11,23 @@ function getSupabase() {
   );
 }
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const params = useSearchParams();
+
+  const inviteToken = params.get("invite_token") ?? "";
+  const inviteEmail = params.get("invite_email") ?? "";
+  const isInvite    = Boolean(inviteToken);
+
   const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [company, setCompany] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [lastName, setLastName]   = useState("");
+  const [company, setCompany]     = useState("");
+  const [email, setEmail]         = useState(inviteEmail);
+  const [password, setPassword]   = useState("");
+  const [error, setError]         = useState<string | null>(null);
+  const [loading, setLoading]     = useState(false);
+
+  useEffect(() => { if (inviteEmail) setEmail(inviteEmail); }, [inviteEmail]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,23 +48,35 @@ export default function SignupPage() {
       return;
     }
 
-    // Insert operator row — service role not available client-side, use anon with RLS
     if (data.user) {
+      // Always create an operators row — it's the user record for the app
       await getSupabase().from("operators").insert({
-        id: data.user.id,
-        name: `${firstName} ${lastName}`.trim(),
+        id:    data.user.id,
+        name:  `${firstName} ${lastName}`.trim(),
         email,
-        plan: "starter",
+        plan:  isInvite ? "member" : "starter",
       });
+
+      // If joining via invite, accept it now
+      if (isInvite) {
+        await fetch("/api/org/accept-invite", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ token: inviteToken }),
+        });
+      }
     }
 
     router.push("/dashboard");
   }
 
   async function handleGoogle() {
+    const redirectTo = inviteToken
+      ? `${window.location.origin}/auth/callback?invite_token=${encodeURIComponent(inviteToken)}`
+      : `${window.location.origin}/auth/callback`;
     await getSupabase().auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options:  { redirectTo },
     });
   }
 
@@ -69,7 +89,7 @@ export default function SignupPage() {
           </Link>
           <p className="text-sm text-gray-500">
             Already have an account?{" "}
-            <Link href="/login" className="text-[#C8102E] hover:underline font-medium">Log in</Link>
+            <Link href={`/login${inviteToken ? `?invite_token=${encodeURIComponent(inviteToken)}` : ""}`} className="text-[#C8102E] hover:underline font-medium">Log in</Link>
           </p>
         </div>
       </header>
@@ -80,8 +100,10 @@ export default function SignupPage() {
 
           <div className="relative rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8">
             <div className="mb-8 text-center">
-              <h1 className="text-3xl font-black">Create your account.</h1>
-              <p className="mt-2 text-sm text-gray-500">Start converting leads in minutes</p>
+              <h1 className="text-3xl font-black">{isInvite ? "Create your account." : "Create your account."}</h1>
+              <p className="mt-2 text-sm text-gray-500">
+                {isInvite ? "Set up your account to join the team" : "Start converting leads in minutes"}
+              </p>
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -97,14 +119,25 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-400">Work Email</label>
-                <input type="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full rounded-lg border border-[#1E1E2E] bg-[#16161F] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-[#C8102E] focus:outline-none" />
+                <label className="mb-1.5 block text-xs font-semibold text-gray-400">Email</label>
+                <input
+                  type="email"
+                  placeholder="you@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  readOnly={isInvite}
+                  className={`w-full rounded-lg border border-[#1E1E2E] bg-[#16161F] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-[#C8102E] focus:outline-none ${isInvite ? "opacity-60 cursor-not-allowed" : ""}`}
+                />
+                {isInvite && <p className="mt-1 text-xs text-gray-600">This must match the email the invitation was sent to.</p>}
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-400">Company / Portfolio Name</label>
-                <input type="text" placeholder="Sunrise Properties LLC" value={company} onChange={(e) => setCompany(e.target.value)} className="w-full rounded-lg border border-[#1E1E2E] bg-[#16161F] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-[#C8102E] focus:outline-none" />
-              </div>
+              {!isInvite && (
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-gray-400">Company / Portfolio Name</label>
+                  <input type="text" placeholder="Sunrise Properties LLC" value={company} onChange={(e) => setCompany(e.target.value)} className="w-full rounded-lg border border-[#1E1E2E] bg-[#16161F] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-[#C8102E] focus:outline-none" />
+                </div>
+              )}
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-gray-400">Password</label>
@@ -120,7 +153,7 @@ export default function SignupPage() {
                 disabled={loading}
                 className="mt-2 block w-full rounded-xl bg-[#C8102E] py-3.5 text-center text-sm font-bold text-white hover:bg-[#A50D25] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Creating account…" : "Create Account →"}
+                {loading ? "Creating account…" : isInvite ? "Create Account & Join Team →" : "Create Account →"}
               </button>
             </form>
 
@@ -147,5 +180,13 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#08080F]" />}>
+      <SignupForm />
+    </Suspense>
   );
 }

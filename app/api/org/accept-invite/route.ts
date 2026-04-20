@@ -21,6 +21,21 @@ export async function POST(req: NextRequest) {
 
   if (!inv) return NextResponse.json({ error: "Invitation not found or expired" }, { status: 404 });
 
+  // Ensure the invitee has an operators row (needed for auth context resolution)
+  const { data: existingOperator } = await db
+    .from("operators")
+    .select("id")
+    .eq("email", inv.email)
+    .single();
+
+  if (!existingOperator) {
+    await db.from("operators").insert({
+      name:  inv.email.split("@")[0],
+      email: inv.email,
+      plan:  "member",
+    });
+  }
+
   // Add as active member (upsert in case they were previously removed)
   const { error: memberErr } = await db
     .from("organization_members")

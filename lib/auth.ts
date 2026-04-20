@@ -128,15 +128,25 @@ export async function resolveCallerContext(
 
   if (!operator) return null;
 
-  // Check organization membership
-  const { data: org } = await db
+  // Check if this operator OWNS an organization
+  const { data: ownedOrg } = await db
     .from("organizations")
     .select("id")
     .eq("operator_id", operator.id)
     .single();
 
+  // Check if this user is a MEMBER of any organization (invited team member)
+  const { data: memberRecord } = await db
+    .from("organization_members")
+    .select("organization_id, role, user_id")
+    .eq("email", email)
+    .eq("status", "active")
+    .single();
+
+  const org = ownedOrg ?? (memberRecord ? { id: memberRecord.organization_id } : null);
+
   if (!org) {
-    // Single-operator mode: owner, all properties accessible
+    // No org at all — single-operator mode
     return {
       userId:             email,
       email,
@@ -148,16 +158,19 @@ export async function resolveCallerContext(
     };
   }
 
-  const { data: member } = await db
-    .from("organization_members")
-    .select("role, user_id")
-    .eq("organization_id", org.id)
-    .eq("email", email)
-    .eq("status", "active")
-    .single();
+  // For org owners, look up their member record (may not exist yet)
+  const { data: member } = ownedOrg
+    ? await db
+        .from("organization_members")
+        .select("role, user_id")
+        .eq("organization_id", org.id)
+        .eq("email", email)
+        .eq("status", "active")
+        .single()
+    : { data: memberRecord };
 
   // If org belongs to this operator but they're not in members yet, treat as owner
-  const role = (member?.role ?? "owner") as Role;
+  const role = (member?.role ?? (ownedOrg ? "owner" : "viewer")) as Role;
   const isOwner = role === "owner" || role === "admin";
 
   // If owner/admin — all properties accessible
