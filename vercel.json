@@ -2,7 +2,15 @@
   "crons": [
     {
       "path": "/api/follow-up/execute",
-      "schedule": "0 9 * * *"
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/automations/tour-reminders",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/automations/occupancy-alerts",
+      "schedule": "0 8 * * *"
     }
   ]
 }

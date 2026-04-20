@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import IntelligenceSection from "./IntelligenceSection";
@@ -109,8 +109,26 @@ export default function DashboardPage() {
   const [leads, setLeads]           = useState<Lead[]>([]);
   const [activity, setActivity]     = useState<ActivityItem[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [newIds, setNewIds]         = useState<Set<string>>(new Set());
+  const operatorIdRef               = useRef<string | null>(null);
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
+  const pollActivity = useCallback(async () => {
+    const opId = operatorIdRef.current;
+    if (!opId) return;
+    const res = await fetch(`/api/activity?operator_id=${opId}&limit=10`);
+    const json = await res.json();
+    const fresh: ActivityItem[] = json.activity ?? [];
+    setActivity(prev => {
+      const existingIds = new Set(prev.map(a => a.id));
+      const added = fresh.filter(a => !existingIds.has(a.id));
+      if (added.length === 0) return prev;
+      setNewIds(ids => { const next = new Set(ids); added.forEach(a => next.add(a.id)); return next; });
+      setTimeout(() => setNewIds(ids => { const next = new Set(ids); added.forEach(a => next.delete(a.id)); return next; }), 2000);
+      return [...added, ...prev].slice(0, 10);
+    });
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -119,7 +137,6 @@ export default function DashboardPage() {
         const { data: { user } } = await getSupabase().auth.getUser();
         if (!user?.email) return;
 
-        // Load operator + properties
         const [setupRes, propRes] = await Promise.all([
           fetch(`/api/setup?email=${encodeURIComponent(user.email)}`),
           fetch(`/api/properties?email=${encodeURIComponent(user.email)}`),
@@ -134,7 +151,8 @@ export default function DashboardPage() {
 
         if (!op || !props.length) return;
 
-        // Load leads for all properties
+        operatorIdRef.current = op.id;
+
         const allLeads: Lead[] = [];
         await Promise.all(props.map(async (p) => {
           const res = await fetch(`/api/leads?propertyId=${p.id}`);
@@ -146,7 +164,6 @@ export default function DashboardPage() {
         allLeads.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setLeads(allLeads);
 
-        // Load activity
         const actRes = await fetch(`/api/activity?operator_id=${op.id}&limit=10`);
         const actJson = await actRes.json();
         setActivity(actJson.activity ?? []);
@@ -156,6 +173,12 @@ export default function DashboardPage() {
     }
     load();
   }, []);
+
+  // Live poll every 30s
+  useEffect(() => {
+    const timer = setInterval(pollActivity, 30000);
+    return () => clearInterval(timer);
+  }, [pollActivity]);
 
   // Compute stats
   const activeLeads  = leads.filter((l) => !["won", "lost"].includes(l.status));
@@ -362,9 +385,15 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Recent Activity */}
+          {/* Live Activity Feed */}
           <div className="flex-1 rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
-            <h3 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Recent Activity</h3>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Live Activity</h3>
+              <span className="flex items-center gap-1.5 text-[10px] font-medium text-gray-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
+                Live
+              </span>
+            </div>
             {loading ? (
               <div className="space-y-3">
                 {[1,2,3].map((i) => (
@@ -384,7 +413,10 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {activity.map((item) => (
-                  <div key={item.id} className="flex items-start gap-2.5">
+                  <div
+                    key={item.id}
+                    className={`flex items-start gap-2.5 rounded-lg transition-all duration-500 ${newIds.has(item.id) ? "bg-violet-50 dark:bg-violet-900/10 -mx-2 px-2 py-1" : ""}`}
+                  >
                     <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${item.actor === "ai" ? "bg-violet-400" : item.actor === "agent" ? "bg-blue-400" : "bg-gray-300"}`} />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs leading-relaxed text-gray-700 dark:text-gray-300">
