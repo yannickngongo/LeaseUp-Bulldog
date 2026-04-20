@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const { data, error } = await db
     .from("properties")
-    .select("id, name, address, city, state, zip, neighborhood, phone_number, active_special, website_url, total_units, tour_booking_url")
+    .select("id, name, address, city, state, zip, neighborhood, phone_number, active_special, website_url, total_units, occupied_units, tour_booking_url")
     .eq("id", id)
     .single();
 

@@ -411,7 +411,7 @@ function LaunchModal({
   const [launched, setLaunched]       = useState(false);
 
   useEffect(() => {
-    fetch(`/api/properties/${campaign.property_id}`)
+    fetch(`/api/properties/${campaign.property_id}/details`)
       .then(r => r.json())
       .then(d => {
         const p = d.property ?? d;
@@ -532,8 +532,17 @@ function LaunchModal({
                 <p className="mt-1.5 text-[11px] text-gray-400">≈ ${(budget / durationDays).toFixed(2)}/day</p>
               </div>
 
-              {/* AI Forecast */}
-              {property && (
+            </div>
+
+            {/* AI Forecast — between setup and payment */}
+            <div className="border-t border-gray-100 dark:border-white/5 pt-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">2. AI Impact Forecast</p>
+              {!property ? (
+                <div className="flex items-center gap-3 rounded-xl bg-gray-50 dark:bg-white/5 px-4 py-4">
+                  <div className="h-4 w-4 rounded-full border-2 border-[#C8102E]/20 border-t-[#C8102E] animate-spin shrink-0" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Loading property data…</p>
+                </div>
+              ) : (
                 <BudgetForecastPanel
                   campaignId={campaign.id}
                   propertyName={campaign.property}
@@ -549,10 +558,10 @@ function LaunchModal({
               )}
             </div>
 
-            {/* Step 2: Payment */}
-            <div className="border-t border-gray-100 dark:border-white/5 pt-6">
+            {/* Step 3: Payment */}
+            <div className="border-t border-gray-100 dark:border-white/5 pt-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">2. Payment</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">3. Payment</p>
                 <div className="flex items-center gap-1.5">
                   <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
