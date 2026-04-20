@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -851,6 +851,180 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
   );
 }
 
+// ─── Market Position Section ──────────────────────────────────────────────────
+
+interface MarketBenchmark {
+  unit_type: string;
+  market_avg_rent: number;
+  market_low: number;
+  market_high: number;
+  property_rent: number | null;
+  vs_market_pct: number;
+  recommendation: string;
+}
+
+interface MarketPosition {
+  market_summary: string;
+  benchmarks: MarketBenchmark[];
+  pricing_strategy: string;
+  demand_outlook: string;
+}
+
+function MarketPositionSection({ property, units }: { property: Property; units: Unit[] }) {
+  const [data, setData]     = useState<MarketPosition | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]   = useState<string | null>(null);
+  const [ran, setRan]       = useState(false);
+
+  const unitRents = React.useMemo(() => {
+    const map: Record<string, { count: number; total: number }> = {};
+    for (const u of units) {
+      const t = u.unit_type ?? "unknown";
+      if (!map[t]) map[t] = { count: 0, total: 0 };
+      map[t].count++;
+      if (u.monthly_rent) map[t].total += u.monthly_rent;
+    }
+    return Object.entries(map).map(([unit_type, v]) => ({
+      unit_type,
+      count: v.count,
+      avg_rent: v.count > 0 && v.total > 0 ? Math.round(v.total / v.count) : null,
+    }));
+  }, [units]);
+
+  async function run() {
+    setLoading(true); setError(null); setRan(true);
+    try {
+      const res = await fetch("/api/properties/market-position", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          property_name: property.name,
+          city: property.city,
+          state: property.state,
+          neighborhood: property.neighborhood,
+          unit_rents: unitRents,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) setData(json);
+      else setError(json.error ?? "Analysis failed");
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <SectionLabel>Market Position & Rent Benchmarking</SectionLabel>
+        <button
+          onClick={run}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded-lg bg-[#C8102E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#A50D25] disabled:opacity-50 transition-colors"
+        >
+          {loading ? (
+            <>
+              <span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />
+              Analyzing…
+            </>
+          ) : ran ? "Re-run Analysis" : "Run Market Analysis"}
+        </button>
+      </div>
+
+      {!ran && !loading && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-12 text-center dark:border-white/10">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#C8102E]/10">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#C8102E" strokeWidth={1.5} className="h-6 w-6">
+              <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">See how your rents compare to the market</p>
+          <p className="mt-1 text-xs text-gray-400">AI will benchmark each unit type against {property.city}, {property.state} market averages</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-16 animate-pulse rounded-xl bg-gray-100 dark:bg-white/5" />)}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/20 dark:bg-red-900/10 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      {data && !loading && (
+        <div className="space-y-4">
+          {/* Summary + Outlook */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Market Summary — {property.city}, {property.state}</p>
+              <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{data.market_summary}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Demand Outlook</p>
+              <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{data.demand_outlook}</p>
+              <div className="mt-4 rounded-xl bg-[#C8102E]/5 px-3 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#C8102E] mb-1">Pricing Strategy</p>
+                <p className="text-xs leading-relaxed text-gray-700 dark:text-gray-300">{data.pricing_strategy}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Benchmarks table */}
+          <Card padding="none">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-white/5">
+                  {["Unit Type","Your Rent","Market Avg","Market Range","vs Market","Recommendation"].map(h => (
+                    <th key={h} className={cn("px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400", h === "Unit Type" || h === "Recommendation" ? "text-left" : "text-right")}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-white/5">
+                {data.benchmarks.map((b, i) => {
+                  const above = b.vs_market_pct > 3;
+                  const below = b.vs_market_pct < -3;
+                  const atMkt = !above && !below;
+                  return (
+                    <tr key={i} className="hover:bg-gray-50/60 dark:hover:bg-white/3">
+                      <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100 capitalize">{b.unit_type}</td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-gray-900 dark:text-gray-100">
+                        {b.property_rent ? `$${b.property_rent.toLocaleString()}` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-5 py-3.5 text-right text-gray-700 dark:text-gray-300">${b.market_avg_rent.toLocaleString()}</td>
+                      <td className="px-5 py-3.5 text-right text-xs text-gray-500 dark:text-gray-400">
+                        ${b.market_low.toLocaleString()} – ${b.market_high.toLocaleString()}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        {b.property_rent ? (
+                          <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold",
+                            above ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                            : below ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400"
+                          )}>
+                            {above ? "+" : ""}{b.vs_market_pct.toFixed(1)}%
+                          </span>
+                        ) : <span className="text-gray-400 text-xs">no data</span>}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-gray-600 dark:text-gray-400 max-w-[200px]">{b.recommendation}</td>
+                    </tr>
+                  );
+                  void atMkt;
+                })}
+              </tbody>
+            </table>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Rent Roll Stale Banner ───────────────────────────────────────────────────
 
 function RentRollStaleBanner({
@@ -1212,6 +1386,9 @@ export default function PropertyDetailPage() {
           </div>
         </div>
       )}
+
+      {/* ── Market Position ─────────────────────────────────────────────── */}
+      <MarketPositionSection property={property} units={units} />
 
       {/* ── Rent Roll & Occupancy ───────────────────────────────────────── */}
       <div id="rent-roll-section">

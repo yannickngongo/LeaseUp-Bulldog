@@ -37,6 +37,8 @@ interface Property {
   id: string;
   name: string;
   phone_number: string;
+  total_units?: number | null;
+  occupied_units?: number | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -181,6 +183,13 @@ export default function DashboardPage() {
   const tours        = leads.filter((l) => l.status === "tour_scheduled");
   const won          = leads.filter((l) => l.status === "won");
 
+  // Portfolio occupancy
+  const totalPortfolioUnits    = properties.reduce((s, p) => s + (p.total_units ?? 0), 0);
+  const occupiedPortfolioUnits = properties.reduce((s, p) => s + (p.occupied_units ?? 0), 0);
+  const portfolioOccPct = totalPortfolioUnits > 0
+    ? Math.round((occupiedPortfolioUnits / totalPortfolioUnits) * 100)
+    : null;
+
   // Pipeline counts
   const pipelineCounts = PIPELINE_ORDER.map((status) => ({
     status,
@@ -220,6 +229,15 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           {
+            label: "Portfolio Occupancy",
+            value: loading || portfolioOccPct === null ? "—" : `${portfolioOccPct}%`,
+            sub: loading ? "" : totalPortfolioUnits > 0 ? `${occupiedPortfolioUnits}/${totalPortfolioUnits} units` : "No unit data",
+            accent: portfolioOccPct !== null && portfolioOccPct >= 90 ? "bg-green-50 dark:bg-green-900/20" : "bg-amber-50 dark:bg-amber-900/20",
+            accentText: portfolioOccPct !== null && portfolioOccPct >= 90 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
+            trend: portfolioOccPct !== null ? (portfolioOccPct >= 90 ? "At target" : `${90 - portfolioOccPct}% below target`) : "Upload rent rolls",
+            trendUp: portfolioOccPct !== null && portfolioOccPct >= 90,
+          },
+          {
             label: "Active Leads",
             value: loading ? "—" : activeLeads.length.toString(),
             sub: loading ? "" : `${newLeads.length} new · need reply`,
@@ -246,15 +264,6 @@ export default function DashboardPage() {
             trend: won.length > 0 ? `${won.length} lease${won.length > 1 ? "s" : ""} signed` : "First one incoming",
             trendUp: won.length > 0,
           },
-          {
-            label: "AI Response Time",
-            value: "< 60s",
-            sub: "all inbound SMS",
-            accent: "bg-violet-50 dark:bg-violet-900/20",
-            accentText: "text-violet-600 dark:text-violet-400",
-            trend: "Always on, 24/7",
-            trendUp: true,
-          },
         ].map((k) => (
           <div key={k.label} className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
             <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{k.label}</p>
@@ -271,6 +280,49 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Property health grid */}
+      {!loading && properties.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Property Health</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {properties.map((p) => {
+              const occ = p.total_units && p.occupied_units != null
+                ? Math.round((p.occupied_units / p.total_units) * 100)
+                : null;
+              const isGood = occ !== null && occ >= 90;
+              const isWarn = occ !== null && occ >= 75 && occ < 90;
+              const isBad  = occ !== null && occ < 75;
+              return (
+                <Link key={p.id} href={`/properties/${p.id}`}
+                  className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E] hover:shadow-[0_4px_24px_rgba(0,0,0,0.1)] transition-shadow">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+                    isGood ? "bg-green-50 text-green-600 dark:bg-green-900/20" :
+                    isWarn ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20" :
+                    isBad  ? "bg-red-50 text-red-600 dark:bg-red-900/20" :
+                    "bg-gray-100 text-gray-400 dark:bg-white/10"
+                  }`}>
+                    {occ !== null ? `${occ}%` : "—"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{p.name}</p>
+                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                      {occ !== null
+                        ? `${p.occupied_units}/${p.total_units} units · ${isGood ? "On target" : `${90 - occ}% below target`}`
+                        : "No rent roll uploaded"}
+                    </p>
+                  </div>
+                  {!isGood && occ !== null && (
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${isBad ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400" : "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"}`}>
+                      {isBad ? "Critical" : "Below 90%"}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* AI Intelligence */}
       <IntelligenceSection />
