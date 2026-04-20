@@ -13,6 +13,7 @@ export default function EditPropertyPage() {
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [saved, setSaved]       = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", zip: "",
@@ -174,9 +175,22 @@ export default function EditPropertyPage() {
           )}
 
           <div className="flex items-center justify-between">
-            <Link href="/properties" className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-              Cancel
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/properties" className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                Cancel
+              </Link>
+              <button type="button" disabled={deleting}
+                onClick={async () => {
+                  if (!confirm(`Delete "${form.name}"? This cannot be undone.`)) return;
+                  setDeleting(true);
+                  const res = await fetch(`/api/properties/${id}`, { method: "DELETE" });
+                  if (res.ok) { router.push("/properties"); }
+                  else { setError("Failed to delete property"); setDeleting(false); }
+                }}
+                className="rounded-xl border border-red-200 dark:border-red-900/50 px-5 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40 transition-colors">
+                {deleting ? "Deleting…" : "Delete Property"}
+              </button>
+            </div>
             <button type="submit" disabled={saving}
               className="rounded-xl bg-[#C8102E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
               {saved ? "Saved ✓" : saving ? "Saving…" : "Save Changes"}
