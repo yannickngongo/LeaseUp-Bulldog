@@ -1,33 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const PROTECTED = ["/dashboard", "/leads", "/properties", "/calendar", "/automations", "/marketing", "/insights", "/settings"];
 
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
-  if (!isProtected) return NextResponse.next();
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // Skip auth when env vars not configured (demo / preview mode)
-  if (!supabaseUrl || !supabaseKey) return NextResponse.next();
-
-  const supabase = createClient(supabaseUrl, supabaseKey, {
-    global: {
-      headers: { Cookie: req.headers.get("cookie") ?? "" },
-    },
-  });
-
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
-    const loginUrl = req.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    return NextResponse.redirect(loginUrl);
-  }
-
+  // Auth is handled client-side. Supabase session lives in localStorage,
+  // not cookies, so server-side checks always fail without @supabase/ssr.
   return NextResponse.next();
 }
 
