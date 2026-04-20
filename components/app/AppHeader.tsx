@@ -3,15 +3,8 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useTheme } from "@/components/ThemeProvider";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-  );
-}
+import { getOperatorEmail } from "@/lib/demo-auth";
 
 const PAGE_META: Record<string, { title: string; action?: { label: string; href: string } }> = {
   "/dashboard":   { title: "Dashboard" },
@@ -241,8 +234,7 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   const bellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getSupabase().auth.getUser().then(({ data }) => {
-      const email = data.user?.email ?? "";
+    getOperatorEmail().then((email) => {
       if (!email) return;
       fetch(`/api/setup?email=${encodeURIComponent(email)}`)
         .then(r => r.json())

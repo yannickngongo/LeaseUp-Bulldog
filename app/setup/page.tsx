@@ -3,14 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-  );
-}
+import { saveOperatorEmail } from "@/lib/demo-auth";
 
 type Step = "account" | "property" | "webhook" | "done";
 
@@ -24,16 +17,12 @@ export default function SetupPage() {
   const [property, setProperty] = useState({
     name: "", address: "", city: "", state: "", zip: "",
     phoneNumber: "", activeSpecial: "", websiteUrl: "",
+    totalUnits: "", tourBookingUrl: "",
   });
   const [createdProperty, setCreatedProperty] = useState<{ id: string; name: string; phone_number: string } | null>(null);
 
   async function handleAccountNext() {
     if (!account.name || !account.email) return;
-
-    // Try to get email from Supabase session
-    const { data: { user } } = await getSupabase().auth.getUser();
-    const email = user?.email ?? account.email;
-    setAccount(a => ({ ...a, email }));
     setStep("property");
   }
 
@@ -41,24 +30,25 @@ export default function SetupPage() {
     setLoading(true);
     setError(null);
 
-    const { data: { user } } = await getSupabase().auth.getUser();
-    const email = user?.email ?? account.email;
+    const email = account.email;
 
     try {
       const res = await fetch("/api/setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          operatorName:  account.name,
+          operatorName:    account.name,
           email,
-          propertyName:  property.name,
-          address:       property.address,
-          city:          property.city,
-          state:         property.state,
-          zip:           property.zip,
-          phoneNumber:   property.phoneNumber,
-          activeSpecial: property.activeSpecial,
-          websiteUrl:    property.websiteUrl,
+          propertyName:    property.name,
+          address:         property.address,
+          city:            property.city,
+          state:           property.state,
+          zip:             property.zip,
+          phoneNumber:     property.phoneNumber,
+          activeSpecial:   property.activeSpecial,
+          websiteUrl:      property.websiteUrl,
+          totalUnits:      property.totalUnits,
+          tourBookingUrl:  property.tourBookingUrl,
         }),
       });
 
@@ -69,6 +59,7 @@ export default function SetupPage() {
         return;
       }
 
+      saveOperatorEmail(email);
       setCreatedProperty(data.property);
       setStep("webhook");
     } catch {
@@ -78,7 +69,9 @@ export default function SetupPage() {
     }
   }
 
-  const webhookUrl = "https://lease-up-bulldog.vercel.app/api/twilio/inbound";
+  const webhookUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/api/twilio/inbound`
+    : "/api/twilio/inbound";
 
   return (
     <div className="min-h-screen bg-[#08080F] text-white font-sans">
@@ -248,6 +241,28 @@ export default function SetupPage() {
                   placeholder="https://themonroe.com"
                   className="w-full rounded-xl border border-[#1E1E2E] bg-[#16161F] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-[#C8102E] focus:outline-none"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">Total Units <span className="text-gray-600 font-normal">(optional)</span></label>
+                  <input
+                    type="number"
+                    value={property.totalUnits}
+                    onChange={e => setProperty(p => ({ ...p, totalUnits: e.target.value }))}
+                    placeholder="120"
+                    className="w-full rounded-xl border border-[#1E1E2E] bg-[#16161F] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-[#C8102E] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">Tour Booking URL <span className="text-gray-600 font-normal">(optional)</span></label>
+                  <input
+                    value={property.tourBookingUrl}
+                    onChange={e => setProperty(p => ({ ...p, tourBookingUrl: e.target.value }))}
+                    placeholder="https://calendly.com/..."
+                    className="w-full rounded-xl border border-[#1E1E2E] bg-[#16161F] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-[#C8102E] focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
 

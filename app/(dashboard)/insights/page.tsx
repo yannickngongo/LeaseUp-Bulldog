@@ -1,15 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-  );
-}
+import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -320,10 +313,10 @@ export default function InsightsPage() {
     async function load() {
       setLoading(true);
       try {
-        const { data: { user } } = await getSupabase().auth.getUser();
-        if (!user?.email) return;
+        const email = await getOperatorEmail();
+        if (!email) return;
 
-        const propRes = await fetch(`/api/properties?email=${encodeURIComponent(user.email)}`);
+        const propRes = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
         const propJson = await propRes.json();
         const props: Property[] = propJson.properties ?? [];
 

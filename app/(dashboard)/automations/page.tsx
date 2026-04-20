@@ -1,16 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/utils";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-  );
-}
+import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -154,11 +147,11 @@ export default function AutomationsPage() {
     async function load() {
       setLoading(true);
       try {
-        const { data: { user } } = await getSupabase().auth.getUser();
-        if (!user?.email) return;
-        setEmail(user.email);
+        const email = await getOperatorEmail();
+        if (!email) return;
+        setEmail(email);
 
-        const res = await fetch(`/api/automations/settings?email=${encodeURIComponent(user.email)}`);
+        const res = await fetch(`/api/automations/settings?email=${encodeURIComponent(email)}`);
         const json = await res.json();
 
         if (json.settings) setSettings({ ...DEFAULT_SETTINGS, ...json.settings });

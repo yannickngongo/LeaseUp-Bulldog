@@ -2,15 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
 import IntelligenceSection from "./IntelligenceSection";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-  );
-}
+import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,12 +127,12 @@ export default function DashboardPage() {
     async function load() {
       setLoading(true);
       try {
-        const { data: { user } } = await getSupabase().auth.getUser();
-        if (!user?.email) return;
+        const email = await getOperatorEmail();
+        if (!email) return;
 
         const [setupRes, propRes] = await Promise.all([
-          fetch(`/api/setup?email=${encodeURIComponent(user.email)}`),
-          fetch(`/api/properties?email=${encodeURIComponent(user.email)}`),
+          fetch(`/api/setup?email=${encodeURIComponent(email)}`),
+          fetch(`/api/properties?email=${encodeURIComponent(email)}`),
         ]);
         const setupJson = await setupRes.json();
         const propJson  = await propRes.json();

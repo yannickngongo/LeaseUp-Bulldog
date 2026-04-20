@@ -2,14 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { createClient } from "@supabase/supabase-js";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-  );
-}
+import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -161,9 +154,9 @@ function AddLeadModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await getSupabase().auth.getUser();
-      if (!user?.email) return;
-      const res = await fetch(`/api/properties?email=${encodeURIComponent(user.email)}`);
+      const email = await getOperatorEmail();
+      if (!email) return;
+      const res = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
       const json = await res.json();
       if (json.properties?.length) { setProperties(json.properties); setPropertyId(json.properties[0].id); }
     }
@@ -821,9 +814,9 @@ export default function LeadsPage() {
     async function init() {
       setLeadsLoading(true);
       try {
-        const { data: { user } } = await getSupabase().auth.getUser();
-        if (!user?.email) return;
-        const propRes = await fetch(`/api/properties?email=${encodeURIComponent(user.email)}`);
+        const email = await getOperatorEmail();
+        if (!email) return;
+        const propRes = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
         const propJson = await propRes.json();
         const props: Property[] = propJson.properties ?? [];
         setProperties(props);

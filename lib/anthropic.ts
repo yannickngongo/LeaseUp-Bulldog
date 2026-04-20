@@ -14,6 +14,7 @@ const MAX_TOKENS = 300; // SMS replies are short — cap spend per call
 export interface GenerateLeadReplyInput {
   propertyName: string;
   activeSpecial?: string;      // only passed if one exists — never invent one
+  tourBookingUrl?: string;     // self-service tour scheduling link
   leadName: string;
   moveInDate?: string;         // ISO date or undefined
   bedrooms?: number;           // 0 = studio
@@ -77,8 +78,12 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
     ? `${input.propertyContext}\n`
     : `Active special: ${input.activeSpecial ?? "None — do not mention any specials"}\n`;
 
+  const tourLine = input.tourBookingUrl
+    ? `Tour booking link: ${input.tourBookingUrl} — share this link when offering a tour so the lead can self-schedule.\n`
+    : `Tour booking: No self-service link available — ask the lead to reply to arrange a tour time.\n`;
+
   return `
-${contextBlock}
+${contextBlock}${tourLine}
 Property: ${input.propertyName}
 Lead name: ${input.leadName}
 Trigger: ${input.trigger}

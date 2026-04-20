@@ -3,16 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
 import { CountBadge } from "@/components/ui/Badge";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-  );
-}
+import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -154,8 +147,7 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
   const [userInitials, setUserInitials] = useState<string>("?");
 
   useEffect(() => {
-    getSupabase().auth.getUser().then(({ data }) => {
-      const email = data.user?.email ?? "";
+    getOperatorEmail().then((email) => {
       if (!email) return;
       fetch(`/api/setup?email=${encodeURIComponent(email)}`)
         .then(r => r.json())

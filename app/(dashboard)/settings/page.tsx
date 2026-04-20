@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-  );
-}
+import { getOperatorEmail } from "@/lib/demo-auth";
 
 interface Operator {
   id: string;
@@ -92,11 +85,11 @@ export default function SettingsPage() {
     async function load() {
       setLoading(true);
       try {
-        const { data: { user } } = await getSupabase().auth.getUser();
-        if (!user?.email) return;
-        setEmail(user.email);
+        const email = await getOperatorEmail();
+        if (!email) return;
+        setEmail(email);
 
-        const res = await fetch(`/api/setup?email=${encodeURIComponent(user.email)}`);
+        const res = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
         const json = await res.json();
 
         if (json.operator) {
@@ -117,7 +110,7 @@ export default function SettingsPage() {
         setLeads(allLeads);
 
         // Load team members
-        const teamRes = await fetch(`/api/org/members?email=${encodeURIComponent(user.email)}`);
+        const teamRes = await fetch(`/api/org/members?email=${encodeURIComponent(email)}`);
         if (teamRes.ok) {
           const teamJson = await teamRes.json();
           setMembers(teamJson.members ?? []);

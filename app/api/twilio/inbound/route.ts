@@ -235,6 +235,7 @@ export async function POST(req: NextRequest) {
     const result = await generateLeadReply({
       propertyName:        property.name,
       activeSpecial:       property.active_special ?? undefined,
+      tourBookingUrl:      (property as Record<string, unknown>).tour_booking_url as string | undefined,
       leadName:            lead.name,
       moveInDate:          lead.move_in_date ?? undefined,
       bedrooms:            lead.bedrooms ?? undefined,

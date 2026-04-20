@@ -116,13 +116,10 @@ export async function POST(req: NextRequest) {
     .insert({
       property_id:  propertyId,
       name,
-      first_name:   firstName,
-      last_name:    lastName,
       phone:        phone.startsWith("+") ? phone : `+1${phone}`,
       email:        email || null,
       status:       "new",
       source,
-      unit_type:    unitType ?? null,
       move_in_date: moveDate ?? null,
     })
     .select("id, name, phone, status")
@@ -143,12 +140,14 @@ export async function POST(req: NextRequest) {
 
   // Generate and send AI welcome SMS
   try {
-    const aiMessage = await generateLeadReply({
-      leadName:     name,
-      propertyName: property.name,
-      activeSpecial: (property as Record<string, unknown>).active_special as string | undefined,
-      conversationHistory: [],
+    const result = await generateLeadReply({
+      leadName:            name,
+      propertyName:        property.name,
+      activeSpecial:       (property as Record<string, unknown>).active_special as string | undefined,
+      trigger:             "new_lead",
+      conversationHistory: "",
     });
+    const aiMessage = result.message;
 
     const smsResult = await sendSms({
       to:   lead.phone,
@@ -156,24 +155,23 @@ export async function POST(req: NextRequest) {
       from: property.phone_number,
     });
 
-    if (smsResult.success) {
-      await db.from("leads").update({ status: "contacted" }).eq("id", lead.id);
-      await db.from("conversations").insert({
-        lead_id:     lead.id,
-        property_id: propertyId,
-        direction:   "outbound",
-        body:        aiMessage,
-        actor:       "ai",
-        twilio_sid:  smsResult.sid,
-      });
-      await db.from("activity_logs").insert({
-        action:      "sms_sent",
-        actor:       "ai",
-        lead_id:     lead.id,
-        property_id: propertyId,
-        metadata:    { lead_name: name, preview: aiMessage.slice(0, 80), operator_id: property.operator_id },
-      });
-    }
+    await db.from("leads").update({ status: "contacted" }).eq("id", lead.id);
+    await db.from("conversations").insert({
+      lead_id:      lead.id,
+      property_id:  propertyId,
+      direction:    "outbound",
+      channel:      "sms",
+      body:         aiMessage,
+      twilio_sid:   smsResult.sid,
+      ai_generated: true,
+    });
+    await db.from("activity_logs").insert({
+      action:      "sms_sent",
+      actor:       "ai",
+      lead_id:     lead.id,
+      property_id: propertyId,
+      metadata:    { lead_name: name, preview: aiMessage.slice(0, 80), operator_id: property.operator_id },
+    });
   } catch {
     // Non-fatal — lead is created, SMS failed silently
   }

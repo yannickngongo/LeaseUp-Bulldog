@@ -19,7 +19,7 @@ import { sendSms } from "@/lib/twilio";
 const CreateLeadSchema = z.object({
   propertyId: z.string().uuid("propertyId must be a valid UUID"),
   firstName: z.string().min(1, "firstName is required"),
-  lastName: z.string().min(1, "lastName is required"),
+  lastName: z.string().default(""),
   phone: z
     .string()
     .min(10, "phone must be at least 10 digits")
@@ -42,6 +42,7 @@ const CreateLeadSchema = z.object({
       { message: "budget.max must be >= budget.min" }
     )
     .optional(),
+  skipSms: z.boolean().default(false),
 });
 
 type ValidatedInput = z.infer<typeof CreateLeadSchema>;
@@ -154,7 +155,11 @@ export async function POST(req: NextRequest) {
     metadata: { source: input.source, channel: input.preferredContactMethod },
   });
 
-  // 5. Generate AI welcome message
+  // 5–9. Generate + send AI welcome SMS (skippable)
+  if (input.skipSms) {
+    return NextResponse.json({ lead }, { status: 201 });
+  }
+
   let aiMessage: string;
   try {
     const result = await generateLeadReply({
@@ -171,13 +176,9 @@ export async function POST(req: NextRequest) {
     aiMessage = result.message;
   } catch (err) {
     console.error("[POST /api/leads] AI generation failed:", err);
-    return NextResponse.json(
-      { error: "Lead created but AI reply generation failed", lead },
-      { status: 500 }
-    );
+    return NextResponse.json({ lead }, { status: 201 });
   }
 
-  // 6. Send SMS via Twilio
   let twilioSid: string;
   try {
     const smsResult = await sendSms({
@@ -188,13 +189,9 @@ export async function POST(req: NextRequest) {
     twilioSid = smsResult.sid;
   } catch (err) {
     console.error("[POST /api/leads] SMS send failed:", err);
-    return NextResponse.json(
-      { error: "Lead created but SMS send failed", lead },
-      { status: 500 }
-    );
+    return NextResponse.json({ lead }, { status: 201 });
   }
 
-  // 7. Store outbound message in conversations
   await logConversation(db, {
     lead_id: lead.id,
     property_id: property.id,
@@ -202,7 +199,6 @@ export async function POST(req: NextRequest) {
     twilio_sid: twilioSid,
   });
 
-  // 8. Log sms_sent event
   await logActivity(db, {
     lead_id: lead.id,
     property_id: property.id,
@@ -211,16 +207,10 @@ export async function POST(req: NextRequest) {
     metadata: { trigger: "new_lead", preview: aiMessage.slice(0, 100) },
   });
 
-  // 9. Update lead status to "contacted"
-  const { error: updateError } = await db
+  await db
     .from("leads")
     .update({ status: "contacted", last_contacted_at: new Date().toISOString() })
     .eq("id", lead.id);
-
-  if (updateError) {
-    console.error("[POST /api/leads] status update failed:", updateError);
-    // Non-fatal — lead and SMS exist, just the status didn't update
-  }
 
   return NextResponse.json(
     { lead: { ...lead, status: "contacted" }, message: aiMessage },
