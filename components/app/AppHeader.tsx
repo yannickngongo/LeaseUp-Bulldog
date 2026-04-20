@@ -2,7 +2,16 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { useTheme } from "@/components/ThemeProvider";
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+  );
+}
 
 const PAGE_META: Record<string, { title: string; action?: { label: string; href: string } }> = {
   "/dashboard":   { title: "Dashboard" },
@@ -43,6 +52,21 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   const pathname = usePathname();
   const meta = getBreadcrumb(pathname);
   const { theme, toggle } = useTheme();
+  const [initials, setInitials] = useState("?");
+
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => {
+      const email = data.user?.email ?? "";
+      if (!email) return;
+      fetch(`/api/setup?email=${encodeURIComponent(email)}`)
+        .then(r => r.json())
+        .then(j => {
+          const name = j.operator?.name ?? email.split("@")[0];
+          setInitials(name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase());
+        })
+        .catch(() => setInitials(email[0]?.toUpperCase() ?? "?"));
+    });
+  }, []);
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 dark:border-white/5 dark:bg-[#12141E] lg:px-6">
@@ -93,7 +117,7 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {/* User avatar */}
         <button className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-900 text-[11px] font-semibold text-white dark:bg-white/10 dark:text-gray-100">
-          MT
+          {initials}
         </button>
       </div>
     </header>

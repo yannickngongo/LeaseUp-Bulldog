@@ -375,7 +375,7 @@ function LeftPanel({ leads, selectedId, filter, search, loading, onSelect, onFil
   const filtered = applyFilter(leads.filter((l) => l.name.toLowerCase().includes(search.toLowerCase())), filter);
 
   return (
-    <div className="flex w-[280px] shrink-0 flex-col border-r border-gray-100 bg-white">
+    <div className="flex w-full flex-col sm:w-[280px]">
       {/* Header */}
       <div className="border-b border-gray-100 px-4 py-4">
         <div className="flex items-center justify-between mb-3">
@@ -862,6 +862,8 @@ export default function LeadsPage() {
     if (all.length && !selectedId) setSelectedId(all[0].id);
   }, [properties, selectedId, loadLeads]);
 
+  const [mobileView, setMobileView] = useState<"list" | "conversation">("list");
+
   const selectedLead = leads.find((l) => l.id === selectedId);
   const hotLeads = leads.filter((l) => (l.ai_score ?? 0) >= 7 || l.status === "tour_scheduled").slice(0, 5);
 
@@ -870,68 +872,94 @@ export default function LeadsPage() {
   const tourCount  = leads.filter((l) => l.status === "tour_scheduled").length;
   const wonCount   = leads.filter((l) => l.status === "won").length;
 
+  function handleSelectLead(id: string) {
+    setSelectedId(id);
+    setMobileView("conversation");
+  }
+
   return (
-    // Soft pastel gradient background — like both references
     <div className="flex h-full flex-col overflow-hidden"
       style={{ background: "linear-gradient(135deg, #f8f7ff 0%, #f0f4ff 40%, #fdf8ff 100%)" }}>
 
       {showAddModal && <AddLeadModal onClose={() => setShowAddModal(false)} onAdded={handleAdded} />}
 
-      {/* Stats bar — like image 2's header KPIs */}
-      <div className="shrink-0 border-b border-white/80 bg-white/70 px-6 py-3.5 backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-6">
-          <div className="flex items-center gap-8">
-            <StatChip label="Total Leads" value={leads.length.toString()} color="#6366F1" />
-            <div className="h-8 w-px bg-gray-100" />
-            <StatChip label="New Today" value={newCount.toString()} sub={newCount > 0 ? "needs reply" : ""} color="#3B82F6" />
-            <div className="h-8 w-px bg-gray-100" />
-            <StatChip label="Tours Booked" value={tourCount.toString()} color="#F59E0B" />
-            <div className="h-8 w-px bg-gray-100" />
-            <StatChip label="Leases Won" value={wonCount.toString()} color="#10B981" />
+      {/* Stats bar — scrollable on mobile */}
+      <div className="shrink-0 border-b border-white/80 bg-white/70 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-3.5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide sm:gap-8">
+            <StatChip label="Total" value={leads.length.toString()} color="#6366F1" />
+            <div className="h-6 w-px shrink-0 bg-gray-100 sm:h-8" />
+            <StatChip label="New" value={newCount.toString()} sub={newCount > 0 ? "needs reply" : ""} color="#3B82F6" />
+            <div className="h-6 w-px shrink-0 bg-gray-100 sm:h-8" />
+            <StatChip label="Tours" value={tourCount.toString()} color="#F59E0B" />
+            <div className="h-6 w-px shrink-0 bg-gray-100 sm:h-8" />
+            <StatChip label="Won" value={wonCount.toString()} color="#10B981" />
           </div>
           <button onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-2xl bg-[#C8102E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
+            className="shrink-0 flex items-center gap-1.5 rounded-2xl bg-[#C8102E] px-3 py-2 text-xs font-bold text-white hover:bg-[#A50D25] transition-colors sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
             style={{ boxShadow: "0 6px 20px rgba(200,16,46,0.3)" }}>
-            <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
+            <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4">
               <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
             </svg>
-            Add Lead
+            <span className="hidden sm:inline">Add Lead</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
 
-        {/* Hot lead cards strip — like image 2's colored deal cards */}
         {hotLeads.length > 0 && (
           <div className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide pb-1">
             {hotLeads.map((lead) => (
-              <HotLeadCard key={lead.id} lead={lead} onClick={() => setSelectedId(lead.id)} />
+              <HotLeadCard key={lead.id} lead={lead} onClick={() => handleSelectLead(lead.id)} />
             ))}
           </div>
         )}
       </div>
 
-      {/* Three-column layout */}
+      {/* Mobile: list or conversation view */}
       <div className="flex flex-1 overflow-hidden">
-        <LeftPanel
-          leads={leads} selectedId={selectedId} filter={filter} search={search} loading={leadsLoading}
-          onSelect={setSelectedId} onFilterChange={setFilter} onSearchChange={setSearch}
-          onAddLead={() => setShowAddModal(true)}
-        />
 
+        {/* Left panel — full width on mobile when showing list */}
+        <div className={cn(
+          "flex-col border-r border-gray-100 bg-white",
+          "sm:flex sm:w-[280px] sm:shrink-0",
+          mobileView === "list" ? "flex w-full" : "hidden"
+        )}>
+          <LeftPanel
+            leads={leads} selectedId={selectedId} filter={filter} search={search} loading={leadsLoading}
+            onSelect={handleSelectLead} onFilterChange={setFilter} onSearchChange={setSearch}
+            onAddLead={() => setShowAddModal(true)}
+          />
+        </div>
+
+        {/* Conversation + detail — full width on mobile when showing conversation */}
         {selectedLead ? (
-          <>
-            <div className="hidden flex-1 sm:flex">
+          <div className={cn(
+            "flex-1 flex flex-col overflow-hidden",
+            mobileView === "conversation" ? "flex" : "hidden sm:flex"
+          )}>
+            {/* Mobile back button */}
+            <div className="flex items-center gap-2 border-b border-gray-100 bg-white px-4 py-2 sm:hidden">
+              <button onClick={() => setMobileView("list")}
+                className="flex items-center gap-1.5 text-xs font-semibold text-[#C8102E]">
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+                  <path d="M10 12L6 8l4-4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Back to leads
+              </button>
+            </div>
+            <div className="flex flex-1 overflow-hidden">
               <ConversationPanel
                 lead={selectedLead} messages={messages} messagesLoading={msgLoading}
                 replyText={replyText} sending={sending}
                 onReplyChange={setReplyText} onSend={handleSend}
               />
+              <div className="hidden xl:flex">
+                <DetailPanel lead={selectedLead} />
+              </div>
             </div>
-            <div className="hidden xl:flex">
-              <DetailPanel lead={selectedLead} />
-            </div>
-          </>
+          </div>
         ) : !leadsLoading && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-4">
+          <div className={cn("flex-1 flex-col items-center justify-center gap-4", mobileView === "list" ? "hidden sm:flex" : "flex")}>
             <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-sm border border-gray-100">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25} className="h-10 w-10 text-gray-300">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" strokeLinecap="round" strokeLinejoin="round" />

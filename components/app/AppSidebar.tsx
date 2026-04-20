@@ -2,8 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { cn } from "@/lib/utils";
 import { CountBadge } from "@/components/ui/Badge";
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+  );
+}
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -91,14 +100,14 @@ interface NavItem {
 
 const NAV_PRIMARY: NavItem[] = [
   { href: "/dashboard",    label: "Dashboard",    icon: <IconDashboard /> },
-  { href: "/leads",        label: "Leads",        icon: <IconLeads />,        badge: 4 },
+  { href: "/leads",        label: "Leads",        icon: <IconLeads /> },
   { href: "/properties",   label: "Properties",   icon: <IconProperties /> },
 ];
 
 const NAV_SECONDARY: NavItem[] = [
   { href: "/calendar",     label: "Calendar",     icon: <IconCalendar /> },
   { href: "/automations",  label: "Automations",  icon: <IconAutomations /> },
-  { href: "/marketing",    label: "Marketing",    icon: <IconMarketing />, badge: 1 },
+  { href: "/marketing",    label: "Marketing",    icon: <IconMarketing /> },
   { href: "/insights",     label: "Insights",     icon: <IconInsights /> },
 ];
 
@@ -141,6 +150,23 @@ function NavGroupLabel({ label }: { label: string }) {
 
 export function AppSidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
+  const [userName, setUserName] = useState<string>("");
+  const [userInitials, setUserInitials] = useState<string>("?");
+
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => {
+      const email = data.user?.email ?? "";
+      if (!email) return;
+      fetch(`/api/setup?email=${encodeURIComponent(email)}`)
+        .then(r => r.json())
+        .then(j => {
+          const name = j.operator?.name ?? email.split("@")[0];
+          setUserName(name);
+          setUserInitials(name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase());
+        })
+        .catch(() => { setUserName(email.split("@")[0]); setUserInitials(email[0]?.toUpperCase() ?? "?"); });
+    });
+  }, []);
 
   function isActive(href: string) {
     if (href === "/dashboard") return pathname === "/dashboard";
@@ -195,11 +221,11 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
         {/* User */}
         <div className="mt-2 flex items-center gap-2.5 rounded-lg px-3 py-2">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[11px] font-semibold text-white dark:bg-white/10 dark:text-gray-200">
-            MT
+            {userInitials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-gray-700 dark:text-gray-300">Marcus Thompson</p>
-            <p className="truncate text-[10px] text-gray-400 dark:text-gray-500">Growth Plan</p>
+            <p className="truncate text-xs font-medium text-gray-700 dark:text-gray-300">{userName || "Loading…"}</p>
+            <p className="truncate text-[10px] text-gray-400 dark:text-gray-500">LeaseUp Bulldog</p>
           </div>
         </div>
       </div>
