@@ -56,8 +56,7 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
     e.target.value = "";
 
     const isPdf = file.name.toLowerCase().endsWith(".pdf");
-    const isCsv = file.name.toLowerCase().endsWith(".csv");
-    if (!isPdf && !isCsv) { setUploadMsg("Only PDF or CSV files are supported."); return; }
+    if (!isPdf) { setUploadMsg("Only PDF files are supported."); return; }
 
     setParsing(true);
     setUploadMsg("");
@@ -132,7 +131,7 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
         "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed px-4 py-8 text-center transition-colors",
         parsing ? "border-[#C8102E]/40 bg-[#C8102E]/5" : "border-gray-200 hover:border-[#C8102E]/40 dark:border-white/10"
       )}>
-        <input type="file" accept=".pdf,.csv" className="hidden" onChange={handleFileUpload} disabled={parsing} />
+        <input type="file" accept=".pdf" className="hidden" onChange={handleFileUpload} disabled={parsing} />
         {parsing ? (
           <div className="flex flex-col items-center gap-2">
             <div className="h-7 w-7 animate-spin rounded-full border-2 border-[#C8102E]/30 border-t-[#C8102E]" />
@@ -147,12 +146,11 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Click to upload PDF or CSV</p>
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Click to upload Rent Roll PDF</p>
               <p className="text-xs text-gray-400 mt-0.5">Works with Yardi, AppFolio, RealPage, Entrata, MRI exports</p>
             </div>
             <div className="flex gap-2">
               <span className="rounded-full bg-[#C8102E]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#C8102E]">PDF — AI reads it</span>
-              <span className="rounded-full bg-gray-100 dark:bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-gray-500 dark:text-gray-400">CSV — instant</span>
             </div>
           </>
         )}

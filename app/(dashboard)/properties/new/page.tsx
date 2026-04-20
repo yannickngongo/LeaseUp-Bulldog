@@ -84,47 +84,33 @@ function RentRollUpload({ onChange }: { onChange: (units: ParsedUnit[]) => void 
     if (!file) return;
     e.target.value = "";
 
-    const isPdf = file.name.toLowerCase().endsWith(".pdf");
-    const isCsv = file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".txt");
-
-    if (!isPdf && !isCsv) { setMsg("Only PDF or CSV files are supported."); return; }
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setMsg("Only PDF files are supported.");
+      return;
+    }
 
     setParsing(true);
     setMsg("");
     setPreview([]);
     onChange([]);
 
-    if (isPdf) {
-      try {
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch("/api/properties/new/parse-rent-roll", { method: "POST", body: fd });
-        const data = await res.json();
-        if (data.ok && Array.isArray(data.units)) {
-          setPreview(data.units);
-          onChange(data.units);
-          setShowTable(true);
-          setMsg(`AI extracted ${data.units.length} units from PDF.`);
-        } else {
-          setMsg(data.error ?? "Failed to read PDF.");
-        }
-      } catch {
-        setMsg("Network error reading PDF. Try again.");
-      } finally {
-        setParsing(false);
-      }
-    } else {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        const text = ev.target?.result as string;
-        const parsed = parseRentRollCsv(text);
-        setPreview(parsed);
-        onChange(parsed);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/properties/new/parse-rent-roll", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.units)) {
+        setPreview(data.units);
+        onChange(data.units);
         setShowTable(true);
-        setMsg(`Parsed ${parsed.length} units from CSV.`);
-        setParsing(false);
-      };
-      reader.readAsText(file);
+        setMsg(`AI extracted ${data.units.length} units from PDF.`);
+      } else {
+        setMsg(data.error ?? "Failed to read PDF.");
+      }
+    } catch {
+      setMsg("Network error reading PDF. Try again.");
+    } finally {
+      setParsing(false);
     }
   }, [onChange]);
 
@@ -135,7 +121,7 @@ function RentRollUpload({ onChange }: { onChange: (units: ParsedUnit[]) => void 
     <div className="space-y-4">
       {/* Drop zone */}
       <label className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.03] px-6 py-8 cursor-pointer hover:border-[#C8102E]/50 transition-colors">
-        <input type="file" accept=".pdf,.csv,.txt" className="sr-only" onChange={handleFile} disabled={parsing} />
+        <input type="file" accept=".pdf" className="sr-only" onChange={handleFile} disabled={parsing} />
         {parsing ? (
           <>
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C8102E] border-t-transparent" />
@@ -148,7 +134,7 @@ function RentRollUpload({ onChange }: { onChange: (units: ParsedUnit[]) => void 
             </svg>
             <div className="text-center">
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload Rent Roll</p>
-              <p className="text-xs text-gray-400 mt-0.5">PDF or CSV — AI will extract all units automatically</p>
+              <p className="text-xs text-gray-400 mt-0.5">PDF — AI will extract all units automatically</p>
             </div>
           </>
         )}
@@ -387,7 +373,7 @@ export default function NewPropertyPage() {
             <div className="mb-5">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Rent Roll (Optional)</h2>
               <p className="mt-1 text-xs text-gray-400">
-                Upload a PDF or CSV rent roll — AI will extract all unit info automatically.
+                Upload your rent roll PDF — AI will extract all unit info automatically.
               </p>
             </div>
             <RentRollUpload onChange={setRentRollUnits} />

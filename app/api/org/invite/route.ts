@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext, requirePermission } from "@/lib/auth";
+import { sendInviteEmail } from "@/lib/email";
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
@@ -104,9 +105,21 @@ export async function POST(req: NextRequest) {
     metadata: { invited_by: callerEmail, invite_email: inviteEmail, role, operator_id: ctx.operatorId },
   });
 
-  // In production: send email with invitation link
-  // For now: return the token so the UI can display the invite link
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/accept-invite?token=${invitation.token}`;
+
+  // Send invite email (best-effort — don't fail the request if email fails)
+  try {
+    const { data: org } = await db.from("organizations").select("name").eq("id", orgId).single();
+    await sendInviteEmail({
+      to:        inviteEmail,
+      inviteUrl,
+      orgName:   org?.name ?? "your team",
+      role,
+      invitedBy: callerEmail,
+    });
+  } catch (emailErr) {
+    console.error("Failed to send invite email:", emailErr);
+  }
 
   return NextResponse.json({ ok: true, invitation, inviteUrl }, { status: 201 });
 }
