@@ -276,44 +276,6 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* ── Properties ────────────────────────────────────────────────── */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Properties</h2>
-            <a href="/properties/new" className="text-xs font-semibold text-[#C8102E] hover:underline">+ Add Property</a>
-          </div>
-
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2].map(i => <Skeleton key={i} className="h-16" />)}
-            </div>
-          ) : properties.length === 0 ? (
-            <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-white/10 py-8 text-center">
-              <p className="text-sm text-gray-400">No properties yet.</p>
-              <a href="/properties/new" className="mt-2 inline-block text-xs font-semibold text-[#C8102E] hover:underline">Set up your first property →</a>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {properties.map(p => (
-                <div key={p.id} className="flex items-start justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-white/5 dark:bg-white/5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{p.address}, {p.city}, {p.state}</p>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3 text-gray-400">
-                        <path d="M2 2a1 1 0 011-1h2a1 1 0 01.95.684l.74 2.22a1 1 0 01-.233 1.022L5.2 6.16a9.7 9.7 0 004.64 4.64l1.234-1.257a1 1 0 011.022-.233l2.22.74A1 1 0 0115 11v2a1 1 0 01-1 1h-1C6.82 14 2 9.18 2 3V2z" />
-                      </svg>
-                      <span className="font-mono text-[11px] text-gray-600 dark:text-gray-300">{p.phone_number}</span>
-                      <span className="text-[10px] font-semibold text-gray-400">AI line</span>
-                    </div>
-                  </div>
-                  <a href={`/properties/${p.id}`} className="ml-4 shrink-0 text-xs font-medium text-[#C8102E] hover:underline">Edit</a>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* ── Team Management ──────────────────────────────────────────── */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
           <div className="mb-5 flex items-center justify-between">
@@ -459,6 +421,44 @@ export default function SettingsPage() {
               <span><strong className="text-gray-700 dark:text-gray-300">Admin</strong> — manager + edit property settings + manage team</span>
             </div>
           </div>
+        </div>
+
+        {/* ── Properties ────────────────────────────────────────────────── */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Properties</h2>
+            <a href="/properties/new" className="text-xs font-semibold text-[#C8102E] hover:underline">+ Add Property</a>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2].map(i => <Skeleton key={i} className="h-16" />)}
+            </div>
+          ) : properties.length === 0 ? (
+            <div className="rounded-lg border-2 border-dashed border-gray-200 dark:border-white/10 py-8 text-center">
+              <p className="text-sm text-gray-400">No properties yet.</p>
+              <a href="/properties/new" className="mt-2 inline-block text-xs font-semibold text-[#C8102E] hover:underline">Set up your first property →</a>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {properties.map(p => (
+                <div key={p.id} className="flex items-start justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-white/5 dark:bg-white/5">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{p.address}, {p.city}, {p.state}</p>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3 text-gray-400">
+                        <path d="M2 2a1 1 0 011-1h2a1 1 0 01.95.684l.74 2.22a1 1 0 01-.233 1.022L5.2 6.16a9.7 9.7 0 004.64 4.64l1.234-1.257a1 1 0 011.022-.233l2.22.74A1 1 0 0115 11v2a1 1 0 01-1 1h-1C6.82 14 2 9.18 2 3V2z" />
+                      </svg>
+                      <span className="font-mono text-[11px] text-gray-600 dark:text-gray-300">{p.phone_number}</span>
+                      <span className="text-[10px] font-semibold text-gray-400">AI line</span>
+                    </div>
+                  </div>
+                  <a href={`/properties/${p.id}`} className="ml-4 shrink-0 text-xs font-medium text-[#C8102E] hover:underline">Edit</a>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Usage & Billing ───────────────────────────────────────────── */}
