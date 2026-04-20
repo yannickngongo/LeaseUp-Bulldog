@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getOperatorEmail } from "@/lib/demo-auth";
 
-// ─── CSV parser ───────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ParsedUnit {
   unit_name:        string;
@@ -17,6 +17,8 @@ interface ParsedUnit {
   lease_end:        string;
   monthly_rent:     number | null;
 }
+
+// ─── CSV parser (fallback for CSV uploads) ────────────────────────────────────
 
 function parseRentRollCsv(raw: string): ParsedUnit[] {
   const lines = raw.trim().split("\n").map(l => l.trim()).filter(Boolean);
@@ -45,7 +47,7 @@ function parseRentRollCsv(raw: string): ParsedUnit[] {
       typeRaw.includes("4") ? "4br" :
       typeRaw.includes("3") ? "3br" :
       typeRaw.includes("2") ? "2br" :
-      typeRaw.includes("1") ? "1br" : typeRaw || null;
+      typeRaw.includes("1") ? "1br" : typeRaw || "";
 
     const bedsRaw = col(row, "bed");
     const bedrooms = bedsRaw ? parseInt(bedsRaw, 10) || null : null;
@@ -58,7 +60,7 @@ function parseRentRollCsv(raw: string): ParsedUnit[] {
 
     return {
       unit_name:        unitName,
-      unit_type:        unit_type ?? "",
+      unit_type,
       bedrooms,
       sq_ft,
       status,
@@ -71,15 +73,11 @@ function parseRentRollCsv(raw: string): ParsedUnit[] {
 
 // ─── Rent Roll Upload Component ───────────────────────────────────────────────
 
-function RentRollUpload({
-  onChange,
-}: {
-  value: string;
-  onChange: (units: ParsedUnit[]) => void;
-}) {
-  const [preview, setPreview]   = useState<ParsedUnit[]>([]);
-  const [parsing, setParsing]   = useState(false);
-  const [msg, setMsg]           = useState("");
+function RentRollUpload({ onChange }: { onChange: (units: ParsedUnit[]) => void }) {
+  const [preview, setPreview]     = useState<ParsedUnit[]>([]);
+  const [parsing, setParsing]     = useState(false);
+  const [showTable, setShowTable] = useState(true);
+  const [msg, setMsg]             = useState("");
 
   const handleFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -100,12 +98,12 @@ function RentRollUpload({
       try {
         const fd = new FormData();
         fd.append("file", file);
-        // Use "new" as placeholder — parse-rent-roll doesn't need a real property ID
         const res = await fetch("/api/properties/new/parse-rent-roll", { method: "POST", body: fd });
         const data = await res.json();
         if (data.ok && Array.isArray(data.units)) {
           setPreview(data.units);
           onChange(data.units);
+          setShowTable(true);
           setMsg(`AI extracted ${data.units.length} units from PDF.`);
         } else {
           setMsg(data.error ?? "Failed to read PDF.");
@@ -122,6 +120,7 @@ function RentRollUpload({
         const parsed = parseRentRollCsv(text);
         setPreview(parsed);
         onChange(parsed);
+        setShowTable(true);
         setMsg(`Parsed ${parsed.length} units from CSV.`);
         setParsing(false);
       };
@@ -130,18 +129,60 @@ function RentRollUpload({
   }, [onChange]);
 
   const occupied = preview.filter(u => u.status === "occupied" || u.status === "notice").length;
+  const vacant   = preview.filter(u => u.status === "vacant").length;
 
-      {showPreview && preview.length > 0 && (
+  return (
+    <div className="space-y-4">
+      {/* Drop zone */}
+      <label className="flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.03] px-6 py-8 cursor-pointer hover:border-[#C8102E]/50 transition-colors">
+        <input type="file" accept=".pdf,.csv,.txt" className="sr-only" onChange={handleFile} disabled={parsing} />
+        {parsing ? (
+          <>
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C8102E] border-t-transparent" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Reading file with AI…</p>
+          </>
+        ) : (
+          <>
+            <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <div className="text-center">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload Rent Roll</p>
+              <p className="text-xs text-gray-400 mt-0.5">PDF or CSV — AI will extract all units automatically</p>
+            </div>
+          </>
+        )}
+      </label>
+
+      {/* Status message */}
+      {msg && (
+        <p className={`text-xs ${msg.includes("error") || msg.includes("Failed") ? "text-red-500" : "text-green-600 dark:text-green-400"}`}>
+          {msg}
+        </p>
+      )}
+
+      {/* Summary stats */}
+      {preview.length > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: "Total Units", value: preview.length, color: "text-gray-900 dark:text-white" },
+            { label: "Occupied",    value: occupied,        color: "text-green-600 dark:text-green-400" },
+            { label: "Vacant",      value: vacant,          color: "text-amber-600 dark:text-amber-400" },
+          ].map(s => (
+            <div key={s.label} className="rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/[0.03] px-4 py-3 text-center">
+              <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Unit table preview */}
+      {preview.length > 0 && showTable && (
         <div className="rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
           <div className="flex items-center justify-between bg-gray-50 dark:bg-white/5 px-4 py-2.5">
-            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
-              {preview.length} units parsed · {occupied} occupied · {preview.length - occupied} vacant
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowPreview(false)}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Unit Preview</p>
+            <button type="button" onClick={() => setShowTable(false)} className="text-xs text-gray-400 hover:text-gray-600">
               hide
             </button>
           </div>
@@ -193,9 +234,9 @@ function RentRollUpload({
 
 export default function NewPropertyPage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
-  const [rentRollCsv, setRentRollCsv] = useState("");
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [rentRollUnits, setRentRollUnits] = useState<ParsedUnit[]>([]);
 
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", zip: "",
@@ -244,16 +285,13 @@ export default function NewPropertyPage() {
       const json = await res.json();
       if (!res.ok) { setError(json.error ?? "Failed to create property"); return; }
 
-      // Upload rent roll if provided
-      if (rentRollCsv.trim() && json.property?.id) {
-        const units = parseRentRollCsv(rentRollCsv);
-        if (units.length > 0) {
-          await fetch(`/api/properties/${json.property.id}/units`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ units }),
-          });
-        }
+      // Upload rent roll units if we have any
+      if (rentRollUnits.length > 0 && json.property?.id) {
+        await fetch(`/api/properties/${json.property.id}/units`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ units: rentRollUnits }),
+        });
       }
 
       router.push("/properties");
@@ -347,13 +385,12 @@ export default function NewPropertyPage() {
           {/* Rent Roll Upload */}
           <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-6">
             <div className="mb-5">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Rent Roll</h2>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Rent Roll (Optional)</h2>
               <p className="mt-1 text-xs text-gray-400">
-                Upload or paste your current rent roll CSV to automatically populate units, occupancy, and unit names.
-                Required columns: <span className="font-mono">Unit Number, Status</span>. Optional: Unit Type, Current Resident, Lease End Date, Monthly Rent.
+                Upload a PDF or CSV rent roll — AI will extract all unit info automatically.
               </p>
             </div>
-            <RentRollUpload value={rentRollCsv} onChange={setRentRollCsv} />
+            <RentRollUpload onChange={setRentRollUnits} />
           </div>
 
           {error && (
