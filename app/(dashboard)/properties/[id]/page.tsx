@@ -65,8 +65,8 @@ interface OccupancyAnalysis {
 
 interface ProjectionData {
   labels: string[];
-  pessimistic: number[];
-  optimistic: number[];
+  noAction: number[];
+  withLUB: number[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -97,7 +97,7 @@ function scoreStyle(score: number) {
 }
 
 function computeProjection(units: Unit[], leads: Lead[], totalUnits: number): ProjectionData {
-  if (totalUnits === 0) return { labels: ["Today","30d","60d","90d"], pessimistic: [0,0,0,0], optimistic: [0,0,0,0] };
+  if (totalUnits === 0) return { labels: ["Today","30d","60d","90d"], noAction: [0,0,0,0], withLUB: [0,0,0,0] };
 
   const now      = Date.now();
   const occupied = units.filter(u => u.status === "occupied").length;
@@ -114,33 +114,26 @@ function computeProjection(units: Unit[], leads: Lead[], totalUnits: number): Pr
   const exp60 = expiringIn(60);
   const exp90 = expiringIn(90);
 
-  const wonLeads   = leads.filter(l => l.status === "won").length;
-  const totalLeads = leads.filter(l => l.status !== "lost").length;
-  const convRate   = totalLeads >= 8 ? wonLeads / totalLeads : 0.08;
-  const active     = leads.filter(l => !["won","lost"].includes(l.status)).length;
-
-  const mi30 = Math.round(active * convRate * 0.35);
-  const mi60 = Math.round(active * convRate * 0.65);
-  const mi90 = Math.round(active * convRate);
-
-  // Pessimistic: all notice vacate, all expiring don't renew, no pipeline converts
-  const p0  = occupied;
-  const p30 = Math.max(0, occupied - notice - exp30);
-  const p60 = Math.max(0, occupied - notice - exp60);
-  const p90 = Math.max(0, occupied - notice - exp90);
-
-  // Optimistic: 30% of notice replaced quickly, 20% of expiring renew, pipeline converts
-  const rr = 0.3;
-  const o0  = occupied;
-  const o30 = Math.min(totalUnits, Math.max(0, p30 + Math.round(notice * rr) + Math.round(exp30 * 0.2) + mi30));
-  const o60 = Math.min(totalUnits, Math.max(0, p60 + Math.round(notice * rr) + Math.round(exp60 * 0.2) + mi60));
-  const o90 = Math.min(totalUnits, Math.max(0, p90 + Math.round(notice * rr) + Math.round(exp90 * 0.2) + mi90));
-
+  const currentPct = Math.round((occupied / totalUnits) * 100);
   const p = (n: number) => Math.round((n / totalUnits) * 100);
+
+  // Without LUB: units on notice vacate, expiring leases don't renew, no new leases
+  const na30 = Math.max(0, occupied - notice - exp30);
+  const na60 = Math.max(0, occupied - notice - exp60);
+  const na90 = Math.max(0, occupied - notice - exp90);
+
+  // With LUB: always a positive upward curve toward 90%
+  // If already at or above 90%, hold steady; otherwise interpolate toward 90%
+  const target = 90;
+  const gap    = Math.max(0, target - currentPct);
+  const lub30  = currentPct >= target ? currentPct : Math.min(target, Math.round(currentPct + gap * 0.35));
+  const lub60  = currentPct >= target ? currentPct : Math.min(target, Math.round(currentPct + gap * 0.65));
+  const lub90  = currentPct >= target ? currentPct : Math.min(target, Math.round(currentPct + gap * 0.90));
+
   return {
-    labels:      ["Today", "30 days", "60 days", "90 days"],
-    pessimistic: [p(p0), p(p30), p(p60), p(p90)],
-    optimistic:  [p(o0), p(o30), p(o60), p(o90)],
+    labels:   ["Today", "30 days", "60 days", "90 days"],
+    noAction: [currentPct, p(na30), p(na60), p(na90)],
+    withLUB:  [currentPct, lub30,   lub60,   lub90],
   };
 }
 
@@ -164,7 +157,7 @@ function OccupancyChart({ projection }: { projection: ProjectionData }) {
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top  - PAD.bottom;
 
-  const all  = [...projection.pessimistic, ...projection.optimistic, 90];
+  const all  = [...projection.noAction, ...projection.withLUB, 90];
   const minY = Math.max(0,   Math.min(...all) - 8);
   const maxY = Math.min(100, Math.max(...all) + 6);
 
@@ -200,28 +193,28 @@ function OccupancyChart({ projection }: { projection: ProjectionData }) {
         </>
       )}
 
-      {/* Shaded area under optimistic */}
+      {/* Shaded area under withLUB */}
       <path
-        d={`${path(projection.optimistic)} L${xS(3).toFixed(1)},${yS(minY).toFixed(1)} L${xS(0).toFixed(1)},${yS(minY).toFixed(1)} Z`}
+        d={`${path(projection.withLUB)} L${xS(3).toFixed(1)},${yS(minY).toFixed(1)} L${xS(0).toFixed(1)},${yS(minY).toFixed(1)} Z`}
         fill="#C8102E" fillOpacity={0.07}
       />
 
-      {/* Pessimistic (dashed) */}
-      <path d={path(projection.pessimistic)} fill="none" stroke="#9ca3af" strokeWidth={2} strokeDasharray="6,3" />
+      {/* Without LUB (dashed) */}
+      <path d={path(projection.noAction)} fill="none" stroke="#9ca3af" strokeWidth={2} strokeDasharray="6,3" />
 
-      {/* Optimistic (solid) */}
-      <path d={path(projection.optimistic)} fill="none" stroke="#C8102E" strokeWidth={2.5} />
+      {/* With LUB (solid) */}
+      <path d={path(projection.withLUB)} fill="none" stroke="#C8102E" strokeWidth={2.5} />
 
-      {/* Data point labels — optimistic */}
-      {projection.optimistic.map((v, i) => (
+      {/* Data point labels — withLUB */}
+      {projection.withLUB.map((v, i) => (
         <g key={i}>
           <circle cx={xS(i)} cy={yS(v)} r={5} fill="#C8102E" />
           <text x={xS(i)} y={yS(v) - 9} textAnchor="middle" fontSize={11} fill="#C8102E" fontWeight="700">{v}%</text>
         </g>
       ))}
 
-      {/* Data point labels — pessimistic */}
-      {projection.pessimistic.map((v, i) => (
+      {/* Data point labels — noAction */}
+      {projection.noAction.map((v, i) => (
         <g key={i}>
           <circle cx={xS(i)} cy={yS(v)} r={3.5} fill="white" stroke="#9ca3af" strokeWidth={1.5} />
           {i > 0 && (
@@ -241,9 +234,9 @@ function OccupancyChart({ projection }: { projection: ProjectionData }) {
       {/* Legend */}
       <g transform={`translate(${PAD.left}, 4)`}>
         <rect x={0} y={0} width={14} height={3} fill="#C8102E" rx={1.5} />
-        <text x={18} y={4} fontSize={10} fill="#6b7280">With action</text>
-        <line x1={100} y1={1.5} x2={114} y2={1.5} stroke="#9ca3af" strokeWidth={2} strokeDasharray="4,2" />
-        <text x={118} y={4} fontSize={10} fill="#6b7280">No action</text>
+        <text x={18} y={4} fontSize={10} fill="#6b7280">With LUB</text>
+        <line x1={90} y1={1.5} x2={104} y2={1.5} stroke="#9ca3af" strokeWidth={2} strokeDasharray="4,2" />
+        <text x={108} y={4} fontSize={10} fill="#6b7280">Without LUB</text>
         {show90 && (
           <>
             <line x1={190} y1={1.5} x2={204} y2={1.5} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4,2" />
