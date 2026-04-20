@@ -156,7 +156,8 @@ export async function resolveCallerContext(
     .eq("status", "active")
     .single();
 
-  const role = (member?.role ?? "viewer") as Role;
+  // If org belongs to this operator but they're not in members yet, treat as owner
+  const role = (member?.role ?? "owner") as Role;
   const isOwner = role === "owner" || role === "admin";
 
   // If owner/admin — all properties accessible
