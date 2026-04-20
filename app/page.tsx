@@ -11,7 +11,7 @@ export default function LandingPage() {
       <MarketingNav />
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden px-6 pb-24 pt-20">
+      <section className="relative overflow-hidden px-5 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20">
         {/* Background glow */}
         <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/4 h-[600px] w-[900px] rounded-full bg-[#C8102E]/10 blur-[120px]" />
 
@@ -21,13 +21,13 @@ export default function LandingPage() {
             AI-powered leasing — respond in under 60 seconds
           </div>
 
-          <h1 className="mb-6 text-5xl font-black leading-[1.05] tracking-tight md:text-7xl">
+          <h1 className="mb-6 text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl md:text-7xl">
             Fill Your Apartments
             <br />
             <span className="text-[#C8102E]">Faster Than Ever.</span>
           </h1>
 
-          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-gray-400 md:text-xl">
+          <p className="mx-auto mb-10 max-w-2xl text-base leading-relaxed text-gray-400 sm:text-lg md:text-xl">
             LeaseUp Bulldog responds to every lead instantly, qualifies them with AI,
             and pushes them toward a tour — automatically. No more missed leads. No more slow follow-ups.
           </p>
@@ -78,24 +78,26 @@ export default function LandingPage() {
               </div>
 
               <div className="rounded-lg border border-[#1E1E2E] bg-[#10101A] overflow-hidden">
-                <div className="grid grid-cols-5 border-b border-[#1E1E2E] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
-                  <span>Name</span><span>Source</span><span>Status</span><span>Move Date</span><span>Last Contact</span>
-                </div>
-                {[
-                  { name: "Jordan Ellis", source: "Zillow", status: "Engaged", statusColor: "text-violet-400 bg-violet-400/10", date: "Aug 1", contact: "2m ago" },
-                  { name: "Maya Thompson", source: "Website", status: "New", statusColor: "text-gray-400 bg-gray-400/10", date: "Jul 15", contact: "Just now" },
-                  { name: "Carlos Reyes", source: "Apts.com", status: "Tour Scheduled", statusColor: "text-amber-400 bg-amber-400/10", date: "Sep 1", contact: "1h ago" },
-                ].map((row) => (
-                  <div key={row.name} className="grid grid-cols-5 border-b border-[#1E1E2E]/50 px-4 py-2.5 text-sm last:border-0">
-                    <span className="font-medium text-white">{row.name}</span>
-                    <span className="text-gray-500">{row.source}</span>
-                    <span>
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${row.statusColor}`}>{row.status}</span>
-                    </span>
-                    <span className="text-gray-500">{row.date}</span>
-                    <span className="text-gray-500">{row.contact}</span>
+                <div className="overflow-x-auto">
+                  <div className="min-w-[520px]">
+                    <div className="grid grid-cols-5 border-b border-[#1E1E2E] px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      <span>Name</span><span>Source</span><span>Status</span><span>Move Date</span><span>Last Contact</span>
+                    </div>
+                    {[
+                      { name: "Jordan Ellis",   source: "Zillow",    status: "Engaged",       statusColor: "text-violet-400 bg-violet-400/10", date: "Aug 1",  contact: "2m ago"   },
+                      { name: "Maya Thompson",  source: "Website",   status: "New",           statusColor: "text-gray-400 bg-gray-400/10",     date: "Jul 15", contact: "Just now" },
+                      { name: "Carlos Reyes",   source: "Apts.com",  status: "Tour Scheduled",statusColor: "text-amber-400 bg-amber-400/10",   date: "Sep 1",  contact: "1h ago"   },
+                    ].map((row) => (
+                      <div key={row.name} className="grid grid-cols-5 border-b border-[#1E1E2E]/50 px-4 py-2.5 text-sm last:border-0">
+                        <span className="font-medium text-white">{row.name}</span>
+                        <span className="text-gray-500">{row.source}</span>
+                        <span><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${row.statusColor}`}>{row.status}</span></span>
+                        <span className="text-gray-500">{row.date}</span>
+                        <span className="text-gray-500">{row.contact}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           </div>
@@ -173,7 +175,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-14 text-center">
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#C8102E]">Features</p>
-            <h2 className="text-4xl font-black tracking-tight md:text-5xl">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl md:text-5xl">
               Everything you need to<br />
               <span className="text-[#C8102E]">dominate lease-up.</span>
             </h2>
@@ -232,7 +234,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl">
           <div className="mb-14 text-center">
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#C8102E]">How It Works</p>
-            <h2 className="text-4xl font-black tracking-tight md:text-5xl">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl md:text-5xl">
               Set up in minutes.<br />
               <span className="text-[#C8102E]">Convert for months.</span>
             </h2>
@@ -282,7 +284,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-4xl">
           <div className="mb-14 text-center">
             <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#C8102E]">Pricing</p>
-            <h2 className="text-4xl font-black tracking-tight md:text-5xl">
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl md:text-5xl">
               Performance-based pricing.
             </h2>
             <p className="mt-4 text-gray-500">You pay a flat fee — then only when we deliver a signed lease.</p>
@@ -432,7 +434,7 @@ export default function LandingPage() {
           <div className="h-[500px] w-[800px] rounded-full bg-[#C8102E]/10 blur-[100px]" />
         </div>
         <div className="relative mx-auto max-w-3xl text-center">
-          <h2 className="mb-6 text-4xl font-black tracking-tight md:text-6xl">
+          <h2 className="mb-6 text-3xl font-black tracking-tight sm:text-4xl md:text-6xl">
             Stop losing leads.<br />
             <span className="text-[#C8102E]">Start closing deals.</span>
           </h2>

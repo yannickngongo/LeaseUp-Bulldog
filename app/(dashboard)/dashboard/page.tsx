@@ -195,15 +195,15 @@ export default function DashboardPage() {
               { lead: "Priya Nair",    property: "The Monroe",       signed: "Apr 18", rent: "$1,620/mo", billable: true  },
               { lead: "Tom Kowalski",  property: "Parkview Commons", signed: "Apr 19", rent: "$1,100/mo", billable: false },
             ].map((row) => (
-              <div key={row.lead} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-2.5 dark:border-white/5">
+              <div key={row.lead} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 px-4 py-2.5 dark:border-white/5">
                 <div className="flex items-center gap-3">
-                  <div className={`h-2 w-2 rounded-full ${row.billable ? "bg-green-400" : "bg-gray-300 dark:bg-gray-600"}`} />
+                  <div className={`h-2 w-2 shrink-0 rounded-full ${row.billable ? "bg-green-400" : "bg-gray-300 dark:bg-gray-600"}`} />
                   <div>
                     <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{row.lead}</span>
                     <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{row.property}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 text-xs">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="text-gray-500 dark:text-gray-400">Signed {row.signed}</span>
                   <span className="font-medium text-gray-700 dark:text-gray-300">{row.rent}</span>
                   {row.billable ? (

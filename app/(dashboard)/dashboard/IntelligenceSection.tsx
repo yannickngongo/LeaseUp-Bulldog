@@ -224,18 +224,19 @@ function ActionQueuePanel({
       ) : (
         <div className="divide-y divide-gray-50 dark:divide-white/5">
           {visible.map(action => (
-            <div key={action.id} className="flex items-start gap-4 px-6 py-4">
-              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${URGENCY_DOT[action.urgency]}`} />
+            <div key={action.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-start sm:gap-4 sm:px-6">
+              <span className={`mt-1.5 hidden h-2 w-2 shrink-0 rounded-full sm:block ${URGENCY_DOT[action.urgency]}`} />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{action.title}</p>
-                  <span className="rounded bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                <div className="flex items-start gap-2 mb-1 flex-wrap">
+                  <span className={`mt-1 h-2 w-2 shrink-0 rounded-full sm:hidden ${URGENCY_DOT[action.urgency]}`} />
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-snug">{action.title}</p>
+                  <span className="rounded bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 shrink-0">
                     {ACTION_TYPE_LABELS[action.action_type] ?? action.action_type}
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 dark:text-gray-500 leading-relaxed">{action.reason}</p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2 self-start">
                 <button
                   onClick={() => onApprove(action.id)}
                   className="rounded-lg bg-[#C8102E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors"
