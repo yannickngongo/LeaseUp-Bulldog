@@ -3,6 +3,7 @@
 // DELETE /api/org/invite — cancel a pending invitation
 
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext, requirePermission } from "@/lib/auth";
 
@@ -56,7 +57,6 @@ export async function POST(req: NextRequest) {
     // Add the owner as a member
     await db.from("organization_members").insert({
       organization_id: orgId,
-      user_id:         ctx.userId,
       email:           callerEmail,
       role:            "owner",
       status:          "active",
@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "User is already a member" }, { status: 409 });
   }
 
-  // Create invitation
+  // Create invitation with an explicit token
+  const token = randomUUID();
   const { data: invitation, error: invErr } = await db
     .from("organization_invitations")
     .insert({
@@ -85,7 +86,8 @@ export async function POST(req: NextRequest) {
       email:           inviteEmail,
       role,
       property_ids:    propertyIds,
-      invited_by:      ctx.userId,
+      invited_by:      callerEmail,
+      token,
     })
     .select("id, token, email, role, expires_at")
     .single();
