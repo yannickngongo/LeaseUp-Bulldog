@@ -126,7 +126,7 @@ async function adjustFollowUpCadence(
 ): Promise<void> {
   if (score.followUpRecommendation === "aggressive" && score.urgencyLevel === "high") {
     // Cancel existing pending tasks and re-queue with tighter timing
-    await cancelFollowUps(leadId, "lead_score_upgrade_aggressive");
+    await cancelFollowUps(leadId, "manual_pause");
     const soon = new Date(Date.now() + 3 * 3600000); // 3 hours
     await queueFollowUp(leadId, propertyId, "follow_up_1", soon, 1);
   }
