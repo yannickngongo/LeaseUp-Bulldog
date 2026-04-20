@@ -158,6 +158,71 @@ function CopilotWidget() {
   );
 }
 
+// ─── Human Takeover Alert ─────────────────────────────────────────────────────
+
+function HumanTakeoverBanner() {
+  const [alerts, setAlerts]   = useState<{ id: string; leadName: string; propertyName: string; time: string }[]>([]);
+  const [operatorId, setOpId] = useState("");
+  const seenRef               = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    getOperatorEmail().then(email => {
+      if (!email) return;
+      fetch(`/api/setup?email=${encodeURIComponent(email)}`)
+        .then(r => r.json())
+        .then(d => { if (d.operator?.id) setOpId(d.operator.id); })
+        .catch(() => {});
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!operatorId) return;
+    async function poll() {
+      const res  = await fetch(`/api/activity?operator_id=${operatorId}&limit=20`).catch(() => null);
+      if (!res?.ok) return;
+      const json = await res.json();
+      const items: { id: string; action: string; created_at: string; metadata?: Record<string, unknown> }[] = json.activity ?? [];
+      const takeovers = items.filter(a => a.action === "human_takeover" && !seenRef.current.has(a.id));
+      if (takeovers.length === 0) return;
+      takeovers.forEach(t => seenRef.current.add(t.id));
+      setAlerts(prev => [
+        ...takeovers.map(t => ({
+          id: t.id,
+          leadName:     (t.metadata?.lead_name as string) ?? "A lead",
+          propertyName: (t.metadata?.property_name as string) ?? "",
+          time:         new Date(t.created_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+        })),
+        ...prev,
+      ].slice(0, 3));
+    }
+    poll();
+    const timer = setInterval(poll, 30_000);
+    return () => clearInterval(timer);
+  }, [operatorId]);
+
+  if (alerts.length === 0) return null;
+
+  return (
+    <div className="fixed top-4 right-4 z-[60] flex flex-col gap-2 max-w-sm">
+      {alerts.map(a => (
+        <div key={a.id} className="flex items-start gap-3 rounded-xl border border-red-200 bg-white shadow-xl px-4 py-3 dark:border-red-900/40 dark:bg-[#1C1F2E]"
+          style={{ boxShadow: "0 8px 32px rgba(200,16,46,0.2)" }}>
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-100 text-sm dark:bg-red-900/30">👤</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-gray-900 dark:text-gray-100">Human Takeover Needed</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+              {a.leadName}{a.propertyName ? ` · ${a.propertyName}` : ""}
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">{a.time}</p>
+          </div>
+          <button onClick={() => setAlerts(prev => prev.filter(x => x.id !== a.id))}
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none shrink-0">×</button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Layout ───────────────────────────────────────────────────────────────────
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
@@ -193,6 +258,9 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
       {/* Co-Pilot floating widget */}
       <CopilotWidget />
+
+      {/* Human takeover notifications */}
+      <HumanTakeoverBanner />
     </div>
   );
 }

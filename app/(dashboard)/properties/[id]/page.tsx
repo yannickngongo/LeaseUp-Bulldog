@@ -1025,6 +1025,215 @@ function MarketPositionSection({ property, units }: { property: Property; units:
   );
 }
 
+// ─── Competitor Monitoring Section ───────────────────────────────────────────
+
+interface Competitor {
+  name: string;
+  distance: string;
+  unit_types: string[];
+  est_rent_range: string;
+  occupancy_estimate: string;
+  key_amenities: string[];
+  threat_level: "high" | "medium" | "low";
+  threat_reason: string;
+}
+
+interface CompetitorData {
+  competitors: Competitor[];
+  market_pressure: string;
+  competitive_summary: string;
+  your_advantages: string[];
+  vulnerabilities: string[];
+  recommended_counters: string[];
+}
+
+function CompetitorSection({ property, units }: { property: Property; units: Unit[] }) {
+  const [data, setData]       = useState<CompetitorData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [ran, setRan]         = useState(false);
+
+  const unitTypes = React.useMemo(() => {
+    const map: Record<string, number[]> = {};
+    for (const u of units) {
+      const t = u.unit_type ?? "unknown";
+      if (!map[t]) map[t] = [];
+      if (u.monthly_rent) map[t].push(u.monthly_rent);
+    }
+    const avgRents: Record<string, number> = {};
+    for (const [t, rents] of Object.entries(map)) {
+      if (rents.length > 0) avgRents[t] = Math.round(rents.reduce((s, r) => s + r, 0) / rents.length);
+    }
+    return { unitTypes: Object.keys(map), avgRents };
+  }, [units]);
+
+  async function run() {
+    setLoading(true); setError(null); setRan(true);
+    try {
+      const res = await fetch("/api/properties/market-competitors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          property_name: property.name,
+          city:          property.city,
+          state:         property.state,
+          neighborhood:  property.neighborhood,
+          unit_types:    unitTypes.unitTypes,
+          avg_rents:     unitTypes.avgRents,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) setData(json);
+      else setError(json.error ?? "Analysis failed");
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const PRESSURE_STYLE: Record<string, string> = {
+    low:      "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400",
+    moderate: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
+    high:     "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400",
+    intense:  "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400",
+  };
+
+  const THREAT_STYLE = {
+    high:   "border-red-200 dark:border-red-900/30 bg-red-50/30 dark:bg-red-900/10",
+    medium: "border-amber-200 dark:border-amber-900/30 bg-amber-50/30 dark:bg-amber-900/10",
+    low:    "border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E]",
+  };
+
+  const THREAT_BADGE = {
+    high:   "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
+    medium: "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
+    low:    "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400",
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <SectionLabel>Competitor Intelligence</SectionLabel>
+        <button
+          onClick={run}
+          disabled={loading}
+          className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:opacity-50 transition-colors"
+        >
+          {loading ? (
+            <><span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white dark:border-gray-400 dark:border-t-gray-900" /> Scanning market…</>
+          ) : ran ? "Refresh Intelligence" : "Scan Competitors"}
+        </button>
+      </div>
+
+      {!ran && !loading && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-12 text-center dark:border-white/10">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-900/10 dark:bg-white/10">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6 text-gray-700 dark:text-gray-300">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Know your competition before they take your leads</p>
+          <p className="mt-1 text-xs text-gray-400">AI identifies nearby competitors, their pricing, and how to beat them</p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="space-y-3">
+          {[1,2,3].map(i => <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-100 dark:bg-white/5" />)}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/20 dark:bg-red-900/10 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      {data && !loading && (
+        <div className="space-y-4">
+          {/* Summary row */}
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Market Pressure</p>
+              <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${PRESSURE_STYLE[data.market_pressure] ?? PRESSURE_STYLE.moderate}`}>
+                {data.market_pressure}
+              </span>
+              <p className="mt-3 text-xs leading-relaxed text-gray-600 dark:text-gray-400">{data.competitive_summary}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Your Advantages</p>
+              <ul className="space-y-1.5">
+                {data.your_advantages.map((a, i) => (
+                  <li key={i} className="flex gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <span className="mt-0.5 text-green-500 shrink-0">✓</span>{a}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Counter Moves</p>
+              <ul className="space-y-1.5">
+                {data.recommended_counters.map((c, i) => (
+                  <li key={i} className="flex gap-2 text-xs text-gray-700 dark:text-gray-300">
+                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#C8102E] text-[9px] font-bold text-white">{i + 1}</span>
+                    {c}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Vulnerabilities */}
+          {data.vulnerabilities.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/30 dark:bg-amber-900/10">
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">Watch Your Blind Spots</p>
+              <ul className="space-y-1">
+                {data.vulnerabilities.map((v, i) => (
+                  <li key={i} className="flex gap-2 text-xs text-amber-800 dark:text-amber-300">
+                    <span className="shrink-0">⚠</span>{v}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Competitor cards */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {data.competitors.map((c, i) => (
+              <div key={i} className={`flex flex-col gap-3 rounded-xl border p-4 shadow-sm ${THREAT_STYLE[c.threat_level]}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{c.name}</p>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${THREAT_BADGE[c.threat_level]}`}>
+                    {c.threat_level} threat
+                  </span>
+                </div>
+                <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-400">📍</span> {c.distance} away
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-400">💵</span> {c.est_rent_range}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-gray-400">🏠</span> {c.occupancy_estimate}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {c.key_amenities.map((a) => (
+                    <span key={a} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600 dark:bg-white/10 dark:text-gray-400">{a}</span>
+                  ))}
+                </div>
+                <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 pt-2">{c.threat_reason}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Rent Roll Stale Banner ───────────────────────────────────────────────────
 
 function RentRollStaleBanner({
@@ -1389,6 +1598,9 @@ export default function PropertyDetailPage() {
 
       {/* ── Market Position ─────────────────────────────────────────────── */}
       <MarketPositionSection property={property} units={units} />
+
+      {/* ── Competitor Intelligence ─────────────────────────────────────── */}
+      <CompetitorSection property={property} units={units} />
 
       {/* ── Rent Roll & Occupancy ───────────────────────────────────────── */}
       <div id="rent-roll-section">

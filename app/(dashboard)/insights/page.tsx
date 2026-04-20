@@ -1,176 +1,97 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Property {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
+interface WeekData    { label: string; count: number; }
+interface SourceData  { name: string;  count: number; }
+interface FunnelStage { status: string; count: number; }
+interface PropertyData {
+  id: string; name: string; city: string; state: string;
+  total_units: number; occupied_units: number;
 }
 
-interface Lead {
-  id: string;
-  status: string;
-  source?: string;
-  created_at: string;
+interface InsightsData {
+  weeks:            WeekData[];
+  sources:          SourceData[];
+  funnel:           FunnelStage[];
+  estimatedRevenue: number;
+  totalUnits:       number;
+  occupiedCount:    number;
+  portfolioOccPct:  number | null;
+  aiReplies:        number;
+  humanTakes:       number;
+  toursBooked:      number;
+  totalLeads:       number;
+  activeLeads:      number;
+  wonLeads:         number;
+  lostLeads:        number;
+  properties:       PropertyData[];
 }
 
-interface MarketAnalysis {
-  marketSummary: string;
-  avgRent1BR: string;
-  avgRent2BR: string;
-  vacancyRate: string;
-  marketTrend: string;
-  trendLabel: string;
-  yoyRentGrowth: string;
-  demandDrivers: string[];
-  competitiveThreats: string[];
-  recommendation: string;
+interface PortfolioReport {
+  headline:           string;
+  performance_rating: string;
+  highlights:         string[];
+  risks:              string[];
+  ai_impact:          string;
+  recommendations:    string[];
+  outlook:            string;
+  kpi_callout:        string;
 }
 
-interface PropertyWithLeads extends Property {
-  leads: Lead[];
-  market?: MarketAnalysis | null;
-  marketLoading?: boolean;
-  marketError?: string;
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+function fmt(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
+}
 
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-gray-100 dark:bg-white/5 ${className ?? ""}`} />;
 }
 
-const STATUS_ORDER = ["new", "contacted", "tour_scheduled", "applied", "won"];
-const STATUS_LABELS: Record<string, string> = {
-  new: "New Leads",
-  contacted: "Contacted",
-  tour_scheduled: "Toured",
-  applied: "Applied",
-  won: "Moved In",
-};
+// ─── Bar Chart ────────────────────────────────────────────────────────────────
 
-function FunnelChart({ leads }: { leads: Lead[] }) {
-  const counts = STATUS_ORDER.map(s => ({
-    label: STATUS_LABELS[s],
-    value: leads.filter(l => STATUS_ORDER.indexOf(l.status) >= STATUS_ORDER.indexOf(s)).length,
-    color: ["#6366F1", "#06B6D4", "#F59E0B", "#F97316", "#22C55E"][STATUS_ORDER.indexOf(s)],
-  }));
-  const max = counts[0].value;
-  if (max === 0) return <p className="text-xs text-gray-400 py-4 text-center">No leads to show.</p>;
+function LeadVolumeChart({ weeks }: { weeks: WeekData[] }) {
+  const maxCount = Math.max(...weeks.map((w) => w.count), 1);
+  const W = 560; const H = 160;
+  const PAD = { top: 16, right: 8, bottom: 36, left: 32 };
+  const cW  = W - PAD.left - PAD.right;
+  const cH  = H - PAD.top  - PAD.bottom;
+  const gap  = cW / weeks.length;
+  const barW = gap * 0.55;
 
   return (
-    <div className="space-y-2">
-      {counts.map((stage, i) => {
-        const pct = max === 0 ? 0 : Math.round((stage.value / max) * 100);
-        const prev = i === 0 ? null : counts[i - 1].value;
-        const convPct = prev === null || prev === 0 ? null : Math.round((stage.value / prev) * 100);
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
+        const v = Math.round(maxCount * pct);
+        const y = PAD.top + cH - pct * cH;
         return (
-          <div key={stage.label}>
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs text-gray-600 dark:text-gray-400">{stage.label}</span>
-              <div className="flex items-center gap-2">
-                {convPct !== null && (
-                  <span className={cn("text-[10px] font-medium", convPct < 50 ? "text-red-500" : "text-gray-400")}>
-                    {convPct}% of prev
-                  </span>
-                )}
-                <span className="w-6 text-right text-xs font-bold text-gray-900 dark:text-gray-100">{stage.value}</span>
-              </div>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: stage.color }} />
-            </div>
-          </div>
+          <g key={pct}>
+            <line x1={PAD.left} y1={y} x2={W - PAD.right} y2={y} stroke="rgba(150,150,150,0.1)" strokeWidth={1} />
+            <text x={PAD.left - 4} y={y + 4} textAnchor="end" fontSize={9} fill="#9ca3af">{v}</text>
+          </g>
         );
       })}
-    </div>
-  );
-}
-
-function SourceChart({ leads }: { leads: Lead[] }) {
-  const sourceCounts: Record<string, number> = {};
-  leads.forEach(l => {
-    const src = l.source || "Unknown";
-    sourceCounts[src] = (sourceCounts[src] || 0) + 1;
-  });
-  const sources = Object.entries(sourceCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-  const max = sources[0]?.[1] ?? 1;
-  const colors = ["#6366F1", "#22C55E", "#F59E0B", "#06B6D4", "#8B5CF6"];
-
-  if (sources.length === 0) return <p className="text-xs text-gray-400 py-4 text-center">No lead sources yet.</p>;
-
-  return (
-    <div className="space-y-3">
-      {sources.map(([name, count], i) => (
-        <div key={name}>
-          <div className="mb-1 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: colors[i] }} />
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{name}</span>
-            </div>
-            <span className="text-[11px] text-gray-500">{count} lead{count !== 1 ? "s" : ""}</span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-            <div style={{ width: `${(count / max) * 100}%`, backgroundColor: colors[i] }} className="h-full rounded-full" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function LeadVolumeChart({ leads }: { leads: Lead[] }) {
-  const weeks: Record<string, number> = {};
-  const now = new Date();
-  for (let i = 7; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(now.getDate() - i * 7);
-    const key = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    weeks[key] = 0;
-  }
-  leads.forEach(l => {
-    const d = new Date(l.created_at);
-    const daysDiff = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-    const weekIdx = Math.floor(daysDiff / 7);
-    if (weekIdx <= 7) {
-      const d2 = new Date(now);
-      d2.setDate(now.getDate() - weekIdx * 7);
-      const key = d2.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      if (weeks[key] !== undefined) weeks[key]++;
-    }
-  });
-
-  const entries = Object.entries(weeks);
-  const max = Math.max(...entries.map(e => e[1]), 1);
-  const H = 80;
-
-  if (leads.length === 0) return <p className="text-xs text-gray-400 py-4 text-center">No lead volume data yet.</p>;
-
-  return (
-    <svg viewBox={`0 0 260 ${H + 24}`} className="w-full">
-      {entries.map(([label, count], i) => {
-        const barW = 20, gap = 12;
-        const totalW = entries.length * (barW + gap) - gap;
-        const xOffset = (260 - totalW) / 2;
-        const x = xOffset + i * (barW + gap);
-        const barH = (count / max) * H;
+      {weeks.map((w, i) => {
+        const x    = PAD.left + i * gap + gap / 2 - barW / 2;
+        const barH = Math.max(2, (w.count / maxCount) * cH);
+        const y    = PAD.top + cH - barH;
         return (
-          <g key={label}>
-            <rect x={x} y={H - barH} width={barW} height={barH} rx={3} fill="#6366F1" opacity={0.85} />
-            <text x={x + barW / 2} y={H + 16} textAnchor="middle" style={{ fontSize: 6, fill: "#9CA3AF" }}>
-              {label.split(" ")[1]}
-            </text>
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH} rx={3} fill="#C8102E" fillOpacity={0.85} />
+            {w.count > 0 && (
+              <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize={9} fill="#C8102E" fontWeight="700">{w.count}</text>
+            )}
+            <text
+              x={x + barW / 2} y={H - 6} textAnchor="middle" fontSize={8.5} fill="#9ca3af"
+              transform={`rotate(-35, ${x + barW / 2}, ${H - 6})`}
+            >{w.label}</text>
           </g>
         );
       })}
@@ -178,127 +99,118 @@ function LeadVolumeChart({ leads }: { leads: Lead[] }) {
   );
 }
 
-// ─── Market Research Card ─────────────────────────────────────────────────────
+// ─── Funnel ───────────────────────────────────────────────────────────────────
 
-const TREND_STYLES: Record<string, { bg: string; text: string; dot: string }> = {
-  strong_demand: { bg: "bg-green-50 dark:bg-green-900/10", text: "text-green-700 dark:text-green-400", dot: "bg-green-500" },
-  stable:        { bg: "bg-blue-50 dark:bg-blue-900/10",   text: "text-blue-700 dark:text-blue-400",   dot: "bg-blue-500" },
-  softening:     { bg: "bg-amber-50 dark:bg-amber-900/10", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
+const STAGE_LABELS: Record<string, string> = {
+  new: "New", contacted: "Contacted", engaged: "Engaged",
+  tour_scheduled: "Toured", applied: "Applied", won: "Leased",
+};
+const STAGE_COLORS = ["bg-indigo-400","bg-sky-400","bg-violet-400","bg-amber-400","bg-orange-400","bg-green-500"];
+
+function ConversionFunnel({ funnel }: { funnel: FunnelStage[] }) {
+  const top = funnel[0]?.count ?? 1;
+  return (
+    <div className="space-y-2.5">
+      {funnel.map((stage, i) => {
+        const pct  = top > 0 ? Math.round((stage.count / top) * 100) : 0;
+        const prev = funnel[i - 1]?.count ?? stage.count;
+        const drop = i > 0 && prev > 0 ? Math.round((stage.count / prev) * 100) : 100;
+        return (
+          <div key={stage.status}>
+            <div className="mb-1 flex items-center justify-between text-xs">
+              <span className="font-medium text-gray-700 dark:text-gray-300">{STAGE_LABELS[stage.status] ?? stage.status}</span>
+              <div className="flex items-center gap-2">
+                {i > 0 && (
+                  <span className={`text-[10px] font-semibold ${drop >= 50 ? "text-green-600" : drop >= 25 ? "text-amber-600" : "text-red-500"}`}>
+                    {drop}% kept
+                  </span>
+                )}
+                <span className="w-5 text-right font-bold tabular-nums text-gray-900 dark:text-gray-100">{stage.count}</span>
+              </div>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+              <div className={`h-full rounded-full ${STAGE_COLORS[i] ?? "bg-gray-400"} transition-all`} style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Portfolio Report Card ────────────────────────────────────────────────────
+
+const RATING_STYLE: Record<string, string> = {
+  "Excellent":       "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
+  "Strong":          "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800",
+  "Steady":          "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
+  "Needs Attention": "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
 };
 
-function MarketResearchCard({
-  property,
-  onRun,
-}: {
-  property: PropertyWithLeads;
-  onRun: (id: string) => void;
-}) {
-  const { market, marketLoading, marketError } = property;
-
-  if (marketLoading) {
-    return (
-      <div className="space-y-2 animate-pulse">
-        <Skeleton className="h-4 w-3/4" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-2/3" />
-        <div className="grid grid-cols-3 gap-2 mt-3">
-          {[1,2,3].map(i => <Skeleton key={i} className="h-12" />)}
-        </div>
-      </div>
-    );
-  }
-
-  if (!market) {
-    return (
-      <div className="flex flex-col items-center py-6 text-center">
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-900/20">
-          <span className="text-violet-500 text-sm">✦</span>
-        </div>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-          AI market analysis for {property.city}, {property.state} {property.zip}
-        </p>
-        {marketError && (
-          <p className="text-[11px] text-red-500 mb-2">{marketError}</p>
-        )}
-        <button
-          onClick={() => onRun(property.id)}
-          className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors"
-        >
-          Generate Market Analysis →
-        </button>
-      </div>
-    );
-  }
-
-  const trend = TREND_STYLES[market.marketTrend] ?? TREND_STYLES.stable;
-
+function PortfolioReportCard({ report }: { report: PortfolioReport }) {
   return (
-    <div className="space-y-4">
-      {/* Trend badge + summary */}
-      <div className={cn("flex items-center gap-2 rounded-lg px-3 py-2", trend.bg)}>
-        <span className={cn("h-2 w-2 rounded-full shrink-0", trend.dot)} />
-        <span className={cn("text-xs font-semibold", trend.text)}>{market.trendLabel}</span>
-        <span className={cn("text-xs", trend.text, "opacity-70")}>· {market.yoyRentGrowth} YoY rent growth</span>
+    <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex-1">
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">AI Portfolio Report</p>
+          <h2 className="text-lg font-bold leading-snug text-gray-900 dark:text-gray-100">{report.headline}</h2>
+        </div>
+        <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${RATING_STYLE[report.performance_rating] ?? RATING_STYLE["Steady"]}`}>
+          {report.performance_rating}
+        </span>
       </div>
 
-      <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{market.marketSummary}</p>
-
-      {/* Rent grid */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "1BR Avg Rent", value: market.avgRent1BR },
-          { label: "2BR Avg Rent", value: market.avgRent2BR },
-          { label: "Vacancy Rate", value: market.vacancyRate },
-        ].map(m => (
-          <div key={m.label} className="rounded-lg bg-gray-50 dark:bg-white/5 px-2 py-2.5 text-center">
-            <p className="text-xs font-bold text-gray-900 dark:text-gray-100">{m.value}</p>
-            <p className="text-[10px] text-gray-400 mt-0.5">{m.label}</p>
-          </div>
-        ))}
+      <div className="rounded-xl border border-[#C8102E]/15 bg-[#C8102E]/5 px-4 py-3">
+        <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-[#C8102E]">Key Number</p>
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{report.kpi_callout}</p>
       </div>
 
-      {/* Drivers */}
-      {market.demandDrivers?.length > 0 && (
+      <div className="grid gap-4 lg:grid-cols-2">
         <div>
-          <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Demand Drivers</p>
-          <ul className="space-y-1">
-            {market.demandDrivers.map((d, i) => (
-              <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-600 dark:text-gray-400">
-                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-green-400" />
-                {d}
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Wins This Period</p>
+          <ul className="space-y-1.5">
+            {report.highlights.map((h, i) => (
+              <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-100 text-[9px] font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">✓</span>
+                {h}
               </li>
             ))}
           </ul>
         </div>
-      )}
-
-      {/* Threats */}
-      {market.competitiveThreats?.length > 0 && (
         <div>
-          <p className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Watch Out For</p>
-          <ul className="space-y-1">
-            {market.competitiveThreats.map((t, i) => (
-              <li key={i} className="flex items-start gap-1.5 text-[11px] text-gray-600 dark:text-gray-400">
-                <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-400" />
-                {t}
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Watch Out For</p>
+          <ul className="space-y-1.5">
+            {report.risks.map((r, i) => (
+              <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[9px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">!</span>
+                {r}
               </li>
             ))}
           </ul>
         </div>
-      )}
-
-      {/* Recommendation */}
-      <div className="flex items-start gap-2 rounded-lg border border-[#C8102E]/20 bg-[#C8102E]/5 px-3 py-2">
-        <span className="text-[#C8102E] text-xs mt-0.5 shrink-0">→</span>
-        <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">{market.recommendation}</p>
       </div>
 
-      <button
-        onClick={() => onRun(property.id)}
-        className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
-      >
-        Refresh analysis →
-      </button>
+      <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 dark:border-violet-900/20 dark:bg-violet-900/10">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">LUB AI This Month</p>
+        <p className="text-sm leading-relaxed text-violet-800 dark:text-violet-300">{report.ai_impact}</p>
+      </div>
+
+      <div>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Next 30 Days — Action Plan</p>
+        <div className="space-y-2">
+          {report.recommendations.map((rec, i) => (
+            <div key={i} className="flex gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-white/5 dark:bg-white/5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#C8102E] text-[10px] font-bold text-white">{i + 1}</span>
+              <p className="text-sm text-gray-700 dark:text-gray-300">{rec}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 pt-4 dark:border-white/5">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Outlook</p>
+        <p className="text-sm italic text-gray-600 dark:text-gray-400">{report.outlook}</p>
+      </div>
     </div>
   );
 }
@@ -306,291 +218,235 @@ function MarketResearchCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function InsightsPage() {
-  const router = useRouter();
-  const [properties, setProperties] = useState<PropertyWithLeads[]>([]);
-  const [allLeads, setAllLeads]     = useState<Lead[]>([]);
-  const [loading, setLoading]       = useState(true);
+  const [data, setData]       = useState<InsightsData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [report, setReport]   = useState<PortfolioReport | null>(null);
+  const [genning, setGenning] = useState(false);
+  const [email, setEmail]     = useState("");
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const email = await getOperatorEmail();
-        if (!email) { router.push("/setup"); return; }
-
-        const propRes = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
-        const propJson = await propRes.json();
-        const props: Property[] = propJson.properties ?? [];
-
-        const withLeads = await Promise.all(props.map(async (p) => {
-          const res = await fetch(`/api/leads?propertyId=${p.id}`);
-          const json = await res.json();
-          return { ...p, leads: json.leads ?? [], market: null, marketLoading: false };
-        }));
-
-        setProperties(withLeads);
-        setAllLeads(withLeads.flatMap(p => p.leads));
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [router]);
-
-  async function runMarketResearch(propertyId: string) {
-    const prop = properties.find(p => p.id === propertyId);
-    if (!prop) return;
-
-    setProperties(prev => prev.map(p =>
-      p.id === propertyId ? { ...p, marketLoading: true, marketError: undefined } : p
-    ));
-
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/intelligence/market-research", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          propertyId: prop.id,
-          name: prop.name,
-          address: prop.address,
-          city: prop.city,
-          state: prop.state,
-          zip: prop.zip,
-        }),
+      const em = await getOperatorEmail();
+      if (!em) return;
+      setEmail(em);
+      const res  = await fetch(`/api/insights?email=${encodeURIComponent(em)}`);
+      const json = await res.json();
+      if (json.ok) setData(json);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function generateReport() {
+    if (!data || !email) return;
+    setGenning(true);
+    try {
+      const setupRes  = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
+      const setupJson = await setupRes.json();
+      const operatorName = setupJson.operator?.name ?? "Property Manager";
+      const res  = await fetch("/api/ai/portfolio-report", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, operator_name: operatorName }),
       });
       const json = await res.json();
-      setProperties(prev => prev.map(p =>
-        p.id === propertyId
-          ? { ...p, marketLoading: false, market: json.analysis ?? null, marketError: json.error }
-          : p
-      ));
-    } catch {
-      setProperties(prev => prev.map(p =>
-        p.id === propertyId
-          ? { ...p, marketLoading: false, marketError: "Analysis failed — check API keys" }
-          : p
-      ));
+      if (json.ok) setReport(json.report);
+    } finally {
+      setGenning(false);
     }
   }
-
-  const totalLeads    = allLeads.length;
-  const activeLeads   = allLeads.filter(l => !["won","lost"].includes(l.status)).length;
-  const touredLeads   = allLeads.filter(l => STATUS_ORDER.indexOf(l.status) >= STATUS_ORDER.indexOf("tour_scheduled")).length;
-  const wonLeads      = allLeads.filter(l => l.status === "won").length;
-  const convRate      = totalLeads === 0 ? 0 : Math.round((wonLeads / totalLeads) * 100);
 
   return (
     <div className="space-y-6 p-4 lg:p-6">
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">AI Insights</h1>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            {loading ? "Loading…" : `Live data from ${properties.length} propert${properties.length !== 1 ? "ies" : "y"}`}
-          </p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Portfolio Insights</h1>
+          <p className="mt-0.5 text-sm text-gray-400 dark:text-gray-500">Analytics and performance across all properties</p>
         </div>
-        <span className="flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-900/20 px-3 py-1 text-xs font-medium text-violet-700 dark:text-violet-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-          Powered by Claude
-        </span>
+        <button
+          onClick={generateReport}
+          disabled={genning || loading || !data}
+          className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 transition-colors"
+          style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
+        >
+          {genning ? (
+            <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Generating…</>
+          ) : (
+            <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> Generate AI Report</>
+          )}
+        </button>
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[1,2,3,4].map(i => <Skeleton key={i} className="h-20" />)}
-          </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            {[1,2,3].map(i => <Skeleton key={i} className="h-40" />)}
-          </div>
-        </div>
-      )}
+      {/* AI Report */}
+      {report && <PortfolioReportCard report={report} />}
 
-      {/* No properties */}
-      {!loading && properties.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 dark:border-white/10 py-20 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#C8102E]/8">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#C8102E" strokeWidth={1.5} className="h-8 w-8">
-              <path d="M1.5 13.5 6 8.5l4 3.5 6-8" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M12.5 4H17v4.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <h3 className="mb-1 text-base font-bold text-gray-900 dark:text-gray-100">No data yet</h3>
-          <p className="mb-5 text-sm text-gray-400">Add a property and start collecting leads to see insights.</p>
-          <a href="/properties/new"
-            className="rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors">
-            Add Property →
-          </a>
-        </div>
-      )}
-
-      {/* Has properties */}
-      {!loading && properties.length > 0 && (
-        <>
-          {/* Summary KPIs */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { label: "Total Leads",     value: totalLeads,               sub: "all time" },
-              { label: "Active Pipeline", value: activeLeads,              sub: "not won or lost" },
-              { label: "Toured",          value: touredLeads,              sub: "reached tour stage" },
-              { label: "Conversion Rate", value: `${convRate}%`,           sub: "lead → move-in" },
-            ].map(c => (
-              <div key={c.label} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{c.label}</p>
-                <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-gray-100">{c.value}</p>
-                <p className="mt-0.5 text-[11px] text-gray-400">{c.sub}</p>
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)
+        ) : data ? (
+          [
+            { label: "Total Leads",          value: fmt(data.totalLeads),    sub: `${data.activeLeads} active`,             color: "text-indigo-600 dark:text-indigo-400",   bg: "bg-indigo-50 dark:bg-indigo-900/20" },
+            { label: "Leases Signed",         value: fmt(data.wonLeads),      sub: "converted via LUB",                      color: "text-green-600 dark:text-green-400",     bg: "bg-green-50 dark:bg-green-900/20" },
+            { label: "AI Replies (30d)",      value: fmt(data.aiReplies),     sub: "fully automated",                        color: "text-violet-600 dark:text-violet-400",   bg: "bg-violet-50 dark:bg-violet-900/20" },
+            { label: "Est. Monthly Revenue",  value: `$${data.estimatedRevenue.toLocaleString()}`, sub: `${data.occupiedCount}/${data.totalUnits} units`, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
+          ].map((k) => (
+            <div key={k.label} className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
+              <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{k.label}</p>
+              <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{k.value}</p>
+              <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">{k.sub}</p>
+              <div className="mt-3">
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${k.bg} ${k.color}`}>
+                  ↑ this period
+                </span>
               </div>
-            ))}
-          </div>
-
-          {/* Charts row */}
-          <div className="grid gap-4 lg:grid-cols-3">
-            {/* Lead Volume */}
-            <div className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
-              <div className="mb-1 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Lead Volume</h3>
-                <span className="text-[11px] text-gray-400">8-week trend</span>
-              </div>
-              <p className="mb-3 text-xs text-gray-400">New leads per week · all properties</p>
-              <LeadVolumeChart leads={allLeads} />
             </div>
+          ))
+        ) : null}
+      </div>
 
-            {/* Conversion Funnel */}
-            <div className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
-              <div className="mb-1 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Conversion Funnel</h3>
-                <span className="text-[11px] text-gray-400">All time</span>
-              </div>
-              <p className="mb-3 text-xs text-gray-400">Lead → move-in pipeline</p>
-              <FunnelChart leads={allLeads} />
-            </div>
-
-            {/* Lead Sources */}
-            <div className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
-              <div className="mb-1 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Lead Sources</h3>
-                <span className="text-[11px] text-gray-400">All properties</span>
-              </div>
-              <p className="mb-3 text-xs text-gray-400">Where your leads are coming from</p>
-              <SourceChart leads={allLeads} />
-            </div>
-          </div>
-
-          {/* Per-property stats */}
-          {properties.length > 1 && (
+      {/* Lead Volume + Source */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+          <div className="mb-4 flex items-start justify-between">
             <div>
-              <h2 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Per-Property Breakdown</h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {properties.map(p => {
-                  const active = p.leads.filter(l => !["won","lost"].includes(l.status)).length;
-                  const tours = p.leads.filter(l => l.status === "tour_scheduled").length;
-                  const won = p.leads.filter(l => l.status === "won").length;
-                  return (
-                    <div key={p.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">{p.name}</p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { label: "Active", value: active },
-                          { label: "Tours",  value: tours },
-                          { label: "Won",    value: won },
-                        ].map(s => (
-                          <div key={s.label} className="rounded-lg bg-gray-50 dark:bg-white/5 px-2 py-2 text-center">
-                            <p className="text-base font-bold text-gray-900 dark:text-gray-100">{s.value}</p>
-                            <p className="text-[10px] text-gray-400">{s.label}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Lead Volume — Last 12 Weeks</p>
+              <p className="mt-0.5 text-xs text-gray-400">New leads per week across all properties</p>
             </div>
-          )}
-
-          {/* AI Market Research */}
-          <div>
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-[#C8102E] text-sm">✦</span>
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Market Research</h2>
-              <span className="rounded-full border border-violet-200 bg-violet-50 dark:border-violet-800 dark:bg-violet-900/20 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-400">
-                Per Property
-              </span>
-            </div>
-            <p className="mb-4 -mt-2 text-xs text-gray-400">
-              Claude analyzes rental market conditions for each property&apos;s zip code — rental rates, demand trends, competition.
-            </p>
-
-            <div className="grid gap-4 lg:grid-cols-2">
-              {properties.map(p => (
-                <div key={p.id}
-                  className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
-                  <div className="mb-4 flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.name}</h3>
-                      <p className="text-xs text-gray-400 mt-0.5">{p.city}, {p.state} {p.zip}</p>
-                    </div>
-                    <span className="rounded-full bg-gray-100 dark:bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-gray-500 dark:text-gray-400 shrink-0">
-                      {p.city}, {p.state}
-                    </span>
-                  </div>
-                  <MarketResearchCard property={p} onRun={runMarketResearch} />
+            {data && <span className="rounded-full bg-[#C8102E]/10 px-2.5 py-0.5 text-xs font-bold text-[#C8102E]">{data.totalLeads} total</span>}
+          </div>
+          {loading ? <Skeleton className="h-40" /> : data ? <LeadVolumeChart weeks={data.weeks} /> : null}
+          {data && (
+            <div className="mt-3 flex gap-6 border-t border-gray-50 pt-3 dark:border-white/5">
+              {[
+                { label: "Peak Week",  value: Math.max(...data.weeks.map((w) => w.count)) },
+                { label: "Avg/Week",   value: Math.round(data.totalLeads / 12) },
+                { label: "This Week",  value: data.weeks[data.weeks.length - 1]?.count ?? 0 },
+              ].map((s) => (
+                <div key={s.label}>
+                  <p className="text-[10px] text-gray-400">{s.label}</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{s.value}</p>
                 </div>
               ))}
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Export section */}
-          <div className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Export Performance Report</h3>
-                <p className="mt-0.5 text-xs text-gray-400">Download a CSV of your lead and tour data</p>
-              </div>
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+          <p className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Lead Sources</p>
+          {loading ? (
+            <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-7" />)}</div>
+          ) : data && data.sources.length > 0 ? (
+            <div className="space-y-3">
+              {data.sources.map((s) => {
+                const pct = Math.round((s.count / (data.totalLeads || 1)) * 100);
+                return (
+                  <div key={s.name}>
+                    <div className="mb-1 flex items-center justify-between text-xs">
+                      <span className="max-w-[140px] truncate font-medium text-gray-700 dark:text-gray-300">{s.name}</span>
+                      <span className="ml-2 font-bold text-gray-900 dark:text-gray-100">{s.count} <span className="font-normal text-gray-400">({pct}%)</span></span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                      <div className="h-full rounded-full bg-[#C8102E]" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">From</label>
-                <input type="date" defaultValue={new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs text-gray-700 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-300" />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">To</label>
-                <input type="date" defaultValue={new Date().toISOString().slice(0, 10)}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs text-gray-700 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-300" />
-              </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-gray-400">No source data yet.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom grid */}
+      <div className="grid gap-4 lg:grid-cols-3">
+
+        {/* Funnel */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+          <p className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Conversion Funnel</p>
+          {loading
+            ? <div className="space-y-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-6" />)}</div>
+            : data ? <ConversionFunnel funnel={data.funnel} />
+            : null}
+          {data && data.wonLeads > 0 && data.totalLeads > 0 && (
+            <div className="mt-4 rounded-xl bg-green-50 px-3 py-2 text-center dark:bg-green-900/10">
+              <p className="text-xs font-semibold text-green-700 dark:text-green-400">
+                {Math.round((data.wonLeads / data.totalLeads) * 100)}% overall conversion
+              </p>
             </div>
-            <div className="mt-4">
-              <button
-                onClick={() => {
-                  const rows = [
-                    ["Property", "Total Leads", "Active", "Tours", "Won", "Conversion Rate"],
-                    ...properties.map(p => {
-                      const active = p.leads.filter(l => !["won","lost"].includes(l.status)).length;
-                      const tours = p.leads.filter(l => l.status === "tour_scheduled").length;
-                      const won = p.leads.filter(l => l.status === "won").length;
-                      const conv = p.leads.length === 0 ? "0%" : `${Math.round((won / p.leads.length) * 100)}%`;
-                      return [p.name, p.leads.length, active, tours, won, conv];
-                    }),
-                  ];
-                  const csv = rows.map(r => r.join(",")).join("\n");
-                  const blob = new Blob([csv], { type: "text/csv" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `leaseup_report_${new Date().toISOString().slice(0, 10)}.csv`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-                className="rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] transition-colors"
-              >
-                Export CSV
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+          )}
+        </div>
+
+        {/* Property Health */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+          <p className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">Properties — Occupancy</p>
+          {loading
+            ? <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+            : data && data.properties.length > 0
+            ? (
+              <div className="space-y-2">
+                {data.properties.map((p) => {
+                  const occ = p.total_units > 0 ? Math.round((p.occupied_units / p.total_units) * 100) : null;
+                  return (
+                    <Link key={p.id} href={`/properties/${p.id}`}
+                      className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-gray-50 dark:hover:bg-white/5">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${
+                        occ === null ? "bg-gray-100 text-gray-400 dark:bg-white/10"
+                        : occ >= 90  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : occ >= 75  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                      }`}>{occ !== null ? `${occ}%` : "—"}</div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{p.name}</p>
+                        <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                          {occ !== null && <div className={`h-full rounded-full ${occ >= 90 ? "bg-green-500" : occ >= 75 ? "bg-amber-400" : "bg-red-400"}`} style={{ width: `${occ}%` }} />}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )
+            : <p className="py-6 text-center text-sm text-gray-400">No properties yet.</p>}
+        </div>
+
+        {/* AI Stats */}
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+          <p className="mb-4 text-sm font-semibold text-gray-900 dark:text-gray-100">AI Performance — 30 Days</p>
+          {loading
+            ? <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
+            : data
+            ? (
+              <div className="space-y-2.5">
+                {[
+                  { label: "AI Replies Sent",  value: fmt(data.aiReplies),   icon: "💬", color: "bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400" },
+                  { label: "Tours Booked",      value: fmt(data.toursBooked), icon: "📅", color: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400" },
+                  { label: "Human Takeovers",   value: fmt(data.humanTakes),  icon: "👤", color: "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400" },
+                  { label: "Leases Converted",  value: fmt(data.wonLeads),    icon: "🎉", color: "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400" },
+                ].map((s) => (
+                  <div key={s.label} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${s.color}`}>
+                    <span className="text-lg">{s.icon}</span>
+                    <p className="flex-1 text-xs font-medium opacity-80">{s.label}</p>
+                    <p className="text-xl font-bold">{s.value}</p>
+                  </div>
+                ))}
+                {data.aiReplies > 0 && (
+                  <div className="mt-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-2.5 dark:border-violet-900/20 dark:bg-violet-900/10">
+                    <p className="text-xs leading-relaxed text-violet-700 dark:text-violet-400">
+                      LUB AI handled <strong>{fmt(data.aiReplies)}</strong> conversations automatically — saving ~<strong>{Math.round(data.aiReplies * 4)} minutes</strong> of manual follow-up.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+            : null}
+        </div>
+      </div>
     </div>
   );
 }

@@ -16,6 +16,28 @@ interface Renewal {
   property_id: string;
   property_name: string;
   urgency: "critical" | "warning" | "upcoming";
+  flightRisk?: "high" | "medium" | "low";
+  flightScore?: number;
+}
+
+function computeFlightRisk(r: Omit<Renewal, "flightRisk" | "flightScore">): { risk: "high" | "medium" | "low"; score: number } {
+  let score = 0;
+  // Days left — closer to end = higher risk
+  if (r.days_left <= 30)      score += 45;
+  else if (r.days_left <= 60) score += 25;
+  else                        score += 10;
+  // Higher rent = more likely to shop around
+  if (r.monthly_rent && r.monthly_rent >= 2500) score += 20;
+  else if (r.monthly_rent && r.monthly_rent >= 1800) score += 10;
+  // Unit type — larger units have more options
+  if (r.unit_type === "3br" || r.unit_type === "4br") score += 15;
+  else if (r.unit_type === "2br") score += 8;
+  // Missing resident name = likely not engaged
+  if (!r.current_resident) score += 10;
+  return {
+    score,
+    risk: score >= 60 ? "high" : score >= 35 ? "medium" : "low",
+  };
 }
 
 type SendState = "idle" | "generating" | "preview" | "sending" | "sent" | "error";
@@ -45,8 +67,16 @@ function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-gray-100 dark:bg-white/5 ${className ?? ""}`} />;
 }
 
+const FLIGHT_RISK_STYLE = {
+  high:   { badge: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",   label: "High Flight Risk",   dot: "bg-red-500" },
+  medium: { badge: "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400", label: "Medium Risk", dot: "bg-amber-500" },
+  low:    { badge: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400", label: "Low Risk",    dot: "bg-green-500" },
+};
+
 function RenewalRow({ renewal, onSend }: { renewal: Renewal; onSend: (r: Renewal) => void }) {
   const leaseDate = new Date(renewal.lease_end).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const fr = renewal.flightRisk ?? "low";
+  const frStyle = FLIGHT_RISK_STYLE[fr];
 
   return (
     <div className={`rounded-xl border bg-white p-4 shadow-sm dark:bg-[#1C1F2E] transition-colors ${
@@ -62,29 +92,32 @@ function RenewalRow({ renewal, onSend }: { renewal: Renewal; onSend: (r: Renewal
               {renewal.unit_type && <span className="text-gray-400 font-normal"> ({renewal.unit_type})</span>}
             </p>
             <UrgencyBadge urgency={renewal.urgency} daysLeft={renewal.days_left} />
+            {fr !== "low" && (
+              <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${frStyle.badge}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${frStyle.dot}`} />
+                {frStyle.label}
+              </span>
+            )}
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {renewal.property_name}
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{renewal.property_name}</p>
           <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-gray-400 dark:text-gray-500">
             <span>Expires <strong className="text-gray-600 dark:text-gray-300">{leaseDate}</strong></span>
             {renewal.monthly_rent && (
               <span>Rent <strong className="text-gray-600 dark:text-gray-300">${renewal.monthly_rent.toLocaleString()}/mo</strong></span>
             )}
+            {renewal.flightScore !== undefined && (
+              <span>Risk score <strong className={renewal.flightScore >= 60 ? "text-red-600" : renewal.flightScore >= 35 ? "text-amber-600" : "text-green-600"}>{renewal.flightScore}/100</strong></span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href={`/properties/${renewal.property_id}`}
-            className="rounded-lg border border-gray-200 dark:border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-          >
+          <Link href={`/properties/${renewal.property_id}`}
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5 transition-colors">
             View Property
           </Link>
-          <button
-            onClick={() => onSend(renewal)}
+          <button onClick={() => onSend(renewal)}
             className="rounded-lg bg-[#C8102E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors"
-            style={{ boxShadow: "0 2px 8px rgba(200,16,46,0.2)" }}
-          >
+            style={{ boxShadow: "0 2px 8px rgba(200,16,46,0.2)" }}>
             Send Renewal →
           </button>
         </div>
@@ -259,7 +292,7 @@ export default function RenewalsPage() {
   const router = useRouter();
   const [renewals, setRenewals]   = useState<Renewal[]>([]);
   const [loading, setLoading]     = useState(true);
-  const [filter, setFilter]       = useState<"all" | "critical" | "warning" | "upcoming">("all");
+  const [filter, setFilter]       = useState<"all" | "critical" | "warning" | "upcoming" | "flight_risk">("all");
   const [sendFlow, setSendFlow]   = useState<SendFlow | null>(null);
   const [sentIds, setSentIds]     = useState<Set<string>>(new Set());
 
@@ -271,7 +304,11 @@ export default function RenewalsPage() {
         if (!email) { router.push("/setup"); return; }
         const res = await fetch(`/api/renewals?email=${encodeURIComponent(email)}`);
         const json = await res.json();
-        setRenewals(json.renewals ?? []);
+        const enriched: Renewal[] = (json.renewals ?? []).map((r: Renewal) => {
+          const { risk, score } = computeFlightRisk(r);
+          return { ...r, flightRisk: risk, flightScore: score };
+        });
+        setRenewals(enriched);
       } finally {
         setLoading(false);
       }
@@ -292,13 +329,15 @@ export default function RenewalsPage() {
 
   const filtered = renewals.filter(r => {
     if (sentIds.has(r.id)) return false;
+    if (filter === "flight_risk") return r.flightRisk === "high";
     return filter === "all" || r.urgency === filter;
   });
 
   const counts = {
-    critical: renewals.filter(r => r.urgency === "critical" && !sentIds.has(r.id)).length,
-    warning:  renewals.filter(r => r.urgency === "warning"  && !sentIds.has(r.id)).length,
-    upcoming: renewals.filter(r => r.urgency === "upcoming" && !sentIds.has(r.id)).length,
+    critical:    renewals.filter(r => r.urgency === "critical"  && !sentIds.has(r.id)).length,
+    warning:     renewals.filter(r => r.urgency === "warning"   && !sentIds.has(r.id)).length,
+    upcoming:    renewals.filter(r => r.urgency === "upcoming"  && !sentIds.has(r.id)).length,
+    flight_risk: renewals.filter(r => r.flightRisk === "high"  && !sentIds.has(r.id)).length,
   };
 
   return (
@@ -340,13 +379,33 @@ export default function RenewalsPage() {
           </div>
         )}
 
+        {/* Flight risk banner */}
+        {!loading && counts.flight_risk > 0 && (
+          <div className="mb-5 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900/40 dark:bg-red-900/10">
+            <span className="shrink-0 text-lg">🚨</span>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-800 dark:text-red-300">
+                {counts.flight_risk} high flight-risk tenant{counts.flight_risk !== 1 ? "s" : ""} identified
+              </p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                These residents are statistically most likely to leave. Reach out with a personalized offer before they sign elsewhere.
+              </p>
+            </div>
+            <button onClick={() => setFilter("flight_risk")}
+              className="shrink-0 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 transition-colors">
+              View →
+            </button>
+          </div>
+        )}
+
         {/* Filter tabs */}
-        <div className="mb-4 flex gap-2">
+        <div className="mb-4 flex flex-wrap gap-2">
           {([
-            { key: "all",      label: `All (${renewals.filter(r => !sentIds.has(r.id)).length})` },
-            { key: "critical", label: `≤30 days (${counts.critical})` },
-            { key: "warning",  label: `31–60 days (${counts.warning})` },
-            { key: "upcoming", label: `61–90 days (${counts.upcoming})` },
+            { key: "all",         label: `All (${renewals.filter(r => !sentIds.has(r.id)).length})` },
+            { key: "flight_risk", label: `🚨 High Risk (${counts.flight_risk})` },
+            { key: "critical",    label: `≤30 days (${counts.critical})` },
+            { key: "warning",     label: `31–60 days (${counts.warning})` },
+            { key: "upcoming",    label: `61–90 days (${counts.upcoming})` },
           ] as const).map(f => (
             <button
               key={f.key}

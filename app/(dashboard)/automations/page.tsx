@@ -1,455 +1,511 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Card } from "@/components/ui/Card";
-import { cn } from "@/lib/utils";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { useState, useEffect } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Property { id: string; name: string; }
+type TriggerType = "new_lead" | "no_reply" | "tour_scheduled" | "tour_completed" | "application_submitted" | "lease_expiring";
+type ActionType  = "send_sms" | "send_followup" | "notify_agent" | "mark_hot";
 
-interface OperatorSettings {
-  instantEnabled:   boolean;
-  responseTarget:   number;
-  tone:             string;
-  followupEnabled:  boolean;
-  noReplyMins:      number;
-  tourNudgeEnabled: boolean;
-  noTourHrs:        number;
-  appNudgeEnabled:  boolean;
-  incompleteAppHrs: number;
-  noInventPrice:    boolean;
-  noPromiseAvail:   boolean;
-  alwaysQualify:    boolean;
-  humanEscalate:    boolean;
-  templates: Record<string, string>;
+interface Automation {
+  id: string;
+  name: string;
+  trigger: TriggerType;
+  triggerLabel: string;
+  triggerDetail: string;
+  action: ActionType;
+  actionLabel: string;
+  actionDetail: string;
+  enabled: boolean;
+  runsTotal: number;
+  runLast7d: number;
+  category: "follow_up" | "nurture" | "conversion" | "retention";
+  isCustom?: boolean;
 }
 
-interface PropertySettings {
-  active_special:       string;
-  application_link:     string;
-  tour_window:          string;
-  confirm_availability: boolean;
-  office_hours_only:    boolean;
-}
+// ─── Default automations ──────────────────────────────────────────────────────
 
-const DEFAULT_SETTINGS: OperatorSettings = {
-  instantEnabled: true, responseTarget: 60, tone: "friendly",
-  followupEnabled: true, noReplyMins: 180,
-  tourNudgeEnabled: true, noTourHrs: 48,
-  appNudgeEnabled: false, incompleteAppHrs: 72,
-  noInventPrice: true, noPromiseAvail: true, alwaysQualify: true, humanEscalate: true,
-  templates: {
-    first_response: "Hi {{first_name}}! 👋 Thanks for your interest in {{property_name}}. I'm the AI leasing assistant — I'm here 24/7 to answer questions and help you schedule a tour.\n\nA few quick questions: When are you looking to move? And how many bedrooms do you need?",
-    followup:       "Hey {{first_name}}, just checking in! We still have availability at {{property_name}} and I'd love to help you find the right fit.\n\nWould a tour this week work for you?",
-    tour_reminder:  "Hi {{first_name}}, just a reminder that your tour at {{property_name}} is scheduled for tomorrow at {{tour_time}}.\n\n📍 {{property_address}}\n\nReply CONFIRM to confirm or RESCHEDULE if needed.",
-    app_push:       "{{first_name}}, it was great meeting you! Ready to move forward?\n\n{{application_link}}\n\nIt only takes about 10 minutes!",
+const DEFAULT_AUTOMATIONS: Automation[] = [
+  {
+    id: "auto-1",
+    name: "Instant New Lead Reply",
+    trigger: "new_lead",
+    triggerLabel: "New lead comes in",
+    triggerDetail: "Any inbound SMS or web form submission",
+    action: "send_sms",
+    actionLabel: "AI sends instant reply",
+    actionDetail: "Within 60 seconds — introduces property, asks about move-in date",
+    enabled: true,
+    runsTotal: 0,
+    runLast7d: 0,
+    category: "follow_up",
   },
+  {
+    id: "auto-2",
+    name: "48-Hour No-Reply Follow-Up",
+    trigger: "no_reply",
+    triggerLabel: "No reply in 48 hours",
+    triggerDetail: "Lead contacted but hasn't responded",
+    action: "send_followup",
+    actionLabel: "AI sends follow-up nudge",
+    actionDetail: "Friendly check-in with current availability and special offer",
+    enabled: true,
+    runsTotal: 0,
+    runLast7d: 0,
+    category: "follow_up",
+  },
+  {
+    id: "auto-3",
+    name: "Tour Confirmation Reminder",
+    trigger: "tour_scheduled",
+    triggerLabel: "Tour is scheduled",
+    triggerDetail: "24 hours before the tour time",
+    action: "send_sms",
+    actionLabel: "Send tour reminder SMS",
+    actionDetail: "Confirms the tour, includes address and parking info",
+    enabled: true,
+    runsTotal: 0,
+    runLast7d: 0,
+    category: "conversion",
+  },
+  {
+    id: "auto-4",
+    name: "Post-Tour Application Push",
+    trigger: "tour_completed",
+    triggerLabel: "Tour is completed",
+    triggerDetail: "Same day as the tour (4–6 hours after)",
+    action: "send_sms",
+    actionLabel: "Send application link",
+    actionDetail: "Strikes while the iron is hot — application link + concession if available",
+    enabled: true,
+    runsTotal: 0,
+    runLast7d: 0,
+    category: "conversion",
+  },
+  {
+    id: "auto-5",
+    name: "7-Day Ghosted Lead Recovery",
+    trigger: "no_reply",
+    triggerLabel: "No reply in 7 days",
+    triggerDetail: "Lead has been silent for a full week",
+    action: "send_followup",
+    actionLabel: "AI sends breakup text",
+    actionDetail: "Last-chance message — creates urgency with limited availability",
+    enabled: false,
+    runsTotal: 0,
+    runLast7d: 0,
+    category: "nurture",
+  },
+  {
+    id: "auto-6",
+    name: "Lease Renewal Early Warning",
+    trigger: "lease_expiring",
+    triggerLabel: "Lease expires in 90 days",
+    triggerDetail: "Triggered 90, 60, and 30 days before lease end",
+    action: "send_sms",
+    actionLabel: "Send renewal offer SMS",
+    actionDetail: "Personalized renewal terms with an early-bird incentive",
+    enabled: true,
+    runsTotal: 0,
+    runLast7d: 0,
+    category: "retention",
+  },
+  {
+    id: "auto-7",
+    name: "Hot Lead Agent Alert",
+    trigger: "application_submitted",
+    triggerLabel: "Application submitted",
+    triggerDetail: "Lead fills out rental application",
+    action: "notify_agent",
+    actionLabel: "Alert leasing agent",
+    actionDetail: "Immediate SMS to agent — applicant name, unit, and contact info",
+    enabled: true,
+    runsTotal: 0,
+    runLast7d: 0,
+    category: "conversion",
+  },
+  {
+    id: "auto-8",
+    name: "Referral Ask After Move-In",
+    trigger: "tour_completed",
+    triggerLabel: "Lease signed (move-in)",
+    triggerDetail: "3 days after lease is marked as Won",
+    action: "send_sms",
+    actionLabel: "Ask for referral",
+    actionDetail: "Congratulates new resident, asks if they know anyone looking — converts at 3× cold leads",
+    enabled: false,
+    runsTotal: 0,
+    runLast7d: 0,
+    category: "nurture",
+  },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  follow_up:  "Follow-Up",
+  nurture:    "Nurture",
+  conversion: "Conversion",
+  retention:  "Retention",
 };
 
-const DEFAULT_PROP_SETTINGS: PropertySettings = {
-  active_special: "", application_link: "", tour_window: "9am-6pm",
-  confirm_availability: true, office_hours_only: false,
+const CATEGORY_COLORS: Record<string, string> = {
+  follow_up:  "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400",
+  nurture:    "bg-violet-50 text-violet-700 dark:bg-violet-900/20 dark:text-violet-400",
+  conversion: "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400",
+  retention:  "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+const ACTION_ICONS: Record<ActionType, string> = {
+  send_sms:      "💬",
+  send_followup: "🔁",
+  notify_agent:  "👤",
+  mark_hot:      "🔥",
+};
 
-function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
-  return (
-    <button
-      onClick={onToggle}
-      className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors",
-        enabled ? "bg-[#C8102E]" : "bg-gray-200 dark:bg-white/20"
-      )}
-    >
-      <span className={cn("inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform", enabled ? "translate-x-4" : "translate-x-0")} />
-    </button>
-  );
-}
+// ─── Create Modal ─────────────────────────────────────────────────────────────
 
-function SettingRow({ label, description, children, danger }: {
-  label: string; description?: string; children: React.ReactNode; danger?: boolean;
-}) {
+const TRIGGER_OPTIONS: { value: TriggerType; label: string; detail: string }[] = [
+  { value: "new_lead",            label: "New lead comes in",       detail: "Inbound SMS or web form" },
+  { value: "no_reply",            label: "No reply after X hours",  detail: "Lead went silent" },
+  { value: "tour_scheduled",      label: "Tour scheduled",          detail: "Lead books a tour" },
+  { value: "tour_completed",      label: "Tour completed",          detail: "Tour marked as done" },
+  { value: "application_submitted", label: "Application submitted", detail: "Lead fills out application" },
+  { value: "lease_expiring",      label: "Lease expiring soon",     detail: "90 / 60 / 30 days before end" },
+];
+
+const ACTION_OPTIONS: { value: ActionType; label: string; detail: string }[] = [
+  { value: "send_sms",      label: "Send AI SMS",          detail: "AI drafts and sends a text message" },
+  { value: "send_followup", label: "Send follow-up text",  detail: "Automated follow-up based on context" },
+  { value: "notify_agent",  label: "Alert leasing agent",  detail: "Sends SMS alert to your agent" },
+  { value: "mark_hot",      label: "Flag as hot lead",     detail: "Moves lead to top of priority queue" },
+];
+
+function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (a: Automation) => void }) {
+  const [name, setName]           = useState("");
+  const [trigger, setTrigger]     = useState<TriggerType>("new_lead");
+  const [action, setAction]       = useState<ActionType>("send_sms");
+  const [customMsg, setCustomMsg] = useState("");
+
+  function handleCreate() {
+    if (!name.trim()) return;
+    const triggerOpt = TRIGGER_OPTIONS.find((t) => t.value === trigger)!;
+    const actionOpt  = ACTION_OPTIONS.find((a)  => a.value === action)!;
+    onCreate({
+      id:            `custom-${Date.now()}`,
+      name:          name.trim(),
+      trigger,
+      triggerLabel:  triggerOpt.label,
+      triggerDetail: triggerOpt.detail,
+      action,
+      actionLabel:   actionOpt.label,
+      actionDetail:  customMsg || actionOpt.detail,
+      enabled:       true,
+      runsTotal:     0,
+      runLast7d:     0,
+      category:      "follow_up",
+      isCustom:      true,
+    });
+    onClose();
+  }
+
   return (
-    <div className="flex items-start justify-between gap-6 py-4">
-      <div className="flex-1">
-        <p className={cn("text-sm font-medium", danger ? "text-red-600" : "text-gray-900 dark:text-gray-100")}>{label}</p>
-        {description && <p className="mt-0.5 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{description}</p>}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E]">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100">Create Automation</h2>
+          <button onClick={onClose} className="text-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">×</button>
+        </div>
+        <div className="space-y-5 p-6">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Name</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. 3-Day Silent Lead Recovery"
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Trigger — when should this run?</label>
+            <div className="space-y-2">
+              {TRIGGER_OPTIONS.map((t) => (
+                <button key={t.value} onClick={() => setTrigger(t.value)}
+                  className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
+                    trigger === t.value
+                      ? "border-[#C8102E] bg-[#C8102E]/5 dark:bg-[#C8102E]/10"
+                      : "border-gray-200 hover:border-gray-300 dark:border-white/10"
+                  }`}>
+                  <span className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${trigger === t.value ? "border-[#C8102E] bg-[#C8102E]" : "border-gray-300 dark:border-white/30"}`} />
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{t.label}</p>
+                    <p className="text-xs text-gray-400">{t.detail}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Action — what should happen?</label>
+            <div className="grid grid-cols-2 gap-2">
+              {ACTION_OPTIONS.map((a) => (
+                <button key={a.value} onClick={() => setAction(a.value)}
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    action === a.value
+                      ? "border-[#C8102E] bg-[#C8102E]/5 dark:bg-[#C8102E]/10"
+                      : "border-gray-200 hover:border-gray-300 dark:border-white/10"
+                  }`}>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{ACTION_ICONS[a.value]} {a.label}</p>
+                  <p className="mt-0.5 text-[11px] text-gray-400">{a.detail}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {(action === "send_sms" || action === "send_followup") && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Custom Message Guidance <span className="font-normal text-gray-400">(optional — AI will use this as direction)</span></label>
+              <textarea
+                value={customMsg}
+                onChange={(e) => setCustomMsg(e.target.value)}
+                rows={3}
+                placeholder='e.g. "Mention the rooftop deck and the $500 move-in special. Keep it under 2 sentences."'
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 border-t border-gray-100 px-6 py-4 dark:border-white/5">
+          <button onClick={handleCreate} disabled={!name.trim()}
+            className="flex-1 rounded-xl bg-[#C8102E] py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
+            Create Automation
+          </button>
+          <button onClick={onClose}
+            className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-300">
+            Cancel
+          </button>
+        </div>
       </div>
-      <div className="shrink-0">{children}</div>
     </div>
   );
 }
 
-function NumberInput({ value, onChange, suffix, min = 1, max = 999 }: {
-  value: number; onChange: (v: number) => void; suffix: string; min?: number; max?: number;
+// ─── Automation Card ──────────────────────────────────────────────────────────
+
+function AutomationCard({
+  automation,
+  onToggle,
+  onDelete,
+}: {
+  automation: Automation;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <input type="number" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))}
-        className="w-16 rounded-lg border border-gray-200 px-2.5 py-1.5 text-center text-sm font-semibold text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-100" />
-      <span className="text-xs text-gray-500">{suffix}</span>
+    <div className={`relative flex flex-col gap-4 rounded-2xl border bg-white p-5 shadow-sm transition-all dark:bg-[#1C1F2E] ${
+      automation.enabled
+        ? "border-gray-100 dark:border-white/5"
+        : "border-dashed border-gray-200 opacity-60 dark:border-white/10"
+    }`}>
+      {/* Top row */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{automation.name}</p>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${CATEGORY_COLORS[automation.category]}`}>
+              {CATEGORY_LABELS[automation.category]}
+            </span>
+            {automation.isCustom && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500 dark:bg-white/10 dark:text-gray-400">Custom</span>
+            )}
+          </div>
+        </div>
+
+        {/* Toggle */}
+        <button
+          onClick={() => onToggle(automation.id)}
+          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${automation.enabled ? "bg-[#C8102E]" : "bg-gray-200 dark:bg-white/20"}`}
+        >
+          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${automation.enabled ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+        </button>
+      </div>
+
+      {/* Rule flow */}
+      <div className="flex items-center gap-2 rounded-xl bg-gray-50 p-3 dark:bg-white/5">
+        <div className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">When</p>
+          <p className="mt-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200">{automation.triggerLabel}</p>
+          <p className="text-[10px] text-gray-400">{automation.triggerDetail}</p>
+        </div>
+        <svg className="h-5 w-5 shrink-0 text-[#C8102E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        </svg>
+        <div className="flex-1 rounded-lg border border-[#C8102E]/20 bg-[#C8102E]/5 px-3 py-2 dark:bg-[#C8102E]/10">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#C8102E]">Then</p>
+          <p className="mt-0.5 text-xs font-semibold text-gray-800 dark:text-gray-200">{automation.actionLabel}</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400">{automation.actionDetail}</p>
+        </div>
+      </div>
+
+      {/* Stats + delete */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-4">
+          <div>
+            <p className="text-[10px] text-gray-400">All time</p>
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{automation.runsTotal} runs</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-400">Last 7 days</p>
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{automation.runLast7d} runs</p>
+          </div>
+        </div>
+        {automation.isCustom && (
+          <button onClick={() => onDelete(automation.id)} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+            Delete
+          </button>
+        )}
+      </div>
     </div>
   );
-}
-
-function SelectInput({ value, onChange, options }: {
-  value: string; onChange: (v: string) => void; options: { value: string; label: string }[];
-}) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-[#1C1F2E] dark:text-gray-300">
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-}
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-gray-100 dark:bg-white/5 ${className ?? ""}`} />;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+const STORAGE_KEY = "lub_automations_v1";
+
 export default function AutomationsPage() {
-  const router = useRouter();
-  const [loading, setLoading]               = useState(true);
-  const [saving, setSaving]                 = useState(false);
-  const [savedMsg, setSavedMsg]             = useState("");
-  const [email, setEmail]                   = useState("");
-  const [properties, setProperties]         = useState<Property[]>([]);
-  const [selectedPropId, setSelectedPropId] = useState("__global__");
-  const [settings, setSettings]             = useState<OperatorSettings>(DEFAULT_SETTINGS);
-  const [propSettings, setPropSettings]     = useState<Record<string, PropertySettings>>({});
-  const [activeTemplate, setActiveTemplate] = useState("first_response");
-  const [editingBody, setEditingBody]       = useState(DEFAULT_SETTINGS.templates.first_response);
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [showCreate, setShowCreate]   = useState(false);
+  const [filter, setFilter]           = useState<"all" | "enabled" | "disabled">("all");
 
-  const TEMPLATE_META = [
-    { id: "first_response", label: "First Response",        tag: "Sent within 60s of lead creation" },
-    { id: "followup",       label: "Day 3 Follow-Up",       tag: "Sent if no reply in 3 days" },
-    { id: "tour_reminder",  label: "Tour Reminder",         tag: "Sent 24h before scheduled tour" },
-    { id: "app_push",       label: "Application Push",      tag: "Sent 24h after tour if no app started" },
-  ];
-
-  const currentPropSettings: PropertySettings = selectedPropId === "__global__"
-    ? DEFAULT_PROP_SETTINGS
-    : (propSettings[selectedPropId] ?? DEFAULT_PROP_SETTINGS);
-
-  const updatePropSetting = useCallback((key: keyof PropertySettings, value: unknown) => {
-    if (selectedPropId === "__global__") return;
-    setPropSettings(prev => ({
-      ...prev,
-      [selectedPropId]: { ...(prev[selectedPropId] ?? DEFAULT_PROP_SETTINGS), [key]: value },
-    }));
-  }, [selectedPropId]);
-
+  // Load from localStorage (merge with defaults)
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const email = await getOperatorEmail();
-        if (!email) { router.push("/setup"); return; }
-        setEmail(email);
-
-        const res = await fetch(`/api/automations/settings?email=${encodeURIComponent(email)}`);
-        const json = await res.json();
-
-        if (json.settings) setSettings({ ...DEFAULT_SETTINGS, ...json.settings });
-        if (json.properties?.length) {
-          setProperties(json.properties);
-          setSelectedPropId(json.properties[0].id);
-        }
-        if (json.propertySettings) setPropSettings(json.propertySettings);
-        const firstTemplate = json.settings?.templates?.first_response ?? DEFAULT_SETTINGS.templates.first_response;
-        setEditingBody(firstTemplate);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [router]);
-
-  function selectTemplate(id: string) {
-    // Save current editing body into settings before switching
-    setSettings(prev => ({ ...prev, templates: { ...prev.templates, [activeTemplate]: editingBody } }));
-    setActiveTemplate(id);
-    setEditingBody(settings.templates[id] ?? "");
-  }
-
-  async function saveAll() {
-    if (!email) return;
-    setSaving(true);
     try {
-      // Merge current editing body
-      const finalSettings = { ...settings, templates: { ...settings.templates, [activeTemplate]: editingBody } };
-
-      await fetch("/api/automations/settings", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, settings: finalSettings }),
-      });
-
-      // Save per-property settings
-      for (const [propId, ps] of Object.entries(propSettings)) {
-        await fetch("/api/automations/settings", {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ propertyId: propId, settings: ps }),
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed: Automation[] = JSON.parse(stored);
+        // Merge: keep stored enabled state for defaults, keep all custom
+        const merged = DEFAULT_AUTOMATIONS.map((def) => {
+          const found = parsed.find((p) => p.id === def.id);
+          return found ? { ...def, enabled: found.enabled } : def;
         });
+        const customs = parsed.filter((p) => p.isCustom);
+        setAutomations([...merged, ...customs]);
+      } else {
+        setAutomations(DEFAULT_AUTOMATIONS);
       }
-
-      setSettings(finalSettings);
-      setSavedMsg("Saved!");
-      setTimeout(() => setSavedMsg(""), 2500);
-    } finally {
-      setSaving(false);
+    } catch {
+      setAutomations(DEFAULT_AUTOMATIONS);
     }
+  }, []);
+
+  function save(updated: Automation[]) {
+    setAutomations(updated);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(updated)); } catch {}
   }
 
-  const TONE_OPTS = [
-    { value: "friendly",     label: "Friendly & Warm" },
-    { value: "professional", label: "Professional" },
-    { value: "concise",      label: "Direct & Concise" },
-  ];
+  function toggle(id: string) {
+    save(automations.map((a) => a.id === id ? { ...a, enabled: !a.enabled } : a));
+  }
 
-  const TONE_PREVIEWS: Record<string, string> = {
-    friendly:     "Hey {{first_name}}! 👋 So glad you reached out about {{property_name}}. I'd love to help you find a place you'll actually love living in.",
-    professional: "Hello {{first_name}}, thank you for your inquiry regarding {{property_name}}. I'd be happy to assist you with any questions.",
-    concise:      "Hi {{first_name}} — thanks for reaching out. What's your move-in timeline and how many bedrooms do you need?",
-  };
+  function deleteAuto(id: string) {
+    save(automations.filter((a) => a.id !== id));
+  }
 
-  const TOUR_WINDOWS = [
-    { value: "9am-5pm",  label: "9 AM – 5 PM" },
-    { value: "9am-6pm",  label: "9 AM – 6 PM" },
-    { value: "10am-6pm", label: "10 AM – 6 PM" },
-    { value: "8am-8pm",  label: "8 AM – 8 PM (extended)" },
-  ];
+  function handleCreate(newAuto: Automation) {
+    save([...automations, newAuto]);
+  }
 
-  const set = (key: keyof OperatorSettings) => (value: unknown) =>
-    setSettings(prev => ({ ...prev, [key]: value }));
+  const filtered = automations.filter((a) =>
+    filter === "all" ? true : filter === "enabled" ? a.enabled : !a.enabled
+  );
 
-  const divider = <div className="border-t border-gray-50 dark:border-white/5" />;
+  const enabledCount  = automations.filter((a) => a.enabled).length;
+  const disabledCount = automations.filter((a) => !a.enabled).length;
 
   return (
-    <div className="space-y-8 p-4 lg:p-6">
+    <div className="space-y-6 p-4 lg:p-6">
+
+      {showCreate && <CreateModal onClose={() => setShowCreate(false)} onCreate={handleCreate} />}
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Automation Settings</h1>
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-            Configure how LUB responds to leads, follows up, and converts.
-          </p>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Automations</h1>
+          <p className="mt-0.5 text-sm text-gray-400 dark:text-gray-500">Set rules once — LUB runs them forever</p>
         </div>
         <button
-          onClick={saveAll}
-          disabled={saving || loading}
-          className={cn(
-            "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors",
-            savedMsg ? "bg-green-50 text-green-700" : "bg-[#C8102E] text-white hover:bg-[#A50D25] disabled:opacity-50"
-          )}
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
+          style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
         >
-          {savedMsg || (saving ? "Saving…" : "Save All Changes")}
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Create Automation
         </button>
       </div>
 
-      {loading ? (
-        <div className="space-y-4">
-          {[1,2,3].map(i => <Skeleton key={i} className="h-32 w-full rounded-2xl" />)}
+      {/* Stats banner */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Active",   value: enabledCount,  color: "text-green-600 dark:text-green-400",  bg: "bg-green-50 dark:bg-green-900/20" },
+          { label: "Paused",   value: disabledCount, color: "text-gray-500 dark:text-gray-400",    bg: "bg-gray-100 dark:bg-white/5" },
+          { label: "Total",    value: automations.length, color: "text-gray-900 dark:text-gray-100", bg: "bg-white dark:bg-[#1C1F2E]" },
+        ].map((s) => (
+          <div key={s.label} className={`rounded-2xl border border-gray-100 p-4 shadow-sm dark:border-white/5 ${s.bg}`}>
+            <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{s.label}</p>
+            <p className={`mt-1 text-3xl font-bold ${s.color}`}>{s.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-1 rounded-xl border border-gray-100 bg-gray-50 p-1 dark:border-white/5 dark:bg-white/5 w-fit">
+        {(["all", "enabled", "disabled"] as const).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`rounded-lg px-4 py-1.5 text-xs font-semibold capitalize transition-colors ${
+              filter === f
+                ? "bg-white text-gray-900 shadow-sm dark:bg-white/10 dark:text-gray-100"
+                : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            }`}
+          >
+            {f === "all" ? `All (${automations.length})` : f === "enabled" ? `Active (${enabledCount})` : `Paused (${disabledCount})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Automations grid */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {filtered.map((a) => (
+          <AutomationCard key={a.id} automation={a} onToggle={toggle} onDelete={deleteAuto} />
+        ))}
+      </div>
+
+      {filtered.length === 0 && (
+        <div className="py-12 text-center">
+          <p className="text-sm text-gray-400">No automations in this filter.</p>
         </div>
-      ) : (
-        <>
-          {/* 1. Instant Response */}
-          <Card>
-            <div className="mb-1 flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Instant Response</h2>
-                <p className="mt-0.5 text-xs text-gray-500">AI replies to every new lead within seconds of creation.</p>
-              </div>
-              <Toggle enabled={settings.instantEnabled} onToggle={() => set("instantEnabled")(!settings.instantEnabled)} />
-            </div>
-            <div className={cn("mt-4 divide-y divide-gray-50 transition-opacity", !settings.instantEnabled && "pointer-events-none opacity-40")}>
-              {divider}
-              <SettingRow label="Response target" description="How quickly the AI sends the first message after a lead is created.">
-                <NumberInput value={settings.responseTarget} onChange={set("responseTarget")} suffix="seconds" min={10} max={300} />
-              </SettingRow>
-              {divider}
-              <SettingRow label="AI tone" description="Sets the personality for all AI-generated messages.">
-                <SelectInput value={settings.tone} onChange={set("tone")} options={TONE_OPTS} />
-              </SettingRow>
-              {divider}
-              <div className="py-4">
-                <p className="mb-2 text-xs font-medium text-gray-500">Tone preview</p>
-                <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 dark:border-white/5 dark:bg-white/5">
-                  <p className="text-xs leading-relaxed text-gray-600 italic dark:text-gray-400">"{TONE_PREVIEWS[settings.tone]}"</p>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* 2. Follow-Up Rules */}
-          <Card>
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Follow-Up Rules</h2>
-            <p className="mt-0.5 text-xs text-gray-500">Define when and how the AI re-engages silent or stalled leads.</p>
-            <div className="mt-4 divide-y divide-gray-50">
-              {divider}
-              <SettingRow label="No reply follow-up" description="Send a follow-up if a lead hasn't replied after a set time.">
-                <div className="flex items-center gap-3">
-                  <Toggle enabled={settings.followupEnabled} onToggle={() => set("followupEnabled")(!settings.followupEnabled)} />
-                  <NumberInput value={settings.noReplyMins} onChange={set("noReplyMins")} suffix="min" min={30} max={2880} />
-                </div>
-              </SettingRow>
-              {divider}
-              <SettingRow label="No tour booked nudge" description="Prompt the lead to schedule if they've engaged but haven't booked a tour.">
-                <div className="flex items-center gap-3">
-                  <Toggle enabled={settings.tourNudgeEnabled} onToggle={() => set("tourNudgeEnabled")(!settings.tourNudgeEnabled)} />
-                  <NumberInput value={settings.noTourHrs} onChange={set("noTourHrs")} suffix="hrs" min={12} max={168} />
-                </div>
-              </SettingRow>
-              {divider}
-              <SettingRow label="Incomplete application nudge" description="Re-engage leads who started but haven't completed their application.">
-                <div className="flex items-center gap-3">
-                  <Toggle enabled={settings.appNudgeEnabled} onToggle={() => set("appNudgeEnabled")(!settings.appNudgeEnabled)} />
-                  <div className={cn(!settings.appNudgeEnabled && "opacity-40 pointer-events-none")}>
-                    <NumberInput value={settings.incompleteAppHrs} onChange={set("incompleteAppHrs")} suffix="hrs" min={12} max={168} />
-                  </div>
-                </div>
-              </SettingRow>
-            </div>
-          </Card>
-
-          {/* 3. Property Rules */}
-          <Card>
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Property Leasing Rules</h2>
-            <p className="mt-0.5 text-xs text-gray-500">Per-property overrides. Select a property to configure.</p>
-
-            {properties.length > 0 && (
-              <div className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-white/5 dark:bg-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-500">Editing rules for:</span>
-                  <select
-                    value={selectedPropId}
-                    onChange={(e) => setSelectedPropId(e.target.value)}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-[#1C1F2E] dark:text-gray-100"
-                  >
-                    {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {selectedPropId !== "__global__" && (
-              <div className="mt-4 divide-y divide-gray-50">
-                {divider}
-                <SettingRow label="Active special offer" description="Included automatically in AI's first response and follow-ups.">
-                  <input type="text" value={currentPropSettings.active_special}
-                    onChange={(e) => updatePropSetting("active_special", e.target.value)}
-                    placeholder="e.g. 1 month free on 12-month leases"
-                    className="w-72 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-300" />
-                </SettingRow>
-                {divider}
-                <SettingRow label="Application link" description="The link AI will send when pushing leads to apply.">
-                  <input type="url" value={currentPropSettings.application_link}
-                    onChange={(e) => updatePropSetting("application_link", e.target.value)}
-                    placeholder="https://apply.yourproperty.com"
-                    className="w-72 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-mono text-gray-700 focus:border-gray-400 focus:outline-none dark:border-white/10 dark:bg-white/5 dark:text-gray-300" />
-                </SettingRow>
-                {divider}
-                <SettingRow label="Tour scheduling window" description="AI will only offer tours during these hours.">
-                  <SelectInput value={currentPropSettings.tour_window}
-                    onChange={(v) => updatePropSetting("tour_window", v)} options={TOUR_WINDOWS} />
-                </SettingRow>
-                {divider}
-                <SettingRow label="Confirm before showing availability" description="AI checks with you before confirming specific unit availability.">
-                  <Toggle enabled={currentPropSettings.confirm_availability}
-                    onToggle={() => updatePropSetting("confirm_availability", !currentPropSettings.confirm_availability)} />
-                </SettingRow>
-                {divider}
-                <SettingRow label="Reply outside office hours" description="If disabled, AI holds replies until the next business day.">
-                  <div className="flex items-center gap-2">
-                    <Toggle enabled={!currentPropSettings.office_hours_only}
-                      onToggle={() => updatePropSetting("office_hours_only", !currentPropSettings.office_hours_only)} />
-                    <span className="text-xs text-gray-500">{currentPropSettings.office_hours_only ? "Office hours only" : "24/7 AI replies"}</span>
-                  </div>
-                </SettingRow>
-              </div>
-            )}
-          </Card>
-
-          {/* 4. Message Templates */}
-          <Card>
-            <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Message Templates</h2>
-            <p className="mt-0.5 text-xs text-gray-500">
-              Customize the AI's outgoing messages. Use <code className="rounded bg-gray-100 px-1 font-mono text-[11px] dark:bg-white/10">{"{{variable}}"}</code> for dynamic fields.
-            </p>
-
-            <div className="mt-4 flex gap-4">
-              <div className="w-48 shrink-0 space-y-1">
-                {TEMPLATE_META.map((t) => (
-                  <button key={t.id} onClick={() => selectTemplate(t.id)}
-                    className={cn(
-                      "w-full rounded-lg px-3 py-2.5 text-left transition-colors",
-                      activeTemplate === t.id ? "bg-gray-900 text-white dark:bg-white/10" : "text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5"
-                    )}>
-                    <p className={cn("text-xs font-medium", activeTemplate === t.id ? "text-white" : "text-gray-900 dark:text-gray-100")}>{t.label}</p>
-                    <p className="mt-0.5 text-[10px] leading-tight text-gray-400">{t.tag}</p>
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex-1">
-                <div className="mb-2 flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-gray-900 dark:text-gray-100">{TEMPLATE_META.find(t => t.id === activeTemplate)?.label}</p>
-                    <p className="text-[11px] text-gray-400">{TEMPLATE_META.find(t => t.id === activeTemplate)?.tag}</p>
-                  </div>
-                </div>
-                <textarea value={editingBody} onChange={(e) => setEditingBody(e.target.value)} rows={7}
-                  className="w-full rounded-xl border border-gray-200 p-4 text-xs leading-relaxed text-gray-700 focus:border-gray-400 focus:outline-none resize-none font-mono dark:border-white/10 dark:bg-white/5 dark:text-gray-300" />
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {["{{first_name}}", "{{property_name}}", "{{tour_time}}", "{{application_link}}", "{{property_address}}"].map((v) => (
-                    <button key={v} onClick={() => setEditingBody(b => b + v)}
-                      className="rounded bg-gray-100 px-2 py-0.5 font-mono text-[10px] text-gray-600 hover:bg-gray-200 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/20">
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* 5. Safety Guardrails */}
-          <Card>
-            <div className="mb-1 flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Safety & Guardrails</h2>
-              <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-900/20 dark:text-violet-400">
-                Recommended: all on
-              </span>
-            </div>
-            <p className="text-xs text-gray-500">Hard rules governing what the AI is allowed to say.</p>
-            <div className="mt-4 divide-y divide-gray-50">
-              {[
-                { key: "noInventPrice" as const,  label: "Never invent pricing",           description: "AI will not quote specific rents unless configured in property settings." },
-                { key: "noPromiseAvail" as const, label: "Never promise availability",      description: "AI will not confirm a specific unit is available without synced data." },
-                { key: "alwaysQualify" as const,  label: "Always ask qualifying questions", description: "AI collects move-in timeline, bedroom count, and budget before offering a tour." },
-                { key: "humanEscalate" as const,  label: "Escalate to human if requested",  description: "If a lead asks to speak to a person, AI will offer to connect them with an agent." },
-              ].map((g) => (
-                <div key={g.key}>
-                  {divider}
-                  <SettingRow label={g.label} description={g.description}>
-                    <Toggle enabled={settings[g.key] as boolean} onToggle={() => set(g.key)(!settings[g.key])} />
-                  </SettingRow>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-xs leading-relaxed text-violet-700 dark:border-violet-900/30 dark:bg-violet-900/10 dark:text-violet-400">
-              <span className="font-semibold">Note:</span> These guardrails apply across all properties and cannot be overridden per-property.
-            </div>
-          </Card>
-        </>
       )}
+
+      {/* Info banner */}
+      <div className="rounded-2xl border border-[#C8102E]/15 bg-[#C8102E]/5 p-5 dark:bg-[#C8102E]/10">
+        <div className="flex gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C8102E]/10">
+            <svg className="h-5 w-5 text-[#C8102E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">How automations work</p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+              Every automation runs against your live lead and tenant data. When a trigger fires, LUB AI crafts the message using real context — the lead&apos;s name, the property they inquired about, your active specials, and their place in the pipeline. You set the rule once. LUB handles every lead from that point forward, 24/7.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
