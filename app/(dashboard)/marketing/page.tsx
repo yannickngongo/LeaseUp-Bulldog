@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -32,23 +33,27 @@ interface Campaign {
   created_at: string;
   leads_generated: number;
   variations: AdVariation[];
+  imageUrl?: string;
+}
+
+interface BudgetForecast {
+  impressions: number;
+  clicks: number;
+  leads: number;
+  conversions_with_lub: number;
+  conversions_without_lub: number;
+  cost_per_lead: number;
+  cost_per_move_in: number;
+  occupancy_impact_pct: number;
+  new_occupancy_pct: number;
+  days_to_90pct: number | null;
+  reach_90pct_date: string | null;
+  summary: string;
 }
 
 interface OfferLabResult {
-  scores: {
-    offerStrength: number;
-    marketCompetitiveness: number;
-    leadAttraction: number;
-    conversionPotential: number;
-    overall: number;
-    explanation: string;
-  };
-  recommendation: {
-    improvedSpecial: string;
-    improvedMessagingAngle: string;
-    suggestedPositioning: string;
-    reasoning: string;
-  };
+  scores: { offerStrength: number; marketCompetitiveness: number; leadAttraction: number; conversionPotential: number; overall: number; explanation: string };
+  recommendation: { improvedSpecial: string; improvedMessagingAngle: string; suggestedPositioning: string; reasoning: string };
   simulation: {
     userVersion: { expectedLeadIncreasePct: number; expectedApplicationRatePct: number; expectedLeaseConversionPct: number; estimatedOccupancyImpact: number };
     aiVersion:   { expectedLeadIncreasePct: number; expectedApplicationRatePct: number; expectedLeaseConversionPct: number; estimatedOccupancyImpact: number };
@@ -102,26 +107,16 @@ const STATUS_LABELS: Record<CampaignStatus, string> = {
   completed:        "Completed",
 };
 
-const CHANNEL_ICONS: Record<AdChannel, string> = { facebook: "f", google: "G", instagram: "in" };
 const CHANNEL_COLORS: Record<AdChannel, string> = { facebook: "bg-blue-600", google: "bg-red-500", instagram: "bg-pink-600" };
+const CHANNEL_ICONS: Record<AdChannel, string>  = { facebook: "f", google: "G", instagram: "in" };
 
-function scoreColor(n: number) {
-  if (n >= 70) return "bg-green-500";
-  if (n >= 40) return "bg-amber-400";
-  return "bg-red-400";
-}
-function scoreText(n: number) {
-  if (n >= 70) return "text-green-600 dark:text-green-400";
-  if (n >= 40) return "text-amber-600 dark:text-amber-400";
-  return "text-red-600 dark:text-red-400";
-}
-function impactArrow(n: number) {
-  if (n > 0) return { arrow: "↑", cls: "text-green-600 dark:text-green-400" };
-  if (n < 0) return { arrow: "↓", cls: "text-red-500 dark:text-red-400" };
-  return { arrow: "→", cls: "text-gray-400" };
-}
+function scoreColor(n: number) { return n >= 70 ? "bg-green-500" : n >= 40 ? "bg-amber-400" : "bg-red-400"; }
+function scoreText(n: number)  { return n >= 70 ? "text-green-600 dark:text-green-400" : n >= 40 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"; }
+function impactArrow(n: number) { return n > 0 ? { arrow: "↑", cls: "text-green-600 dark:text-green-400" } : n < 0 ? { arrow: "↓", cls: "text-red-500 dark:text-red-400" } : { arrow: "→", cls: "text-gray-400" }; }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+function fmt(n: number) { return n.toLocaleString(); }
+
+// ─── Channel Badge ────────────────────────────────────────────────────────────
 
 function ChannelBadge({ channel }: { channel: AdChannel }) {
   return (
@@ -130,6 +125,532 @@ function ChannelBadge({ channel }: { channel: AdChannel }) {
     </span>
   );
 }
+
+// ─── Ad Preview Components ────────────────────────────────────────────────────
+
+function PropertyImagePlaceholder({ propertyName }: { propertyName: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-2 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
+      <svg className="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 22V12h6v10" />
+      </svg>
+      <p className="text-[10px] text-gray-400 text-center px-2">{propertyName}</p>
+    </div>
+  );
+}
+
+function FacebookAdPreview({ variation, propertyName, imageUrl }: { variation: AdVariation; propertyName: string; imageUrl?: string }) {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm text-left">
+      <div className="flex items-center gap-2.5 px-3 py-2.5 bg-white">
+        <div className="h-9 w-9 shrink-0 rounded-full bg-[#C8102E] flex items-center justify-center">
+          <span className="text-white text-[10px] font-bold">LUB</span>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-gray-900 leading-none">{propertyName}</p>
+          <div className="flex items-center gap-1 mt-0.5">
+            <p className="text-[9px] text-gray-500">Sponsored</p>
+            <span className="text-[9px] text-gray-300">·</span>
+            <svg className="h-2.5 w-2.5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+        </div>
+      </div>
+      <p className="px-3 pb-2 text-[11px] text-gray-800 leading-relaxed line-clamp-2">{variation.primary_text}</p>
+      <div className="relative h-36 overflow-hidden">
+        {imageUrl
+          ? <img src={imageUrl} alt="Property" className="w-full h-full object-cover" />
+          : <PropertyImagePlaceholder propertyName={propertyName} />
+        }
+        <div className={`absolute bottom-2 right-2 rounded px-1.5 py-0.5 text-[9px] font-bold text-white ${CHANNEL_COLORS[variation.channel]}`}>
+          Facebook
+        </div>
+      </div>
+      <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-3 py-2">
+        <div className="min-w-0 flex-1 mr-2">
+          <p className="text-[9px] text-gray-400 uppercase tracking-wide truncate">{propertyName.toLowerCase()}</p>
+          <p className="text-xs font-bold text-gray-900 line-clamp-1">{variation.headline}</p>
+        </div>
+        <button className="shrink-0 rounded bg-[#1877F2] px-2.5 py-1 text-[10px] font-bold text-white whitespace-nowrap">
+          {variation.cta}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InstagramAdPreview({ variation, propertyName, imageUrl }: { variation: AdVariation; propertyName: string; imageUrl?: string }) {
+  const handle = propertyName.toLowerCase().replace(/\s+/g, "_");
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm text-left">
+      <div className="flex items-center justify-between px-3 py-2 bg-white">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[2px]">
+            <div className="h-full w-full rounded-full bg-[#C8102E] flex items-center justify-center">
+              <span className="text-white text-[8px] font-bold">LUB</span>
+            </div>
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold text-gray-900 leading-none">{handle}</p>
+            <p className="text-[9px] text-gray-400">Sponsored</p>
+          </div>
+        </div>
+        <span className="text-gray-400 text-sm leading-none">•••</span>
+      </div>
+      <div className="relative aspect-square overflow-hidden">
+        {imageUrl
+          ? <img src={imageUrl} alt="Property" className="w-full h-full object-cover" />
+          : <PropertyImagePlaceholder propertyName={propertyName} />
+        }
+      </div>
+      <div className="px-3 pt-2 pb-1 flex items-center gap-3">
+        <svg className="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+        <svg className="h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+      </div>
+      <div className="px-3 pb-3">
+        <p className="text-[11px] text-gray-800 leading-relaxed line-clamp-2">
+          <span className="font-semibold">{handle} </span>{variation.primary_text}
+        </p>
+        <button className="mt-2 w-full rounded-lg bg-[#C8102E] py-1.5 text-[10px] font-bold text-white">
+          {variation.cta} →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GoogleAdPreview({ variation, propertyName }: { variation: AdVariation; propertyName: string }) {
+  const slug = propertyName.toLowerCase().replace(/\s+/g, "-");
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm text-left">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="h-4 w-4 rounded-full bg-gradient-to-br from-blue-500 via-red-500 to-yellow-400 flex items-center justify-center">
+          <span className="text-white text-[6px] font-bold">G</span>
+        </div>
+        <span className="text-[10px] text-gray-500">Google</span>
+        <span className="rounded border border-green-600 px-1 text-[8px] font-semibold text-green-700 ml-1">Sponsored</span>
+      </div>
+      <p className="text-[10px] text-gray-500 mb-1">apartment-rentals.com/{slug}</p>
+      <p className="text-sm font-semibold text-[#1a0dab] hover:underline cursor-pointer line-clamp-1">{variation.headline}</p>
+      <p className="text-[11px] text-gray-600 mt-1 leading-relaxed line-clamp-3">{variation.primary_text}</p>
+      <div className="mt-2 flex gap-3 flex-wrap">
+        <span className="text-[10px] text-[#1a0dab] hover:underline cursor-pointer">{variation.cta}</span>
+        <span className="text-[10px] text-[#1a0dab] hover:underline cursor-pointer">Floor Plans</span>
+        <span className="text-[10px] text-[#1a0dab] hover:underline cursor-pointer">Schedule Tour</span>
+      </div>
+    </div>
+  );
+}
+
+function AdPreviewCard({ variation, propertyName, imageUrl }: { variation: AdVariation; propertyName: string; imageUrl?: string }) {
+  if (variation.channel === "instagram") return <InstagramAdPreview variation={variation} propertyName={propertyName} imageUrl={imageUrl} />;
+  if (variation.channel === "google")    return <GoogleAdPreview variation={variation} propertyName={propertyName} />;
+  return <FacebookAdPreview variation={variation} propertyName={propertyName} imageUrl={imageUrl} />;
+}
+
+// ─── Budget Forecast Panel ────────────────────────────────────────────────────
+
+function BudgetForecastPanel({
+  campaignId,
+  propertyName,
+  channel,
+  currentOccupancyPct,
+  vacantUnits,
+  totalUnits,
+  city,
+  state,
+  budget,
+  durationDays,
+}: {
+  campaignId: string;
+  propertyName: string;
+  channel: AdChannel;
+  currentOccupancyPct: number;
+  vacantUnits: number;
+  totalUnits: number;
+  city: string;
+  state: string;
+  budget: number;
+  durationDays: number;
+}) {
+  const [forecast, setForecast] = useState<BudgetForecast | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState<string | null>(null);
+  const prevKey = useRef("");
+
+  useEffect(() => {
+    if (!budget || !durationDays || !totalUnits) return;
+    const key = `${campaignId}-${budget}-${durationDays}-${channel}`;
+    if (key === prevKey.current) return;
+    prevKey.current = key;
+
+    setLoading(true);
+    setError(null);
+    fetch("/api/campaigns/budget-forecast", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        budget,
+        duration_days:         durationDays,
+        channel,
+        current_occupancy_pct: currentOccupancyPct,
+        vacant_units:          vacantUnits,
+        total_units:           totalUnits,
+        city,
+        state,
+        property_name:         propertyName,
+      }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok) setForecast(d.forecast);
+        else setError("Forecast failed. Try again.");
+      })
+      .catch(() => setError("Network error."))
+      .finally(() => setLoading(false));
+  }, [budget, durationDays, channel, campaignId, currentOccupancyPct, vacantUnits, totalUnits, city, state, propertyName]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl bg-gray-50 dark:bg-white/5 px-4 py-5">
+        <div className="h-5 w-5 rounded-full border-2 border-[#C8102E]/20 border-t-[#C8102E] animate-spin shrink-0" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">AI is calculating your forecast…</p>
+      </div>
+    );
+  }
+  if (error) return <p className="text-xs text-red-500 px-1">{error}</p>;
+  if (!forecast) return null;
+
+  return (
+    <div className="rounded-xl border border-[#C8102E]/20 bg-[#C8102E]/5 dark:bg-[#C8102E]/10 overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[#C8102E]/10">
+        <div className="h-5 w-5 rounded-full bg-[#C8102E] flex items-center justify-center">
+          <span className="text-white text-[9px] font-bold">AI</span>
+        </div>
+        <p className="text-xs font-semibold text-[#C8102E]">LUB Forecast — ${budget} over {durationDays} days</p>
+      </div>
+
+      {/* Key metrics */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-[#C8102E]/10">
+        {[
+          { label: "People Reached",    value: fmt(forecast.impressions),             sub: "impressions"          },
+          { label: "Leads Generated",   value: fmt(forecast.leads),                   sub: "inquiries"            },
+          { label: "Move-ins with LUB", value: fmt(forecast.conversions_with_lub),    sub: `vs ${fmt(forecast.conversions_without_lub)} without` },
+          { label: "Cost per Move-in",  value: `$${forecast.cost_per_move_in.toFixed(0)}`, sub: `$${forecast.cost_per_lead.toFixed(0)}/lead` },
+        ].map(m => (
+          <div key={m.label} className="px-4 py-3 text-center">
+            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{m.value}</p>
+            <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">{m.label}</p>
+            <p className="text-[9px] text-gray-400">{m.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Occupancy impact */}
+      <div className="border-t border-[#C8102E]/10 px-4 py-3 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-bold text-[#C8102E]">+{forecast.occupancy_impact_pct.toFixed(1)}%</span>
+          <div>
+            <p className="text-[10px] font-semibold text-gray-700 dark:text-gray-300">Occupancy gain</p>
+            <p className="text-[10px] text-gray-400">{forecast.new_occupancy_pct.toFixed(1)}% after campaign</p>
+          </div>
+        </div>
+        {forecast.reach_90pct_date && (
+          <div className="flex items-center gap-2 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-3 py-1.5">
+            <svg className="h-3.5 w-3.5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <p className="text-[10px] font-bold text-green-700 dark:text-green-400">Reach 90% by</p>
+              <p className="text-xs font-bold text-green-800 dark:text-green-300">
+                {new Date(forecast.reach_90pct_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Summary */}
+      <div className="border-t border-[#C8102E]/10 px-4 py-3">
+        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{forecast.summary}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Launch Modal ─────────────────────────────────────────────────────────────
+
+function LaunchModal({
+  campaign,
+  imageUrl,
+  onClose,
+  onLaunched,
+}: {
+  campaign: Campaign;
+  imageUrl?: string;
+  onClose: () => void;
+  onLaunched: (campaignId: string) => void;
+}) {
+  const [step, setStep] = useState<"setup" | "payment">("setup");
+  const [budget, setBudget]           = useState(50);
+  const [durationDays, setDurationDays] = useState(14);
+  const [channel, setChannel]         = useState<AdChannel>(campaign.recommended_channels[0] ?? "facebook");
+  const [property, setProperty]       = useState<{ city: string; state: string; total_units: number; occupied_units: number } | null>(null);
+  const [cardName, setCardName]       = useState("");
+  const [cardNumber, setCardNumber]   = useState("");
+  const [cardExpiry, setCardExpiry]   = useState("");
+  const [cardCvc, setCardCvc]         = useState("");
+  const [launching, setLaunching]     = useState(false);
+  const [launched, setLaunched]       = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/properties/${campaign.property_id}`)
+      .then(r => r.json())
+      .then(d => {
+        const p = d.property ?? d;
+        setProperty({ city: p.city, state: p.state, total_units: p.total_units ?? 0, occupied_units: p.occupied_units ?? 0 });
+      })
+      .catch(() => {});
+  }, [campaign.property_id]);
+
+  const vacantUnits   = property ? (property.total_units - property.occupied_units) : 0;
+  const currentOccPct = property && property.total_units > 0 ? Math.round((property.occupied_units / property.total_units) * 100) : 0;
+
+  const DURATION_OPTIONS = [7, 14, 30, 60];
+
+  async function handleLaunch() {
+    if (!cardName || !cardNumber || !cardExpiry || !cardCvc) return;
+    setLaunching(true);
+    await new Promise(r => setTimeout(r, 1800));
+    setLaunching(false);
+    setLaunched(true);
+    setTimeout(() => { onLaunched(campaign.id); onClose(); }, 1500);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 overflow-y-auto">
+      <div className="w-full max-w-2xl rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E] my-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
+          <div>
+            <h2 className="font-bold text-gray-900 dark:text-gray-100">Launch Campaign</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{campaign.property}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">×</button>
+        </div>
+
+        {launched ? (
+          <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600 text-2xl dark:bg-green-900/30 dark:text-green-400">✓</div>
+            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">Campaign Launched!</p>
+            <p className="text-sm text-gray-500">Your ad is now live on {channel}. LUB will qualify every lead automatically.</p>
+          </div>
+        ) : (
+          <div className="p-6 space-y-6">
+            {/* Step 1: Setup */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">1. Campaign Setup</p>
+
+              {/* Channel */}
+              <div className="mb-4">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Ad Platform</label>
+                <div className="flex gap-2">
+                  {(["facebook", "instagram", "google"] as AdChannel[]).map(ch => (
+                    <button
+                      key={ch}
+                      onClick={() => setChannel(ch)}
+                      className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                        channel === ch
+                          ? "border-[#C8102E] bg-[#C8102E]/5 text-[#C8102E] dark:bg-[#C8102E]/10"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-white/10 dark:text-gray-400"
+                      }`}
+                    >
+                      <span className={`h-4 w-6 rounded text-[9px] font-bold text-white flex items-center justify-center ${CHANNEL_COLORS[ch]}`}>
+                        {CHANNEL_ICONS[ch]}
+                      </span>
+                      {ch.charAt(0).toUpperCase() + ch.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Budget */}
+              <div className="mb-4">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Total Budget</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-500">$</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={budget}
+                    onChange={e => setBudget(Math.max(1, Number(e.target.value)))}
+                    className="w-full rounded-lg border border-gray-200 bg-white pl-7 pr-4 py-2.5 text-sm font-semibold dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
+                  />
+                </div>
+                <div className="mt-2 flex gap-2">
+                  {[5, 25, 50, 100, 250, 500].map(v => (
+                    <button
+                      key={v}
+                      onClick={() => setBudget(v)}
+                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        budget === v
+                          ? "border-[#C8102E] bg-[#C8102E]/5 text-[#C8102E]"
+                          : "border-gray-200 text-gray-500 hover:border-gray-300 dark:border-white/10"
+                      }`}
+                    >
+                      ${v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Duration */}
+              <div className="mb-4">
+                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Campaign Duration</label>
+                <div className="flex gap-2">
+                  {DURATION_OPTIONS.map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setDurationDays(d)}
+                      className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                        durationDays === d
+                          ? "border-[#C8102E] bg-[#C8102E]/5 text-[#C8102E]"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300 dark:border-white/10 dark:text-gray-400"
+                      }`}
+                    >
+                      {d} days
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[11px] text-gray-400">≈ ${(budget / durationDays).toFixed(2)}/day</p>
+              </div>
+
+              {/* AI Forecast */}
+              {property && (
+                <BudgetForecastPanel
+                  campaignId={campaign.id}
+                  propertyName={campaign.property}
+                  channel={channel}
+                  currentOccupancyPct={currentOccPct}
+                  vacantUnits={vacantUnits}
+                  totalUnits={property.total_units}
+                  city={property.city}
+                  state={property.state}
+                  budget={budget}
+                  durationDays={durationDays}
+                />
+              )}
+            </div>
+
+            {/* Step 2: Payment */}
+            <div className="border-t border-gray-100 dark:border-white/5 pt-6">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">2. Payment</p>
+                <div className="flex items-center gap-1.5">
+                  <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span className="text-[10px] text-gray-400">Secured by Stripe</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Name on Card</label>
+                  <input
+                    type="text"
+                    placeholder="Marcus Thompson"
+                    value={cardName}
+                    onChange={e => setCardName(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Card Number</label>
+                  <input
+                    type="text"
+                    placeholder="1234 5678 9012 3456"
+                    value={cardNumber}
+                    onChange={e => setCardNumber(e.target.value.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim().slice(0, 19))}
+                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Expiry</label>
+                    <input
+                      type="text"
+                      placeholder="MM / YY"
+                      value={cardExpiry}
+                      onChange={e => {
+                        const v = e.target.value.replace(/\D/g, "");
+                        setCardExpiry(v.length > 2 ? `${v.slice(0,2)} / ${v.slice(2,4)}` : v);
+                      }}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">CVC</label>
+                    <input
+                      type="text"
+                      placeholder="123"
+                      value={cardCvc}
+                      onChange={e => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Order summary */}
+              <div className="mt-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 p-4">
+                <div className="space-y-2">
+                  {[
+                    { label: `${channel.charAt(0).toUpperCase() + channel.slice(1)} Ads (${durationDays} days)`, value: `$${budget.toFixed(2)}` },
+                    { label: "LUB AI Qualification",   value: "Included" },
+                    { label: "Platform Fee",            value: "$0.00"    },
+                  ].map(r => (
+                    <div key={r.label} className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">{r.label}</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">{r.value}</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-gray-200 dark:border-white/10 pt-2 flex items-center justify-between">
+                    <span className="font-bold text-gray-900 dark:text-gray-100">Total</span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100 text-lg">${budget.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLaunch}
+                disabled={launching || !cardName || !cardNumber || !cardExpiry || !cardCvc}
+                className="mt-4 w-full rounded-xl bg-[#C8102E] py-3.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
+              >
+                {launching ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    Launching…
+                  </span>
+                ) : `Launch for $${budget.toFixed(2)} →`}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Score Bar ────────────────────────────────────────────────────────────────
 
 function ScoreBar({ label, value }: { label: string; value: number }) {
   return (
@@ -145,7 +666,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
   );
 }
 
-// ─── Intelligence Panels ──────────────────────────────────────────────────────
+// ─── Intelligence Panels (unchanged from before) ──────────────────────────────
 
 function OfferLabPanel({ campaign }: { campaign: Campaign }) {
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -166,15 +687,9 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
         }),
       });
       const data = await res.json();
-      if (data.ok) {
-        setResult({ scores: data.scores, recommendation: data.recommendation, simulation: data.simulation });
-        setState("done");
-      } else {
-        setState("error");
-      }
-    } catch {
-      setState("error");
-    }
+      if (data.ok) { setResult({ scores: data.scores, recommendation: data.recommendation, simulation: data.simulation }); setState("done"); }
+      else setState("error");
+    } catch { setState("error"); }
   }
 
   return (
@@ -185,91 +700,55 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">AI scores your offer and suggests improvements</p>
         </div>
         {state !== "loading" && (
-          <button
-            onClick={runOfferLab}
-            className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors"
-          >
+          <button onClick={runOfferLab} className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors">
             {state === "done" ? "Re-run →" : "Run Offer Lab →"}
           </button>
         )}
       </div>
-
-      {state === "idle" && (
-        <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-          <div className="text-3xl">🧪</div>
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Score your offer with AI</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">Get an offer strength score, AI-improved version, and simulation comparison</p>
-        </div>
-      )}
-
-      {state === "loading" && (
-        <div className="flex flex-col items-center gap-3 px-5 py-10">
-          <div className="h-8 w-8 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Analyzing your offer…</p>
-        </div>
-      )}
-
-      {state === "error" && (
-        <div className="px-5 py-6 text-center text-sm text-red-500">Failed to run analysis. Check your API key and try again.</div>
-      )}
-
+      {state === "idle" && <div className="flex flex-col items-center gap-2 px-5 py-10 text-center"><div className="text-3xl">🧪</div><p className="text-sm font-medium text-gray-700 dark:text-gray-300">Score your offer with AI</p><p className="text-xs text-gray-400 dark:text-gray-500">Get an offer strength score, AI-improved version, and simulation comparison</p></div>}
+      {state === "loading" && <div className="flex flex-col items-center gap-3 px-5 py-10"><div className="h-8 w-8 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" /><p className="text-sm text-gray-500 dark:text-gray-400">Analyzing your offer…</p></div>}
+      {state === "error"   && <div className="px-5 py-6 text-center text-sm text-red-500">Failed to run analysis.</div>}
       {state === "done" && result && (
         <div className="divide-y divide-gray-100 dark:divide-white/5">
-          {/* Score bars */}
           <div className="px-5 py-5">
             <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">Offer Scores</p>
             <div className="space-y-3">
-              <ScoreBar label="Offer Strength"           value={result.scores.offerStrength} />
-              <ScoreBar label="Market Competitiveness"   value={result.scores.marketCompetitiveness} />
-              <ScoreBar label="Lead Attraction"          value={result.scores.leadAttraction} />
-              <ScoreBar label="Conversion Potential"     value={result.scores.conversionPotential} />
+              <ScoreBar label="Offer Strength"         value={result.scores.offerStrength} />
+              <ScoreBar label="Market Competitiveness" value={result.scores.marketCompetitiveness} />
+              <ScoreBar label="Lead Attraction"        value={result.scores.leadAttraction} />
+              <ScoreBar label="Conversion Potential"   value={result.scores.conversionPotential} />
             </div>
             <div className="mt-4 flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-white/5 px-4 py-3">
               <span className={`text-2xl font-bold ${scoreText(result.scores.overall)}`}>{result.scores.overall}</span>
               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{result.scores.explanation}</p>
             </div>
           </div>
-
-          {/* AI Recommendation */}
           <div className="px-5 py-5">
             <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">AI Recommendation</p>
             <div className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Improved Offer</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{result.recommendation.improvedSpecial}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Messaging Angle</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">{result.recommendation.improvedMessagingAngle}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Positioning</p>
-                <p className="text-sm text-gray-700 dark:text-gray-300">{result.recommendation.suggestedPositioning}</p>
-              </div>
-              <div className="rounded-lg border border-blue-100 bg-blue-50 dark:border-blue-900/30 dark:bg-blue-900/10 px-3 py-2">
-                <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">{result.recommendation.reasoning}</p>
-              </div>
+              <div><p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Improved Offer</p><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{result.recommendation.improvedSpecial}</p></div>
+              <div><p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Messaging Angle</p><p className="text-sm text-gray-700 dark:text-gray-300">{result.recommendation.improvedMessagingAngle}</p></div>
+              <div><p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Positioning</p><p className="text-sm text-gray-700 dark:text-gray-300">{result.recommendation.suggestedPositioning}</p></div>
+              <div className="rounded-lg border border-blue-100 bg-blue-50 dark:border-blue-900/30 dark:bg-blue-900/10 px-3 py-2"><p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">{result.recommendation.reasoning}</p></div>
             </div>
           </div>
-
-          {/* Simulation comparison */}
           <div className="px-5 py-5">
             <div className="flex items-center justify-between mb-4">
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Simulation: Your Offer vs AI Version</p>
-              <span className="text-xs text-gray-400 dark:text-gray-500">{result.simulation.confidenceScore}% confidence</span>
+              <span className="text-xs text-gray-400">{result.simulation.confidenceScore}% confidence</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: "Your Offer",  data: result.simulation.userVersion, border: "border-gray-200 dark:border-white/10" },
-                { label: "AI Version",  data: result.simulation.aiVersion,   border: "border-[#C8102E]/30 dark:border-[#C8102E]/20" },
-              ].map(col => (
+              {([
+                { label: "Your Offer", data: result.simulation.userVersion, border: "border-gray-200 dark:border-white/10" },
+                { label: "AI Version", data: result.simulation.aiVersion,   border: "border-[#C8102E]/30 dark:border-[#C8102E]/20" },
+              ] as const).map(col => (
                 <div key={col.label} className={`rounded-xl border ${col.border} p-4`}>
                   <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-3">{col.label}</p>
                   {[
-                    { label: "Lead increase",      val: col.data.expectedLeadIncreasePct,    suffix: "%" },
-                    { label: "Application rate",   val: col.data.expectedApplicationRatePct, suffix: "%" },
-                    { label: "Lease conversion",   val: col.data.expectedLeaseConversionPct, suffix: "%" },
-                    { label: "Occupancy impact",   val: col.data.estimatedOccupancyImpact,   suffix: "%" },
+                    { label: "Lead increase",    val: col.data.expectedLeadIncreasePct,    suffix: "%" },
+                    { label: "Application rate", val: col.data.expectedApplicationRatePct, suffix: "%" },
+                    { label: "Lease conversion", val: col.data.expectedLeaseConversionPct, suffix: "%" },
+                    { label: "Occupancy impact", val: col.data.estimatedOccupancyImpact,   suffix: "%" },
                   ].map(m => {
                     const { arrow, cls } = impactArrow(m.val);
                     return (
@@ -291,48 +770,31 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
 }
 
 function CampaignOptimizePanel({ campaign }: { campaign: Campaign }) {
-  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [state, setState]       = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [result, setResult]     = useState<OptimizationResult | null>(null);
   const [actionStates, setActionStates] = useState<Record<string, "pending" | "applying" | "done" | "dismissed">>({});
 
   async function analyze() {
     setState("loading");
     try {
-      const res = await fetch("/api/intelligence/campaign-optimize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaign_id: campaign.id }),
-      });
+      const res = await fetch("/api/intelligence/campaign-optimize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ campaign_id: campaign.id }) });
       const data = await res.json();
-      if (data.ok) {
-        setResult({ optimizationScore: data.optimizationScore, summary: data.summary, actions: data.actions });
-        setState("done");
-      } else {
-        setState("error");
-      }
-    } catch {
-      setState("error");
-    }
+      if (data.ok) { setResult({ optimizationScore: data.optimizationScore, summary: data.summary, actions: data.actions }); setState("done"); }
+      else setState("error");
+    } catch { setState("error"); }
   }
 
   async function applyAction(actionId: string) {
     setActionStates(s => ({ ...s, [actionId]: "applying" }));
     try {
-      await fetch("/api/intelligence/campaign-optimize", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action_id: actionId }),
-      });
+      await fetch("/api/intelligence/campaign-optimize", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action_id: actionId }) });
       setActionStates(s => ({ ...s, [actionId]: "done" }));
-    } catch {
-      setActionStates(s => ({ ...s, [actionId]: "pending" }));
-    }
+    } catch { setActionStates(s => ({ ...s, [actionId]: "pending" })); }
   }
 
   function dismissAction(idx: number) {
     if (!result) return;
-    const updated = result.actions.map((a, i) => i === idx ? { ...a, executionStatus: "dismissed" as const } : a);
-    setResult({ ...result, actions: updated });
+    setResult({ ...result, actions: result.actions.map((a, i) => i === idx ? { ...a, executionStatus: "dismissed" as const } : a) });
   }
 
   return (
@@ -342,48 +804,17 @@ function CampaignOptimizePanel({ campaign }: { campaign: Campaign }) {
           <h3 className="font-semibold text-gray-900 dark:text-gray-100">Campaign Optimization</h3>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">AI-generated actions to improve performance</p>
         </div>
-        {state !== "loading" && (
-          <button
-            onClick={analyze}
-            className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors"
-          >
-            {state === "done" ? "Re-analyze →" : "Analyze →"}
-          </button>
-        )}
+        {state !== "loading" && <button onClick={analyze} className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors">{state === "done" ? "Re-analyze →" : "Analyze →"}</button>}
       </div>
-
-      {state === "idle" && (
-        <div className="flex flex-col items-center gap-2 px-5 py-10 text-center">
-          <div className="text-3xl">⚡</div>
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Find what to fix first</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">AI analyzes performance and generates prioritized actions</p>
-        </div>
-      )}
-
-      {state === "loading" && (
-        <div className="flex flex-col items-center gap-3 px-5 py-10">
-          <div className="h-8 w-8 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">Analyzing campaign performance…</p>
-        </div>
-      )}
-
-      {state === "error" && (
-        <div className="px-5 py-6 text-center text-sm text-red-500">Analysis failed. Check your API key and try again.</div>
-      )}
-
+      {state === "idle"    && <div className="flex flex-col items-center gap-2 px-5 py-10 text-center"><div className="text-3xl">⚡</div><p className="text-sm font-medium text-gray-700 dark:text-gray-300">Find what to fix first</p><p className="text-xs text-gray-400 dark:text-gray-500">AI analyzes performance and generates prioritized actions</p></div>}
+      {state === "loading" && <div className="flex flex-col items-center gap-3 px-5 py-10"><div className="h-8 w-8 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" /><p className="text-sm text-gray-500 dark:text-gray-400">Analyzing campaign performance…</p></div>}
+      {state === "error"   && <div className="px-5 py-6 text-center text-sm text-red-500">Analysis failed.</div>}
       {state === "done" && result && (
         <div className="px-5 py-5 space-y-4">
-          {/* Score + summary */}
           <div className="flex items-center gap-4 rounded-xl bg-gray-50 dark:bg-white/5 px-4 py-3">
-            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white ${
-              result.optimizationScore >= 70 ? "bg-green-500" : result.optimizationScore >= 40 ? "bg-amber-400" : "bg-red-400"
-            }`}>
-              {result.optimizationScore}
-            </div>
+            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-lg font-bold text-white ${result.optimizationScore >= 70 ? "bg-green-500" : result.optimizationScore >= 40 ? "bg-amber-400" : "bg-red-400"}`}>{result.optimizationScore}</div>
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{result.summary}</p>
           </div>
-
-          {/* Actions */}
           <div className="space-y-3">
             {result.actions.filter(a => a.executionStatus !== "dismissed").map((action, idx) => {
               const ast = action.id ? (actionStates[action.id] ?? action.executionStatus) : action.executionStatus;
@@ -392,32 +823,16 @@ function CampaignOptimizePanel({ campaign }: { campaign: Campaign }) {
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{action.title}</p>
-                      {action.autoExecutable && (
-                        <span className="rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 text-[10px] font-semibold">Auto-executable</span>
-                      )}
+                      {action.autoExecutable && <span className="rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2 py-0.5 text-[10px] font-semibold">Auto-executable</span>}
                     </div>
-                    <button
-                      onClick={() => dismissAction(idx)}
-                      className="text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 text-xs shrink-0"
-                    >
-                      dismiss
-                    </button>
+                    <button onClick={() => dismissAction(idx)} className="text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 text-xs shrink-0">dismiss</button>
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{action.description}</p>
                   <p className="text-xs text-[#C8102E] dark:text-[#e85c76] mb-3">Expected: {action.expectedImpact}</p>
-
-                  {ast === "done" ? (
-                    <span className="text-xs font-semibold text-green-600 dark:text-green-400">✓ Applied</span>
-                  ) : ast === "applying" ? (
-                    <span className="text-xs text-gray-400">Applying…</span>
-                  ) : action.id ? (
-                    <button
-                      onClick={() => applyAction(action.id!)}
-                      className="rounded-lg border border-[#C8102E] px-3 py-1.5 text-xs font-semibold text-[#C8102E] hover:bg-[#C8102E] hover:text-white transition-colors"
-                    >
-                      Apply →
-                    </button>
-                  ) : null}
+                  {ast === "done" ? <span className="text-xs font-semibold text-green-600 dark:text-green-400">✓ Applied</span>
+                    : ast === "applying" ? <span className="text-xs text-gray-400">Applying…</span>
+                    : action.id ? <button onClick={() => applyAction(action.id!)} className="rounded-lg border border-[#C8102E] px-3 py-1.5 text-xs font-semibold text-[#C8102E] hover:bg-[#C8102E] hover:text-white transition-colors">Apply →</button>
+                    : null}
                 </div>
               );
             })}
@@ -431,44 +846,20 @@ function CampaignOptimizePanel({ campaign }: { campaign: Campaign }) {
 function WhatIfPanel({ campaign }: { campaign: Campaign }) {
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<WhatIfResult | null>(null);
-  const [form, setForm] = useState({
-    description: "",
-    budgetChangePct: "",
-    offerChange: "",
-    channelSwitch: "",
-  });
+  const [form, setForm] = useState({ description: "", budgetChangePct: "", offerChange: "", channelSwitch: "" });
 
   async function runSimulation() {
     if (!form.description) return;
     setState("loading");
     const changes: Record<string, unknown> = {};
-    if (form.budgetChangePct) {
-      const pct = parseFloat(form.budgetChangePct);
-      if (pct > 0) changes.budgetIncreasePct = pct;
-      else changes.budgetDecreasePct = Math.abs(pct);
-    }
-    if (form.offerChange) changes.offerChange = form.offerChange;
+    if (form.budgetChangePct) { const pct = parseFloat(form.budgetChangePct); if (pct > 0) changes.budgetIncreasePct = pct; else changes.budgetDecreasePct = Math.abs(pct); }
+    if (form.offerChange)   changes.offerChange   = form.offerChange;
     if (form.channelSwitch) changes.channelSwitch = form.channelSwitch;
-
     try {
-      const res = await fetch("/api/intelligence/what-if", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          property_id: campaign.property_id,
-          scenario: { description: form.description, changes },
-        }),
-      });
+      const res = await fetch("/api/intelligence/what-if", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ property_id: campaign.property_id, scenario: { description: form.description, changes } }) });
       const data = await res.json();
-      if (data.ok) {
-        setResult(data.result);
-        setState("done");
-      } else {
-        setState("error");
-      }
-    } catch {
-      setState("error");
-    }
+      if (data.ok) { setResult(data.result); setState("done"); } else setState("error");
+    } catch { setState("error"); }
   }
 
   return (
@@ -477,87 +868,47 @@ function WhatIfPanel({ campaign }: { campaign: Campaign }) {
         <h3 className="font-semibold text-gray-900 dark:text-gray-100">What-If Simulation</h3>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Simulate a strategy change before committing budget</p>
       </div>
-
       <div className="px-5 py-5 space-y-4">
         <div>
           <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Scenario Description *</label>
-          <input
-            value={form.description}
-            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="e.g. What if I doubled my Facebook budget and added a free parking offer?"
-            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-          />
+          <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. What if I doubled my Facebook budget and added a free parking offer?" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400" />
         </div>
         <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Budget Change %</label>
-            <input
-              value={form.budgetChangePct}
-              onChange={e => setForm(f => ({ ...f, budgetChangePct: e.target.value }))}
-              placeholder="+20 or -10"
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Offer Change</label>
-            <input
-              value={form.offerChange}
-              onChange={e => setForm(f => ({ ...f, offerChange: e.target.value }))}
-              placeholder="e.g. free parking"
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Channel Switch</label>
-            <input
-              value={form.channelSwitch}
-              onChange={e => setForm(f => ({ ...f, channelSwitch: e.target.value }))}
-              placeholder="e.g. Google Ads"
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-            />
-          </div>
+          {[
+            { label: "Budget Change %", key: "budgetChangePct", placeholder: "+20 or -10" },
+            { label: "Offer Change",    key: "offerChange",    placeholder: "e.g. free parking" },
+            { label: "Channel Switch",  key: "channelSwitch",  placeholder: "e.g. Google Ads" },
+          ].map(f => (
+            <div key={f.key}>
+              <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">{f.label}</label>
+              <input value={(form as Record<string, string>)[f.key]} onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))} placeholder={f.placeholder} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400" />
+            </div>
+          ))}
         </div>
-
         <div className="flex justify-end">
-          <button
-            onClick={runSimulation}
-            disabled={!form.description || state === "loading"}
-            className="rounded-lg bg-[#C8102E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors"
-          >
+          <button onClick={runSimulation} disabled={!form.description || state === "loading"} className="rounded-lg bg-[#C8102E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
             {state === "loading" ? "Simulating…" : "Run Simulation →"}
           </button>
         </div>
-
-        {state === "loading" && (
-          <div className="flex items-center gap-3 rounded-xl bg-gray-50 dark:bg-white/5 px-4 py-4">
-            <div className="h-6 w-6 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin shrink-0" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Running scenario simulation…</p>
-          </div>
-        )}
-
-        {state === "error" && (
-          <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-900/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
-            Simulation failed. Check your API key and try again.
-          </div>
-        )}
-
+        {state === "loading" && <div className="flex items-center gap-3 rounded-xl bg-gray-50 dark:bg-white/5 px-4 py-4"><div className="h-6 w-6 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin shrink-0" /><p className="text-sm text-gray-500 dark:text-gray-400">Running scenario simulation…</p></div>}
+        {state === "error"   && <div className="rounded-xl border border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-900/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">Simulation failed.</div>}
         {state === "done" && result && (
           <div className="rounded-xl border border-gray-100 dark:border-white/5 overflow-hidden">
             <div className="bg-gray-50 dark:bg-white/5 px-4 py-3 flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Simulation Results</p>
-              <span className="text-xs text-gray-400 dark:text-gray-500">{result.confidenceScore}% confidence</span>
+              <span className="text-xs text-gray-400">{result.confidenceScore}% confidence</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-white/5">
               {[
-                { label: "Lead Impact",        val: result.estimatedLeadImpactPct,        suffix: "%" },
-                { label: "Application Rate",   val: result.estimatedApplicationImpactPct, suffix: "%" },
-                { label: "Lease Conversion",   val: result.estimatedLeaseImpactPct,       suffix: "%" },
-                { label: "Occupancy Impact",   val: result.estimatedOccupancyImpactPct,   suffix: "%" },
+                { label: "Lead Impact",      val: result.estimatedLeadImpactPct },
+                { label: "Application Rate", val: result.estimatedApplicationImpactPct },
+                { label: "Lease Conversion", val: result.estimatedLeaseImpactPct },
+                { label: "Occupancy Impact", val: result.estimatedOccupancyImpactPct },
               ].map(m => {
                 const { arrow, cls } = impactArrow(m.val);
                 return (
                   <div key={m.label} className="px-4 py-4 text-center">
-                    <p className={`text-xl font-bold ${cls}`}>{arrow} {Math.abs(m.val).toFixed(1)}{m.suffix}</p>
+                    <p className={`text-xl font-bold ${cls}`}>{arrow} {Math.abs(m.val).toFixed(1)}%</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{m.label}</p>
                   </div>
                 );
@@ -575,30 +926,46 @@ function WhatIfPanel({ campaign }: { campaign: Campaign }) {
 
 // ─── Campaign Detail ──────────────────────────────────────────────────────────
 
-function CampaignDetail({ campaign, onBack, onApprove }: {
+function CampaignDetail({
+  campaign,
+  imageUrl,
+  onBack,
+  onApprove,
+  onLaunched,
+  onImageChange,
+}: {
   campaign: Campaign;
+  imageUrl?: string;
   onBack: () => void;
   onApprove: (campaignId: string, variationIds: string[]) => void;
+  onLaunched: (campaignId: string) => void;
+  onImageChange: (campaignId: string, url: string) => void;
 }) {
-  const [selected, setSelected] = useState<Set<string>>(
-    new Set(campaign.variations.filter(v => v.approved).map(v => v.id))
-  );
-  const [approved, setApproved] = useState(campaign.status !== "pending_approval");
-  const [tab, setTab] = useState<"variations" | "intelligence">("variations");
+  const [selected, setSelected]     = useState<Set<string>>(new Set(campaign.variations.filter(v => v.approved).map(v => v.id)));
+  const [approved, setApproved]     = useState(campaign.status !== "pending_approval");
+  const [tab, setTab]               = useState<"previews" | "intelligence">("previews");
+  const [showLaunch, setShowLaunch] = useState(false);
+  const [previewChannel, setPreviewChannel] = useState<AdChannel | "all">("all");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => { if (ev.target?.result) onImageChange(campaign.id, ev.target.result as string); };
+    reader.readAsDataURL(file);
+  }
 
   function toggleVariation(id: string) {
     if (approved) return;
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
+    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   }
 
-  function handleApprove() {
-    onApprove(campaign.id, Array.from(selected));
-    setApproved(true);
-  }
+  function handleApprove() { onApprove(campaign.id, Array.from(selected)); setApproved(true); }
+
+  const filteredVariations = previewChannel === "all"
+    ? campaign.variations
+    : campaign.variations.filter(v => v.channel === previewChannel);
 
   return (
     <div>
@@ -610,138 +977,155 @@ function CampaignDetail({ campaign, onBack, onApprove }: {
       <div className="mb-6 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{campaign.property}</h2>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[campaign.status]}`}>
-                {STATUS_LABELS[campaign.status]}
-              </span>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[campaign.status]}`}>{STATUS_LABELS[campaign.status]}</span>
             </div>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{campaign.messaging_angle}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {campaign.recommended_channels.map(ch => <ChannelBadge key={ch} channel={ch} />)}
+            <button
+              onClick={() => setShowLaunch(true)}
+              className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors"
+              style={{ boxShadow: "0 4px 12px rgba(200,16,46,0.25)" }}
+            >
+              Set Budget & Launch →
+            </button>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-100 pt-4 dark:border-white/5">
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Created</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.created_at}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Leads Generated</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.leads_generated}</p>
-          </div>
-          <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Special Offer</p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.current_special ?? "—"}</p>
-          </div>
+          <div><p className="text-xs text-gray-500 dark:text-gray-400">Created</p><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.created_at}</p></div>
+          <div><p className="text-xs text-gray-500 dark:text-gray-400">Leads Generated</p><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.leads_generated}</p></div>
+          <div><p className="text-xs text-gray-500 dark:text-gray-400">Special Offer</p><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.current_special ?? "—"}</p></div>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="mb-5 flex gap-1 border-b border-gray-100 dark:border-white/5">
-        {([
-          { key: "variations",   label: "Ad Variations" },
-          { key: "intelligence", label: "✦ Intelligence" },
-        ] as const).map(t => (
+        {([{ key: "previews", label: "Ad Previews" }, { key: "intelligence", label: "✦ Intelligence" }] as const).map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-              tab === t.key
-                ? "border-[#C8102E] text-[#C8102E]"
-                : "border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
-            }`}
+            className={`px-4 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${tab === t.key ? "border-[#C8102E] text-[#C8102E]" : "border-transparent text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"}`}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Ad Variations tab */}
-      {tab === "variations" && (
+      {tab === "previews" && (
         <>
-          <div className="mb-5 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Ad Variations</h3>
+          {/* Image upload + channel filter */}
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Filter:</p>
+              {(["all", "facebook", "instagram", "google"] as const).map(ch => (
+                <button
+                  key={ch}
+                  onClick={() => setPreviewChannel(ch)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${previewChannel === ch ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400"}`}
+                >
+                  {ch === "all" ? "All" : ch.charAt(0).toUpperCase() + ch.slice(1)}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                {imageUrl ? "Change Photo" : "Add Property Photo"}
+              </button>
+              {imageUrl && (
+                <button onClick={() => onImageChange(campaign.id, "")} className="text-xs text-gray-400 hover:text-red-500 transition-colors">Remove</button>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+            </div>
+          </div>
+
+          {imageUrl && (
+            <div className="mb-4 rounded-xl border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/10 px-4 py-2.5 flex items-center gap-2">
+              <img src={imageUrl} alt="Preview" className="h-8 w-12 rounded object-cover" />
+              <p className="text-xs text-green-700 dark:text-green-400 font-medium">Property photo added — visible in ad previews below</p>
+            </div>
+          )}
+
+          {/* Ad preview grid */}
+          <div className={`grid gap-4 ${filteredVariations.length === 1 ? "max-w-xs" : filteredVariations.length === 2 ? "grid-cols-2 max-w-lg" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
+            {filteredVariations.map(v => (
+              <div
+                key={v.id}
+                onClick={() => toggleVariation(v.id)}
+                className={`transition-all ${!approved ? "cursor-pointer" : ""} ${!approved && selected.has(v.id) ? "ring-2 ring-[#C8102E] rounded-xl" : ""}`}
+              >
+                <AdPreviewCard variation={v} propertyName={campaign.property} imageUrl={imageUrl} />
+                {!approved && (
+                  <div className={`mt-2 flex items-center gap-2 px-1 ${selected.has(v.id) ? "text-[#C8102E]" : "text-gray-400"}`}>
+                    <div className={`h-4 w-4 rounded border-2 flex items-center justify-center ${selected.has(v.id) ? "border-[#C8102E] bg-[#C8102E]" : "border-gray-300 dark:border-white/20"}`}>
+                      {selected.has(v.id) && <span className="text-[9px] text-white font-bold">✓</span>}
+                    </div>
+                    <span className="text-xs font-semibold">
+                      {v.channel.charAt(0).toUpperCase() + v.channel.slice(1)} · Variation {v.variation_num}
+                      {selected.has(v.id) ? " — Selected" : ""}
+                    </span>
+                  </div>
+                )}
+                {approved && v.approved && (
+                  <p className="mt-1 px-1 text-xs font-semibold text-green-600 dark:text-green-400">✓ Approved & Live</p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Approve bar */}
+          <div className="mt-6">
             {!approved && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">Select the variations you want to approve</p>
+              <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-900/40 dark:bg-amber-900/10">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{selected.size} variation{selected.size !== 1 ? "s" : ""} selected</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Nothing goes live until you approve and set a budget</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleApprove} disabled={selected.size === 0} className="rounded-lg bg-[#C8102E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40">
+                    Approve Variations →
+                  </button>
+                </div>
+              </div>
+            )}
+            {approved && (
+              <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-5 py-4 dark:border-green-900/40 dark:bg-green-900/10">
+                <div className="flex items-center gap-3">
+                  <span className="text-green-600 dark:text-green-400 text-lg">✓</span>
+                  <p className="text-sm font-semibold text-green-800 dark:text-green-300">Variations approved. Click &quot;Set Budget &amp; Launch&quot; to go live.</p>
+                </div>
+                <button onClick={() => setShowLaunch(true)} className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors">
+                  Set Budget & Launch →
+                </button>
+              </div>
             )}
           </div>
-
-          <div className="space-y-3 mb-6">
-            {campaign.variations.map(v => {
-              const isSelected = selected.has(v.id);
-              return (
-                <div
-                  key={v.id}
-                  onClick={() => toggleVariation(v.id)}
-                  className={`rounded-xl border p-5 transition-colors ${
-                    approved
-                      ? v.approved
-                        ? "border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-900/10"
-                        : "border-gray-100 bg-white dark:border-white/5 dark:bg-[#1C1F2E]"
-                      : isSelected
-                        ? "border-[#C8102E]/40 bg-[#C8102E]/5 cursor-pointer dark:border-[#C8102E]/30 dark:bg-[#C8102E]/10"
-                        : "border-gray-100 bg-white cursor-pointer hover:border-gray-300 dark:border-white/5 dark:bg-[#1C1F2E] dark:hover:border-white/10"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <ChannelBadge channel={v.channel} />
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Variation {v.variation_num}</span>
-                    </div>
-                    {approved ? (
-                      v.approved && <span className="text-xs font-semibold text-green-600 dark:text-green-400">✓ Approved</span>
-                    ) : (
-                      <div className={`h-4 w-4 rounded border-2 flex items-center justify-center ${
-                        isSelected ? "border-[#C8102E] bg-[#C8102E]" : "border-gray-300 dark:border-white/20"
-                      }`}>
-                        {isSelected && <span className="text-[10px] text-white font-bold">✓</span>}
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-3 font-bold text-gray-900 dark:text-gray-100">{v.headline}</p>
-                  <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{v.primary_text}</p>
-                  <div className="mt-3 inline-flex rounded-lg border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
-                    {v.cta} →
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {!approved && (
-            <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-900/40 dark:bg-amber-900/10">
-              <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{selected.size} variation{selected.size !== 1 ? "s" : ""} selected</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Nothing goes live until you approve</p>
-              </div>
-              <button
-                onClick={handleApprove}
-                disabled={selected.size === 0}
-                className="rounded-lg bg-[#C8102E] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40"
-              >
-                Approve & Launch →
-              </button>
-            </div>
-          )}
-
-          {approved && (
-            <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-5 py-4 dark:border-green-900/40 dark:bg-green-900/10">
-              <span className="text-green-600 dark:text-green-400 text-lg">✓</span>
-              <p className="text-sm font-semibold text-green-800 dark:text-green-300">Campaign approved. Variations are live.</p>
-            </div>
-          )}
         </>
       )}
 
-      {/* Intelligence tab */}
       {tab === "intelligence" && (
         <div className="space-y-4">
           <OfferLabPanel campaign={campaign} />
           <CampaignOptimizePanel campaign={campaign} />
           <WhatIfPanel campaign={campaign} />
         </div>
+      )}
+
+      {showLaunch && (
+        <LaunchModal
+          campaign={campaign}
+          imageUrl={imageUrl}
+          onClose={() => setShowLaunch(false)}
+          onLaunched={id => { onLaunched(id); setShowLaunch(false); }}
+        />
       )}
     </div>
   );
@@ -758,26 +1142,32 @@ function NewCampaignModal({
   onClose: () => void;
   operatorId: string;
   operatorEmail: string;
-  onCreated: () => void;
+  onCreated: (imageUrl?: string) => void;
 }) {
   const [step, setStep] = useState<"form" | "generating" | "done">("form");
   const [properties, setProperties] = useState<{ id: string; name: string }[]>([]);
-  const [form, setForm] = useState({
-    propertyId: "",
-    special: "",
-    renterType: "",
-    pricingSummary: "",
-    occupancyGoal: "",
-    urgency: "normal",
-  });
+  const [imageUrl, setImageUrl]     = useState("");
+  const [imagePreview, setImagePreview] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [form, setForm] = useState({ propertyId: "", special: "", renterType: "", pricingSummary: "", occupancyGoal: "", urgency: "normal" });
 
   useEffect(() => {
     if (!operatorEmail) return;
     fetch(`/api/properties?email=${encodeURIComponent(operatorEmail)}`)
-      .then(r => r.json())
-      .then(d => setProperties(d.properties ?? []))
-      .catch(() => {});
+      .then(r => r.json()).then(d => setProperties(d.properties ?? [])).catch(() => {});
   }, [operatorEmail]);
+
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const result = ev.target?.result as string;
+      setImagePreview(result);
+      setImageUrl(result);
+    };
+    reader.readAsDataURL(file);
+  }
 
   async function handleGenerate() {
     if (!form.propertyId) return;
@@ -787,93 +1177,86 @@ function NewCampaignModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          property_id:        form.propertyId,
-          operator_id:        operatorId,
-          current_special:    form.special || undefined,
-          target_renter_type: form.renterType || undefined,
-          pricing_summary:    form.pricingSummary || undefined,
-          occupancy_goal:     form.occupancyGoal || undefined,
-          urgency:            form.urgency,
+          property_id: form.propertyId, operator_id: operatorId,
+          current_special: form.special || undefined, target_renter_type: form.renterType || undefined,
+          pricing_summary: form.pricingSummary || undefined, occupancy_goal: form.occupancyGoal || undefined,
+          urgency: form.urgency,
         }),
       });
-      if (res.ok) {
-        setStep("done");
-        onCreated();
-      } else {
-        setStep("form");
-      }
-    } catch {
-      setStep("form");
-    }
+      if (res.ok) { setStep("done"); }
+      else setStep("form");
+    } catch { setStep("form"); }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 overflow-y-auto">
+      <div className="w-full max-w-lg rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E] my-auto">
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
           <h2 className="font-bold text-gray-900 dark:text-gray-100">New Campaign</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">×</button>
         </div>
 
         {step === "form" && (
-          <div className="p-6 space-y-4">
+          <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Property *</label>
-              <select
-                value={form.propertyId}
-                onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))}
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-              >
+              <select value={form.propertyId} onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100">
                 <option value="">Select a property…</option>
-                {properties.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
+                {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
+
+            {/* Property photo */}
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Current Special / Offer</label>
-              <input
-                value={form.special}
-                onChange={e => setForm(f => ({ ...f, special: e.target.value }))}
-                placeholder="e.g. 1 month free on 12-month leases"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-              />
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Property Photo <span className="text-gray-400 font-normal">(used in ad previews)</span></label>
+              <div
+                onClick={() => fileRef.current?.click()}
+                className={`relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${imagePreview ? "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-900/10" : "border-gray-200 bg-gray-50 hover:border-gray-300 dark:border-white/10 dark:bg-white/5"} px-4 py-6`}
+              >
+                {imagePreview ? (
+                  <div className="flex items-center gap-3">
+                    <img src={imagePreview} alt="Preview" className="h-14 w-20 rounded-lg object-cover" />
+                    <div>
+                      <p className="text-sm font-semibold text-green-700 dark:text-green-400">Photo ready</p>
+                      <p className="text-xs text-gray-500">Click to replace</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <svg className="h-8 w-8 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p className="text-sm text-gray-500">Click to upload a property photo</p>
+                    <p className="text-xs text-gray-400 mt-0.5">JPG, PNG · Used in Facebook &amp; Instagram ad previews</p>
+                  </>
+                )}
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
             </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Target Renter</label>
-              <input
-                value={form.renterType}
-                onChange={e => setForm(f => ({ ...f, renterType: e.target.value }))}
-                placeholder="e.g. young professionals, families, remote workers"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Pricing Summary</label>
-              <input
-                value={form.pricingSummary}
-                onChange={e => setForm(f => ({ ...f, pricingSummary: e.target.value }))}
-                placeholder="e.g. 1BR from $1,450/mo, 2BR from $1,800/mo"
-                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Occupancy Goal</label>
+
+            {[
+              { label: "Current Special / Offer", key: "special",        placeholder: "e.g. 1 month free on 12-month leases" },
+              { label: "Target Renter",           key: "renterType",     placeholder: "e.g. young professionals, families" },
+              { label: "Pricing Summary",         key: "pricingSummary", placeholder: "e.g. 1BR from $1,450/mo, 2BR from $1,800/mo" },
+            ].map(f => (
+              <div key={f.key}>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{f.label}</label>
                 <input
-                  value={form.occupancyGoal}
-                  onChange={e => setForm(f => ({ ...f, occupancyGoal: e.target.value }))}
-                  placeholder="e.g. 95%"
+                  value={(form as Record<string, string>)[f.key]}
+                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  placeholder={f.placeholder}
                   className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
                 />
               </div>
+            ))}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Occupancy Goal</label>
+                <input value={form.occupancyGoal} onChange={e => setForm(f => ({ ...f, occupancyGoal: e.target.value }))} placeholder="e.g. 95%" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400" />
+              </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Urgency</label>
-                <select
-                  value={form.urgency}
-                  onChange={e => setForm(f => ({ ...f, urgency: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100"
-                >
+                <select value={form.urgency} onChange={e => setForm(f => ({ ...f, urgency: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100">
                   <option value="low">Low</option>
                   <option value="normal">Normal</option>
                   <option value="high">High</option>
@@ -882,11 +1265,7 @@ function NewCampaignModal({
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <button onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 dark:border-white/10 dark:text-gray-400">Cancel</button>
-              <button
-                onClick={handleGenerate}
-                disabled={!form.propertyId}
-                className="rounded-lg bg-[#C8102E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40"
-              >
+              <button onClick={handleGenerate} disabled={!form.propertyId} className="rounded-lg bg-[#C8102E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40">
                 Generate with AI →
               </button>
             </div>
@@ -905,12 +1284,9 @@ function NewCampaignModal({
           <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-600 text-2xl dark:bg-green-900/30 dark:text-green-400">✓</div>
             <p className="font-semibold text-gray-900 dark:text-gray-100">Campaign created!</p>
-            <p className="text-sm text-gray-500">4 ad variations are ready for your review. Nothing goes live until you approve.</p>
-            <button
-              onClick={onClose}
-              className="mt-2 rounded-lg bg-[#C8102E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25]"
-            >
-              Review Variations →
+            <p className="text-sm text-gray-500">Ad variations are ready. Click below to see previews and set your budget.</p>
+            <button onClick={() => onCreated(imageUrl || undefined)} className="mt-2 rounded-lg bg-[#C8102E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25]">
+              View Ad Previews →
             </button>
           </div>
         )}
@@ -923,16 +1299,42 @@ function NewCampaignModal({
 
 export default function MarketingPage() {
   const router = useRouter();
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [showNew, setShowNew] = useState(false);
-  const [filter, setFilter] = useState<CampaignStatus | "all">("all");
-  const [loading, setLoading] = useState(true);
-  const [operatorId, setOperatorId] = useState("");
+  const [campaigns, setCampaigns]     = useState<Campaign[]>([]);
+  const [selectedId, setSelectedId]   = useState<string | null>(null);
+  const [showNew, setShowNew]         = useState(false);
+  const [filter, setFilter]           = useState<CampaignStatus | "all">("all");
+  const [loading, setLoading]         = useState(true);
+  const [operatorId, setOperatorId]   = useState("");
   const [operatorEmail, setOperatorEmail] = useState("");
+  const [imageUrls, setImageUrls]     = useState<Record<string, string>>({});
+
+  function normalizeCampaigns(raw: Record<string, unknown>[]): Campaign[] {
+    return raw.map(c => ({
+      id:                   c.id as string,
+      property:             ((c.properties as Record<string, unknown>)?.name as string) ?? "Property",
+      property_id:          c.property_id as string,
+      operator_id:          c.operator_id as string,
+      status:               (c.status as CampaignStatus) ?? "pending_approval",
+      messaging_angle:      (c.messaging_angle as string) ?? "",
+      recommended_channels: (c.recommended_channels as AdChannel[]) ?? [],
+      urgency:              (c.urgency as string) ?? "normal",
+      current_special:      (c.current_special as string | null) ?? null,
+      created_at:           new Date(c.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      leads_generated:      (c.leads_generated as number) ?? 0,
+      variations:           ((c.ad_variations as Record<string, unknown>[]) ?? []).map(v => ({
+        id:            v.id as string,
+        variation_num: v.variation_num as number,
+        headline:      v.headline as string,
+        primary_text:  v.primary_text as string,
+        cta:           v.cta as string,
+        channel:       v.channel as AdChannel,
+        approved:      (v.status as string) === "approved",
+      })),
+    }));
+  }
 
   useEffect(() => {
-    async function loadCampaigns() {
+    async function load() {
       setLoading(true);
       try {
         const email = await getOperatorEmail();
@@ -945,91 +1347,39 @@ export default function MarketingPage() {
         setOperatorId(opId);
         const res = await fetch(`/api/campaigns?operator_id=${opId}`);
         const json = await res.json();
-        const raw = json.campaigns ?? [];
-        // Normalize DB shape to Campaign interface
-        const normalized: Campaign[] = raw.map((c: Record<string, unknown>) => ({
-          id:                    c.id as string,
-          property:              ((c.properties as Record<string, unknown>)?.name as string) ?? "Property",
-          property_id:           c.property_id as string,
-          operator_id:           c.operator_id as string,
-          status:                (c.status as CampaignStatus) ?? "pending_approval",
-          messaging_angle:       (c.messaging_angle as string) ?? "",
-          recommended_channels:  (c.recommended_channels as AdChannel[]) ?? [],
-          urgency:               (c.urgency as string) ?? "normal",
-          current_special:       (c.current_special as string | null) ?? null,
-          created_at:            new Date(c.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          leads_generated:       (c.leads_generated as number) ?? 0,
-          variations:            ((c.ad_variations as Record<string, unknown>[]) ?? []).map((v) => ({
-            id:            v.id as string,
-            variation_num: v.variation_num as number,
-            headline:      v.headline as string,
-            primary_text:  v.primary_text as string,
-            cta:           v.cta as string,
-            channel:       v.channel as AdChannel,
-            approved:      (v.status as string) === "approved",
-          })),
-        }));
-        setCampaigns(normalized);
-      } finally {
-        setLoading(false);
-      }
+        setCampaigns(normalizeCampaigns(json.campaigns ?? []));
+      } finally { setLoading(false); }
     }
-    loadCampaigns();
+    load();
   }, [router]);
 
   function reloadCampaigns() {
-    // Re-run the effect by resetting state
     setLoading(true);
     (async () => {
       try {
         if (!operatorId) return;
         const res = await fetch(`/api/campaigns?operator_id=${operatorId}`);
         const json = await res.json();
-        const raw = json.campaigns ?? [];
-        const normalized: Campaign[] = raw.map((c: Record<string, unknown>) => ({
-          id:                    c.id as string,
-          property:              ((c.properties as Record<string, unknown>)?.name as string) ?? "Property",
-          property_id:           c.property_id as string,
-          operator_id:           c.operator_id as string,
-          status:                (c.status as CampaignStatus) ?? "pending_approval",
-          messaging_angle:       (c.messaging_angle as string) ?? "",
-          recommended_channels:  (c.recommended_channels as AdChannel[]) ?? [],
-          urgency:               (c.urgency as string) ?? "normal",
-          current_special:       (c.current_special as string | null) ?? null,
-          created_at:            new Date(c.created_at as string).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-          leads_generated:       (c.leads_generated as number) ?? 0,
-          variations:            ((c.ad_variations as Record<string, unknown>[]) ?? []).map((v) => ({
-            id:            v.id as string,
-            variation_num: v.variation_num as number,
-            headline:      v.headline as string,
-            primary_text:  v.primary_text as string,
-            cta:           v.cta as string,
-            channel:       v.channel as AdChannel,
-            approved:      (v.status as string) === "approved",
-          })),
-        }));
-        setCampaigns(normalized);
-      } finally {
-        setLoading(false);
-      }
+        setCampaigns(normalizeCampaigns(json.campaigns ?? []));
+      } finally { setLoading(false); }
     })();
   }
 
-  const selected = campaigns.find(c => c.id === selectedId) ?? null;
-
   function handleApprove(campaignId: string, variationIds: string[]) {
-    setCampaigns(prev => prev.map(c => {
-      if (c.id !== campaignId) return c;
-      return {
-        ...c,
-        status: "approved" as CampaignStatus,
-        variations: c.variations.map(v => ({ ...v, approved: variationIds.includes(v.id) })),
-      };
-    }));
+    setCampaigns(prev => prev.map(c => c.id !== campaignId ? c : { ...c, status: "approved" as CampaignStatus, variations: c.variations.map(v => ({ ...v, approved: variationIds.includes(v.id) })) }));
   }
 
+  function handleLaunched(campaignId: string) {
+    setCampaigns(prev => prev.map(c => c.id !== campaignId ? c : { ...c, status: "active" as CampaignStatus }));
+  }
+
+  function handleImageChange(campaignId: string, url: string) {
+    setImageUrls(prev => ({ ...prev, [campaignId]: url }));
+  }
+
+  const selected = campaigns.find(c => c.id === selectedId) ?? null;
   const filtered = filter === "all" ? campaigns : campaigns.filter(c => c.status === filter);
-  const totalLeads = campaigns.reduce((s, c) => s + c.leads_generated, 0);
+  const totalLeads      = campaigns.reduce((s, c) => s + c.leads_generated, 0);
   const activeCampaigns = campaigns.filter(c => c.status === "active").length;
   const pendingApproval = campaigns.filter(c => c.status === "pending_approval").length;
 
@@ -1039,20 +1389,20 @@ export default function MarketingPage() {
         {selected ? (
           <CampaignDetail
             campaign={selected}
+            imageUrl={imageUrls[selected.id]}
             onBack={() => setSelectedId(null)}
             onApprove={handleApprove}
+            onLaunched={handleLaunched}
+            onImageChange={handleImageChange}
           />
         ) : (
           <>
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Marketing</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">AI-generated ad campaigns · you approve before anything goes live</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">AI-generated ad campaigns · visual previews · budget forecasts</p>
               </div>
-              <button
-                onClick={() => setShowNew(true)}
-                className="rounded-lg bg-[#C8102E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] transition-colors"
-              >
+              <button onClick={() => setShowNew(true)} className="rounded-lg bg-[#C8102E] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] transition-colors">
                 + New Campaign
               </button>
             </div>
@@ -1075,8 +1425,8 @@ export default function MarketingPage() {
               <div className="mb-5 flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-900/10">
                 <span className="text-amber-500 text-lg">⚠</span>
                 <p className="text-sm text-amber-800 dark:text-amber-300">
-                  <span className="font-semibold">{pendingApproval} campaign{pendingApproval > 1 ? "s" : ""} waiting for your approval.</span>{" "}
-                  Nothing goes live until you review and approve the ad variations.
+                  <span className="font-semibold">{pendingApproval} campaign{pendingApproval > 1 ? "s" : ""} waiting for your review.</span>{" "}
+                  Approve ad variations and set a budget to go live.
                 </p>
               </div>
             )}
@@ -1086,11 +1436,7 @@ export default function MarketingPage() {
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                    filter === f
-                      ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                      : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10"
-                  }`}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${filter === f ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900" : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10"}`}
                 >
                   {f === "all" ? "All" : STATUS_LABELS[f]}
                 </button>
@@ -1119,14 +1465,8 @@ export default function MarketingPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
                           <p className="font-semibold text-gray-900 dark:text-gray-100">{campaign.property}</p>
-                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[campaign.status]}`}>
-                            {STATUS_LABELS[campaign.status]}
-                          </span>
-                          {campaign.urgency === "high" && (
-                            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-900/30 dark:text-red-400">
-                              High urgency
-                            </span>
-                          )}
+                          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[campaign.status]}`}>{STATUS_LABELS[campaign.status]}</span>
+                          {campaign.urgency === "high" && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:bg-red-900/30 dark:text-red-400">High urgency</span>}
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{campaign.messaging_angle}</p>
                       </div>
@@ -1142,13 +1482,14 @@ export default function MarketingPage() {
                       </div>
                     </div>
                     <div className="mt-3 flex items-center gap-4 text-xs text-gray-400 dark:text-gray-500 border-t border-gray-50 dark:border-white/5 pt-3">
-                      <span>{campaign.variations.length} variations</span>
+                      <span>{campaign.variations.length} ad variations</span>
                       {campaign.current_special && <span>· {campaign.current_special}</span>}
-                      <span>· Created {campaign.created_at}</span>
+                      <span>· {campaign.created_at}</span>
+                      {imageUrls[campaign.id] && <span className="text-green-600 dark:text-green-400">· Photo added</span>}
                     </div>
                   </div>
                   <button
-                    onClick={async (e) => {
+                    onClick={async e => {
                       e.stopPropagation();
                       if (!confirm("Delete this campaign?")) return;
                       await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
@@ -1170,7 +1511,21 @@ export default function MarketingPage() {
           onClose={() => setShowNew(false)}
           operatorId={operatorId}
           operatorEmail={operatorEmail}
-          onCreated={() => { setShowNew(false); reloadCampaigns(); }}
+          onCreated={(imgUrl) => {
+            setShowNew(false);
+            reloadCampaigns();
+            if (imgUrl) {
+              // Will be set after campaigns reload and we know the new campaign id
+              // For now image is associated when user opens the campaign
+              setTimeout(() => {
+                setCampaigns(prev => {
+                  const newest = prev[prev.length - 1];
+                  if (newest && imgUrl) setImageUrls(u => ({ ...u, [newest.id]: imgUrl }));
+                  return prev;
+                });
+              }, 500);
+            }
+          }}
         />
       )}
     </div>

@@ -525,6 +525,15 @@ function OccupancyIntelligenceSection({
                     <div className="mt-auto rounded-lg bg-green-50 px-2.5 py-1.5 dark:bg-green-900/10">
                       <p className="text-[11px] font-semibold text-green-700 dark:text-green-400">↑ {s.impact}</p>
                     </div>
+                    {(s.priority === "high" || s.priority === "medium") && (
+                      <Link
+                        href="/marketing"
+                        className="mt-2 flex items-center justify-center gap-1 rounded-lg border border-[#C8102E]/30 py-1.5 text-[11px] font-semibold text-[#C8102E] hover:bg-[#C8102E]/5 transition-colors"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        Run Ad Campaign →
+                      </Link>
+                    )}
                   </div>
                 </div>
               ))}
