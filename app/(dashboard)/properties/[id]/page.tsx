@@ -714,7 +714,7 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
               <div key={f.key}>
                 <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{f.label}</label>
                 <input type={f.type} placeholder={f.placeholder}
-                  value={(newUnit as Record<string, unknown>)[f.key] as string ?? ""}
+                  value={(newUnit as unknown as Record<string, unknown>)[f.key] as string ?? ""}
                   onChange={e => setNewUnit(p => ({ ...p, [f.key]: f.type === "number" ? (e.target.value ? parseInt(e.target.value) : null) : e.target.value }))}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100" />
               </div>
