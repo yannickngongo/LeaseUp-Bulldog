@@ -22,6 +22,17 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ operator: operator ?? null, properties: properties ?? [] });
 }
 
+export async function PATCH(req: NextRequest) {
+  const body = await req.json();
+  const { email, name } = body;
+  if (!email || !name) return NextResponse.json({ error: "email and name required" }, { status: 400 });
+
+  const db = getSupabaseAdmin();
+  const { error } = await db.from("operators").update({ name }).eq("email", email);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { operatorName, email, propertyName, address, city, state, zip, phoneNumber, activeSpecial, websiteUrl } = body;
