@@ -219,6 +219,7 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
   const [units, setUnits]           = useState<Unit[]>([]);
   const [loading, setLoading]       = useState(true);
   const [uploading, setUploading]   = useState(false);
+  const [parsing, setParsing]       = useState(false);
   const [csvText, setCsvText]       = useState("");
   const [preview, setPreview]       = useState<Unit[]>([]);
   const [showUpload, setShowUpload] = useState(false);
@@ -251,13 +252,47 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.name.toLowerCase().endsWith(".pdf")) {
-      setUploadMsg("PDF uploads are not supported yet. Please export your rent roll as CSV and upload that instead.");
+    e.target.value = "";
+
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
+    const isCsv = file.name.toLowerCase().endsWith(".csv");
+
+    if (!isPdf && !isCsv) {
+      setUploadMsg("Only PDF or CSV files are supported.");
       return;
     }
-    const text = await file.text();
-    handleCsvChange(text);
-    setUploadMsg("");
+
+    if (isCsv) {
+      // Fast client-side parse for CSV
+      const text = await file.text();
+      handleCsvChange(text);
+      setUploadMsg("");
+      return;
+    }
+
+    // PDF: send to server — Claude reads it
+    setParsing(true);
+    setUploadMsg("Reading PDF with AI… this may take 10–20 seconds.");
+    setPreview([]);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/properties/${propertyId}/parse-rent-roll`, {
+        method: "POST",
+        body: fd,
+      });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.units)) {
+        setPreview(data.units);
+        setUploadMsg(`AI extracted ${data.units.length} units from the PDF. Review and save.`);
+      } else {
+        setUploadMsg(data.error ?? "Failed to read PDF. Try exporting as CSV instead.");
+      }
+    } catch {
+      setUploadMsg("Network error reading PDF. Try again.");
+    } finally {
+      setParsing(false);
+    }
   }
 
   async function submitCsv() {
@@ -395,11 +430,23 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
       {showUpload && (
         <div className="mb-4 rounded-xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
           <p className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">Upload Rent Roll</p>
-          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">Upload a CSV file or paste CSV text. Columns detected automatically. PDF export to CSV is recommended for best results.</p>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">Upload your rent roll as a <strong>PDF</strong> (AI reads it automatically) or <strong>CSV</strong> (instant parse). Or paste CSV text below.</p>
           <label className="mb-3 flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-gray-200 px-4 py-5 text-center hover:border-gray-300 dark:border-white/10">
-            <input type="file" accept=".csv,.pdf" className="hidden" onChange={handleFileUpload} />
-            <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0 text-gray-400"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
-            <span className="text-sm text-gray-500">Choose CSV or PDF file</span>
+            <input type="file" accept=".csv,.pdf" className="hidden" onChange={handleFileUpload} disabled={parsing} />
+            {parsing ? (
+              <div className="mx-auto flex items-center gap-2 text-sm text-[#C8102E]">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#C8102E]/30 border-t-[#C8102E]" />
+                AI is reading your PDF…
+              </div>
+            ) : (
+              <>
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5 shrink-0 text-gray-400"><path d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"/></svg>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Choose PDF or CSV file</p>
+                  <p className="text-xs text-gray-400">PDF is read by AI · CSV is parsed instantly</p>
+                </div>
+              </>
+            )}
           </label>
           <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Or paste CSV text:</p>
           <textarea rows={5} value={csvText} onChange={e => handleCsvChange(e.target.value)}

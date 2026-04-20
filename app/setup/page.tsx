@@ -49,21 +49,23 @@ function parseRentRollCsv(raw: string): ParsedUnit[] {
 export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("account");
+  const [checking, setChecking] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [account, setAccount] = useState({ name: "", email: "" });
 
-  // Skip account step if user is already set up
+  // Check if already logged in — skip account step if so
   useEffect(() => {
     getOperatorEmail().then(async (email) => {
-      if (!email) return;
+      if (!email) { setChecking(false); return; }
       const res = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
       const data = await res.json();
       if (data.operator) {
         setAccount({ name: data.operator.name ?? "", email });
         setStep("property");
       }
+      setChecking(false);
     });
   }, []);
   const [property, setProperty] = useState({
@@ -146,6 +148,14 @@ export default function SetupPage() {
   const webhookUrl = typeof window !== "undefined"
     ? `${window.location.origin}/api/twilio/inbound`
     : "/api/twilio/inbound";
+
+  if (checking) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#08080F]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#08080F] text-white font-sans">
