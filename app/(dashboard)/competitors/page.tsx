@@ -3,6 +3,203 @@
 import { useState, useEffect, useCallback } from "react";
 import { getOperatorEmail } from "@/lib/demo-auth";
 
+// ─── Discover Modal ───────────────────────────────────────────────────────────
+
+interface Suggestion {
+  name: string;
+  address: string;
+  zip_code: string;
+  city: string;
+  state: string;
+  their_low: number;
+  their_high: number;
+  threat_level: "high" | "medium" | "low";
+  key_amenities: string[];
+  reason: string;
+}
+
+function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, onAdded }: {
+  propertyId: string;
+  propertyName: string;
+  ourAvgRent: number;
+  email: string;
+  onClose: () => void;
+  onAdded: (comp: TrackedCompetitor) => void;
+}) {
+  const [status, setStatus]         = useState<"loading" | "results" | "error">("loading");
+  const [errorMsg, setErrorMsg]     = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [dismissed, setDismissed]   = useState<Set<number>>(new Set());
+  const [adding, setAdding]         = useState<Set<number>>(new Set());
+  const [added, setAdded]           = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/competitors/discover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, property_id: propertyId }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setErrorMsg(d.error); setStatus("error"); return; }
+        setSuggestions(d.competitors ?? []);
+        setStatus("results");
+      })
+      .catch(() => { setErrorMsg("Network error. Try again."); setStatus("error"); });
+  }, [email, propertyId]);
+
+  async function handleAdd(idx: number, s: Suggestion) {
+    setAdding(prev => new Set(prev).add(idx));
+    const res = await fetch("/api/competitors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        property_id:   propertyId,
+        name:          s.name,
+        address:       s.address,
+        zip_code:      s.zip_code,
+        city:          s.city,
+        state:         s.state,
+        their_low:     s.their_low,
+        their_high:    s.their_high,
+        threat_level:  s.threat_level,
+        key_amenities: s.key_amenities,
+      }),
+    });
+    const json = await res.json();
+    if (res.ok && json.competitor) {
+      onAdded({
+        ...json.competitor,
+        property_name:    propertyName,
+        our_avg_rent:     ourAvgRent,
+        their_rent_range: `${fmt(s.their_low)}–${fmt(s.their_high)}`,
+      });
+      setAdded(prev => new Set(prev).add(idx));
+    }
+    setAdding(prev => { const n = new Set(prev); n.delete(idx); return n; });
+  }
+
+  const tc = (t: Suggestion["threat_level"]) => {
+    if (t === "high")   return "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400";
+    if (t === "medium") return "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400";
+    return "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400";
+  };
+
+  const remaining = suggestions.filter((_, i) => !dismissed.has(i) && !added.has(i));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-[#1C1F2E] border border-gray-100 dark:border-white/10 shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 px-5 py-4 shrink-0">
+          <div>
+            <p className="font-bold text-gray-900 dark:text-gray-100">Discover Competitors</p>
+            <p className="text-xs text-gray-400 mt-0.5">{propertyName}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5">
+          {status === "loading" && (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-[#C8102E]" />
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Searching Rentcast…</p>
+                <p className="text-xs text-gray-400 mt-1">Finding nearby rentals and analyzing which are real competitors</p>
+              </div>
+            </div>
+          )}
+
+          {status === "error" && (
+            <div className="rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 p-5 text-center">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">Discovery failed</p>
+              <p className="text-xs text-red-500">{errorMsg}</p>
+            </div>
+          )}
+
+          {status === "results" && (
+            <>
+              {remaining.length === 0 && suggestions.length > 0 && (
+                <div className="text-center py-8">
+                  <p className="text-2xl mb-2">✓</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">All done</p>
+                  <p className="text-xs text-gray-400 mt-1">You&apos;ve reviewed all suggested competitors.</p>
+                </div>
+              )}
+
+              {suggestions.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-2xl mb-2">🔍</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No competitors found</p>
+                  <p className="text-xs text-gray-400 mt-1">No nearby apartments matched your property&apos;s price tier. Try adding manually.</p>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {suggestions.map((s, i) => {
+                  if (dismissed.has(i) || added.has(i)) return null;
+                  const isAdding = adding.has(i);
+                  return (
+                    <div key={i} className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{s.name}</p>
+                          <p className="text-[11px] text-gray-400">{s.address} · ZIP {s.zip_code}</p>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold capitalize ${tc(s.threat_level)}`}>
+                          {s.threat_level} threat
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 mb-2 text-xs">
+                        <span className="text-gray-500">Their range:</span>
+                        <span className="font-bold text-gray-800 dark:text-gray-100">${s.their_low.toLocaleString()}–${s.their_high.toLocaleString()}/mo</span>
+                        <span className="text-gray-400">vs. your ${ourAvgRent.toLocaleString()}</span>
+                      </div>
+
+                      <p className="text-[11px] text-gray-500 italic mb-3">&ldquo;{s.reason}&rdquo;</p>
+
+                      {s.key_amenities.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-3">
+                          {s.key_amenities.map(a => (
+                            <span key={a} className="rounded-full border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{a}</span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setDismissed(prev => new Set(prev).add(i))}
+                          className="flex-1 rounded-lg border border-gray-200 dark:border-white/10 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
+                        >
+                          Not a Competitor
+                        </button>
+                        <button
+                          onClick={() => handleAdd(i, s)}
+                          disabled={isAdding}
+                          className="flex-1 rounded-lg bg-[#C8102E] py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors"
+                        >
+                          {isAdding ? "Adding…" : "Add to Tracker"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="border-t border-gray-100 dark:border-white/5 px-5 py-3 shrink-0">
+          <button onClick={onClose} className="w-full rounded-lg border border-gray-200 dark:border-white/10 py-2.5 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface TrackedCompetitor {
   id: string;
   name: string;
@@ -295,6 +492,7 @@ export default function CompetitorsPage() {
   const [syncingAll, setSyncingAll]       = useState(false);
   const [syncingId, setSyncingId]         = useState<string | null>(null);
   const [email, setEmail]                 = useState<string>("");
+  const [showDiscover, setShowDiscover]   = useState(false);
 
   const loadCompetitors = useCallback(async (propId: string, em: string, avgRents: Record<string, number>) => {
     const res  = await fetch(`/api/competitors?email=${encodeURIComponent(em)}&property_id=${propId}`);
@@ -412,9 +610,16 @@ export default function CompetitorsPage() {
                 ? <><span className="h-3 w-3 animate-spin rounded-full border border-gray-400/30 border-t-gray-500" />Syncing…</>
                 : "↻ Sync All"}
             </button>
+            <button
+              onClick={() => setShowDiscover(true)}
+              disabled={properties.length === 0 || !selectedPropertyId || (avgRentByProperty[selectedPropertyId] ?? null) === null}
+              className="flex items-center gap-2 rounded-xl border border-[#C8102E] bg-[#C8102E]/10 px-4 py-2 text-sm font-bold text-[#C8102E] hover:bg-[#C8102E]/20 disabled:opacity-40 transition-colors"
+            >
+              ✦ Discover
+            </button>
             <button onClick={() => setShowAdd(true)} disabled={properties.length === 0}
               className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-4 py-2 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
-              + Track Competitor
+              + Add Manual
             </button>
           </div>
         </div>
@@ -556,6 +761,19 @@ export default function CompetitorsPage() {
           defaultPropertyId={selectedPropertyId}
           onClose={() => setShowAdd(false)}
           onAdd={handleAdd}
+        />
+      )}
+
+      {showDiscover && selectedPropertyId && email && (avgRentByProperty[selectedPropertyId] ?? null) !== null && (
+        <DiscoverModal
+          propertyId={selectedPropertyId}
+          propertyName={selectedProperty?.name ?? ""}
+          ourAvgRent={avgRentByProperty[selectedPropertyId]}
+          email={email}
+          onClose={() => setShowDiscover(false)}
+          onAdded={comp => {
+            setCompetitors(prev => [comp, ...prev.filter(c => c.id !== comp.id)]);
+          }}
         />
       )}
     </div>
