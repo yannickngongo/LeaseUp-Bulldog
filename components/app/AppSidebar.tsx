@@ -115,6 +115,15 @@ function IconReports() {
 }
 
 
+function IconCompetitors() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <path d="M9 1.5L2 5.5v7l7 4 7-4v-7z" />
+      <path d="M9 1.5v11M2 5.5l7 4 7-4" />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
@@ -144,6 +153,7 @@ const NAV_SECONDARY: NavItem[] = [
 { href: "/renewals",     label: "Renewals",     icon: <IconRenewals /> },
   { href: "/calendar",     label: "Calendar",     icon: <IconCalendar /> },
   { href: "/marketing",    label: "Marketing",    icon: <IconMarketing /> },
+  { href: "/competitors",  label: "Competitors",  icon: <IconCompetitors /> },
   { href: "/automations",  label: "Automations",  icon: <IconAutomations /> },
   { href: "/integrations", label: "Integrations", icon: <IconIntegrations /> },
   { href: "/reports",      label: "Reports",      icon: <IconReports /> },
