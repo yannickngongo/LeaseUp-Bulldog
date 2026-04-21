@@ -722,7 +722,7 @@ function OfferMetricRow({ label, yours, rec, format }: { label: string; yours: n
   );
 }
 
-function OfferLabPanel({ campaign }: { campaign: Campaign }) {
+function OfferLabPanel({ campaign, onLaunch }: { campaign: Campaign; onLaunch?: () => void }) {
   const [offerText, setOfferText]   = useState(campaign.current_special ?? "");
   const [budget, setBudget]         = useState(1000);
   const [result, setResult]         = useState<OfferScoreData | null>(null);
@@ -827,7 +827,7 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
                   <button
                     type="button"
                     onClick={() => setSelectedOffer(selected ? null : "yours")}
-                    className={`text-left rounded-2xl border p-4 shadow-sm transition-all cursor-pointer w-full relative ${
+                    className={`text-left rounded-2xl border p-4 shadow-sm transition-all cursor-pointer w-full relative flex flex-col justify-start ${
                       selected
                         ? "ring-[3px] ring-blue-500 border-blue-300 dark:border-blue-700 bg-blue-50/60 dark:bg-blue-900/20"
                         : `ring-1 ${gc.ring} border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] hover:ring-2 hover:ring-blue-300`
@@ -871,7 +871,7 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
                   <button
                     type="button"
                     onClick={() => setSelectedOffer(selected ? null : "recommended")}
-                    className={`text-left rounded-2xl border p-4 shadow-sm transition-all cursor-pointer w-full relative overflow-hidden ${
+                    className={`text-left rounded-2xl border p-4 shadow-sm transition-all cursor-pointer w-full relative overflow-hidden flex flex-col justify-start ${
                       selected
                         ? "ring-[3px] ring-[#C8102E] border-[#C8102E]/40 bg-[#C8102E]/5 dark:bg-[#C8102E]/10"
                         : `ring-1 ${gc.ring} border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] hover:ring-2 hover:ring-[#C8102E]/50`
@@ -935,9 +935,12 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
                     }
                   </p>
                 </div>
-                <button className={`shrink-0 rounded-lg px-4 py-2 text-xs font-bold text-white transition-colors ${
-                  selectedOffer === "yours" ? "bg-blue-500 hover:bg-blue-600" : "bg-[#C8102E] hover:bg-[#A50D25]"
-                }`}>
+                <button
+                  onClick={onLaunch}
+                  className={`shrink-0 rounded-lg px-4 py-2 text-xs font-bold text-white transition-colors ${
+                    selectedOffer === "yours" ? "bg-blue-500 hover:bg-blue-600" : "bg-[#C8102E] hover:bg-[#A50D25]"
+                  }`}
+                >
                   Use This Offer →
                 </button>
               </div>
@@ -1324,7 +1327,7 @@ function CampaignDetail({
 
       {tab === "intelligence" && (
         <div className="space-y-4">
-          <OfferLabPanel campaign={campaign} />
+          <OfferLabPanel campaign={campaign} onLaunch={() => setShowLaunch(true)} />
           <CampaignOptimizePanel campaign={campaign} />
           <WhatIfPanel campaign={campaign} />
         </div>

@@ -2,16 +2,16 @@
 import Link from "next/link";
 
 const PLAN_OPTIONS = [
-  { id: "starter", label: "Starter", price: "$199/mo per property", desc: "1 property" },
-  { id: "growth", label: "Growth", price: "$399/mo per property", desc: "Up to 10 properties", popular: true },
-  { id: "portfolio", label: "Portfolio", price: "Custom", desc: "Unlimited properties" },
+  { id: "core", label: "Core Platform", price: "$1,000/mo", desc: "AI qualification + full dashboard", popular: true },
+  { id: "marketing", label: "Core + Marketing", price: "$3,000/mo", desc: "Platform + AI ad campaigns" },
+  { id: "portfolio", label: "Portfolio", price: "Custom", desc: "Multi-property enterprise" },
 ];
 
 const PERKS = [
-  "14 days free — no credit card required",
+  "14-day pilot — only pay the $1,000 setup fee",
   "First AI conversation live in under 10 minutes",
-  "Cancel anytime, no questions asked",
-  "Full access to all features during trial",
+  "$200 per lease signed — only when we deliver",
+  "Cancel anytime, no platform fee during the trial",
 ];
 
 export default function FreeTrialPage() {
@@ -113,7 +113,7 @@ export default function FreeTrialPage() {
               </form>
 
               <p className="mt-4 text-center text-xs text-gray-600">
-                No credit card required. You&apos;ll add payment info before day 14.
+                $1,000 setup to get started. No monthly fee during the 14-day trial.
               </p>
             </div>
           </div>
