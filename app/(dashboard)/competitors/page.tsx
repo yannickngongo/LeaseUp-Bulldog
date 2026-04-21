@@ -21,6 +21,7 @@ interface Suggestion {
   threat_level: "high" | "medium" | "low";
   key_amenities: string[];
   property_type: string;
+  why_competitor: string;
 }
 
 function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, onAdded }: {
@@ -31,11 +32,12 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
   onClose: () => void;
   onAdded: (comp: TrackedCompetitor) => void;
 }) {
-  const [status, setStatus]           = useState<"loading" | "results" | "error">("loading");
-  const [errorMsg, setErrorMsg]       = useState("");
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [marketLow, setMarketLow]     = useState<number | null>(null);
-  const [marketHigh, setMarketHigh]   = useState<number | null>(null);
+  const [status, setStatus]             = useState<"loading" | "results" | "error">("loading");
+  const [errorMsg, setErrorMsg]         = useState("");
+  const [suggestions, setSuggestions]   = useState<Suggestion[]>([]);
+  const [marketLow, setMarketLow]       = useState<number | null>(null);
+  const [marketHigh, setMarketHigh]     = useState<number | null>(null);
+  const [marketSummary, setMarketSummary] = useState("");
   const [dismissed, setDismissed]     = useState<Set<number>>(new Set());
   const [adding, setAdding]           = useState<Set<number>>(new Set());
   const [added, setAdded]             = useState<Set<number>>(new Set());
@@ -52,6 +54,7 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
         setSuggestions(d.competitors ?? []);
         setMarketLow(d.market_low ?? null);
         setMarketHigh(d.market_high ?? null);
+        setMarketSummary(d.market_summary ?? "");
         setStatus("results");
       })
       .catch(() => { setErrorMsg("Network error. Try again."); setStatus("error"); });
@@ -113,8 +116,8 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-[#C8102E]" />
               <div className="text-center">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Searching Rentcast…</p>
-                <p className="text-xs text-gray-400 mt-1">Finding nearby rentals and analyzing which are real competitors</p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Scanning 1.5-mile radius…</p>
+                <p className="text-xs text-gray-400 mt-1">Geocoding address → searching Rentcast → AI analyzing competitors</p>
               </div>
             </div>
           )}
@@ -144,13 +147,18 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
                 </div>
               )}
 
-              {suggestions.length > 0 && remaining.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-xs text-gray-400">{remaining.length} propert{remaining.length !== 1 ? "ies" : "y"} found nearby — add the ones that compete with you</p>
+              {marketSummary && (
+                <div className="mb-4 rounded-xl border border-[#C8102E]/20 bg-[#C8102E]/5 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#C8102E] mb-1">AI Market Analysis · 1.5-mile radius</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">{marketSummary}</p>
                   {marketLow && marketHigh && (
-                    <p className="text-xs text-gray-400 mt-0.5">Market rent range for this area: <span className="font-semibold text-gray-600 dark:text-gray-300">${marketLow.toLocaleString()}–${marketHigh.toLocaleString()}/mo</span></p>
+                    <p className="text-[10px] text-gray-500 mt-2">Area rent range: <span className="font-semibold">${marketLow.toLocaleString()}–${marketHigh.toLocaleString()}/mo</span></p>
                   )}
                 </div>
+              )}
+
+              {suggestions.length > 0 && remaining.length > 0 && (
+                <p className="text-xs text-gray-400 mb-3">{remaining.length} competitor{remaining.length !== 1 ? "s" : ""} identified — add the ones you want to track</p>
               )}
 
               <div className="space-y-3">
@@ -190,6 +198,10 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
                           <p className="text-[9px] text-gray-400">vs. ours</p>
                         </div>
                       </div>
+
+                      {s.why_competitor && (
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 italic mb-2">{s.why_competitor}</p>
+                      )}
 
                       {s.key_amenities.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-3">
