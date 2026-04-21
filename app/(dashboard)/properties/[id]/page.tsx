@@ -1084,19 +1084,20 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
 
 interface MarketBenchmark {
   unit_type: string;
+  bedrooms: number;
   market_avg_rent: number;
   market_low: number;
   market_high: number;
   property_rent: number | null;
-  vs_market_pct: number;
+  vs_market_pct: number | null;
   recommendation: string;
 }
 
 interface MarketPosition {
-  market_summary: string;
+  source: string;
+  city: string;
+  state: string;
   benchmarks: MarketBenchmark[];
-  pricing_strategy: string;
-  demand_outlook: string;
 }
 
 function MarketPositionSection({ property, units }: { property: Property; units: Unit[] }) {
@@ -1106,16 +1107,22 @@ function MarketPositionSection({ property, units }: { property: Property; units:
   const [ran, setRan]       = useState(false);
 
   const unitRents = React.useMemo(() => {
-    const map: Record<string, { count: number; total: number }> = {};
+    const map: Record<string, { count: number; total: number; bedrooms: number }> = {};
     for (const u of units) {
       const t = u.unit_type ?? "unknown";
-      if (!map[t]) map[t] = { count: 0, total: 0 };
+      if (!map[t]) {
+        // Infer bedroom count from unit_type string (e.g. "1BR", "2 bed", "studio" → 0)
+        const bedsMatch = t.match(/(\d+)\s*(?:br|bed)/i);
+        const beds = bedsMatch ? parseInt(bedsMatch[1]) : (u.bedrooms ?? 0);
+        map[t] = { count: 0, total: 0, bedrooms: beds };
+      }
       map[t].count++;
       if (u.monthly_rent) map[t].total += u.monthly_rent;
     }
     return Object.entries(map).map(([unit_type, v]) => ({
       unit_type,
-      count: v.count,
+      bedrooms: v.bedrooms,
+      count:    v.count,
       avg_rent: v.count > 0 && v.total > 0 ? Math.round(v.total / v.count) : null,
     }));
   }, [units]);
@@ -1128,10 +1135,11 @@ function MarketPositionSection({ property, units }: { property: Property; units:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           property_name: property.name,
-          city: property.city,
-          state: property.state,
-          neighborhood: property.neighborhood,
-          unit_rents: unitRents,
+          address:       property.address,
+          city:          property.city,
+          state:         property.state,
+          zip:           property.zip,
+          unit_rents:    unitRents,
         }),
       });
       const json = await res.json();
@@ -1170,7 +1178,7 @@ function MarketPositionSection({ property, units }: { property: Property; units:
             </svg>
           </div>
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">See how your rents compare to the market</p>
-          <p className="mt-1 text-xs text-gray-400">AI will benchmark each unit type against {property.city}, {property.state} market averages</p>
+          <p className="mt-1 text-xs text-gray-400">Pulls live rent estimates from Rentcast AVM for {property.city}, {property.state}</p>
         </div>
       )}
 
@@ -1187,27 +1195,18 @@ function MarketPositionSection({ property, units }: { property: Property; units:
       )}
 
       {data && !loading && (
-        <div className="space-y-4">
-          {/* Summary + Outlook */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Market Summary — {property.city}, {property.state}</p>
-              <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{data.market_summary}</p>
-            </div>
-            <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Demand Outlook</p>
-              <p className="text-sm leading-relaxed text-gray-700 dark:text-gray-300">{data.demand_outlook}</p>
-              <div className="mt-4 rounded-xl bg-[#C8102E]/5 px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-[#C8102E] mb-1">Pricing Strategy</p>
-                <p className="text-xs leading-relaxed text-gray-700 dark:text-gray-300">{data.pricing_strategy}</p>
-              </div>
-            </div>
+        <div className="space-y-3">
+          {/* Source badge */}
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+              Source: {data.source} · {data.city}, {data.state}
+            </span>
           </div>
 
           {/* Benchmarks table */}
           <Card padding="none">
             <div className="overflow-x-auto">
-            <table className="min-w-[640px] w-full text-sm">
+            <table className="min-w-[620px] w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-white/5">
                   {["Unit Type","Your Rent","Market Avg","Market Range","vs Market","Recommendation"].map(h => (
@@ -1217,9 +1216,9 @@ function MarketPositionSection({ property, units }: { property: Property; units:
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-white/5">
                 {data.benchmarks.map((b, i) => {
-                  const above = b.vs_market_pct > 3;
-                  const below = b.vs_market_pct < -3;
-                  const atMkt = !above && !below;
+                  const vp    = b.vs_market_pct;
+                  const above = vp != null && vp > 3;
+                  const below = vp != null && vp < -3;
                   return (
                     <tr key={i} className="hover:bg-gray-50/60 dark:hover:bg-white/3">
                       <td className="px-5 py-3.5 font-medium text-gray-900 dark:text-gray-100 capitalize">{b.unit_type}</td>
@@ -1231,20 +1230,19 @@ function MarketPositionSection({ property, units }: { property: Property; units:
                         ${b.market_low.toLocaleString()} – ${b.market_high.toLocaleString()}
                       </td>
                       <td className="px-5 py-3.5 text-right">
-                        {b.property_rent ? (
+                        {vp != null ? (
                           <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold",
                             above ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
                             : below ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                             : "bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-400"
                           )}>
-                            {above ? "+" : ""}{b.vs_market_pct.toFixed(1)}%
+                            {vp > 0 ? "+" : ""}{vp.toFixed(1)}%
                           </span>
-                        ) : <span className="text-gray-400 text-xs">no data</span>}
+                        ) : <span className="text-gray-400 text-xs">no rent on file</span>}
                       </td>
                       <td className="px-5 py-3.5 text-xs text-gray-600 dark:text-gray-400 max-w-[200px]">{b.recommendation}</td>
                     </tr>
                   );
-                  void atMkt;
                 })}
               </tbody>
             </table>
