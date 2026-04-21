@@ -96,8 +96,28 @@ function scoreStyle(score: number) {
   return              { text: "text-red-600",    bg: "bg-red-50    dark:bg-red-900/20",    ring: "ring-red-200    dark:ring-red-800",    bar: "bg-red-500"    };
 }
 
-function computeProjection(units: Unit[], leads: Lead[], totalUnits: number): ProjectionData {
-  if (totalUnits === 0) return { labels: ["Today","30d","60d","90d"], noAction: [0,0,0,0], withLUB: [0,0,0,0] };
+// Conservative multifamily digital ad benchmarks
+const CPL           = 45;   // cost per lead
+const LEAD_TO_LEASE = 0.20; // lead-to-lease conversion rate
+const RENEWAL_BOOST = 0.82; // renewal rate with LUB active outreach
+
+function recommendMonthlyBudget(occupied: number, totalUnits: number): number {
+  const target = Math.ceil(totalUnits * 0.95);
+  const gap    = Math.max(0, target - occupied);
+  if (gap === 0) return 500;
+  const leasesPerMonth = Math.ceil(gap / 2); // fill in 2 months
+  return Math.max(500, Math.ceil((leasesPerMonth / LEAD_TO_LEASE) * CPL / 100) * 100);
+}
+
+interface BudgetProjection extends ProjectionData {
+  leadsPerMonth: number;
+  leasesPerMonth: number;
+  daysTo95: number;
+}
+
+function computeBudgetProjection(units: Unit[], budgetPerMonth: number, totalUnits: number): BudgetProjection {
+  const empty: BudgetProjection = { labels: ["Today","30d","60d","90d"], noAction: [0,0,0,0], withLUB: [0,0,0,0], leadsPerMonth: 0, leasesPerMonth: 0, daysTo95: 999 };
+  if (totalUnits === 0) return empty;
 
   const now      = Date.now();
   const occupied = units.filter(u => u.status === "occupied").length;
@@ -105,7 +125,7 @@ function computeProjection(units: Unit[], leads: Lead[], totalUnits: number): Pr
   const currentPct = Math.round((occupied / totalUnits) * 100);
   const p = (n: number) => Math.min(100, Math.round((n / totalUnits) * 100));
 
-  // Expiring leases — cumulative, then incremental per window
+  // Incremental expirations per window
   function expiringBy(days: number) {
     return units.filter(u => {
       if (u.status !== "occupied" || !u.lease_end) return false;
@@ -113,76 +133,55 @@ function computeProjection(units: Unit[], leads: Lead[], totalUnits: number): Pr
       return ms >= 0 && ms <= days * 86_400_000;
     }).length;
   }
-  const expBy30 = expiringBy(30);
-  const expBy60 = expiringBy(60);
-  const expBy90 = expiringBy(90);
-  const exp30   = expBy30;
-  const exp60   = expBy60 - expBy30; // incremental 30→60
-  const exp90   = expBy90 - expBy60; // incremental 60→90
+  const exp30 = expiringBy(30);
+  const exp60 = expiringBy(60) - exp30;
+  const exp90 = expiringBy(90) - expiringBy(60);
 
-  // Actual lead conversion rate from closed leads; fall back to 18% multifamily industry avg
-  const wonLeads  = leads.filter(l => l.status === "won").length;
-  const lostLeads = leads.filter(l => l.status === "lost").length;
-  const closed    = wonLeads + lostLeads;
-  const cvr       = closed >= 5 ? wonLeads / closed : 0.18;
-
-  // Active pipeline (not won or lost) — the leads LUB is currently working
-  const activePipeline = leads.filter(l => !["won","lost"].includes(l.status)).length;
-
-  // ── WITHOUT LUB (no-action) ──────────────────────────────────────────────────
-  // Notice units all vacate. Expiring leases don't renew. No new leases close.
+  // ── WITHOUT AD SPEND ─────────────────────────────────────────────────────────
+  // Honest decline: notice units vacate, leases expire, nothing fills
   const naOcc30 = Math.max(0, occupied - notice - exp30);
   const naOcc60 = Math.max(0, naOcc30 - exp60);
   const naOcc90 = Math.max(0, naOcc60 - exp90);
 
-  // ── WITH LUB ────────────────────────────────────────────────────────────────
-  // LUB drives occupancy UP via three mechanisms:
-  //   1. Retention: re-engages at-risk tenants → 82% renewal rate vs ~55% cold
-  //   2. Pipeline conversion: existing leads close at their actual CVR
-  //   3. Active prospecting: LUB's AI markets vacant + going-vacant units externally
-  //      → conservatively fills ~20% of unoccupied slots per 30-day window
+  // ── WITH AD BUDGET ────────────────────────────────────────────────────────────
+  // New leases per month from ad spend (conservative CPL × lead-to-lease rate)
+  const leadsPerMonth  = Math.round(budgetPerMonth / CPL);
+  const leasesPerMonth = Math.round(leadsPerMonth * LEAD_TO_LEASE);
 
-  const renewalRate = 0.82; // LUB proactive renewal outreach (vs ~55% cold)
+  // Churn still happens but LUB's renewal outreach improves retention
+  const noticeVac = Math.round(notice * 0.35);               // LUB retains 65% of notice tenants
+  const expVac30  = Math.round(exp30 * (1 - RENEWAL_BOOST));
+  const expVac60  = Math.round(exp60 * (1 - RENEWAL_BOOST));
+  const expVac90  = Math.round(exp90 * (1 - RENEWAL_BOOST));
 
-  const currentlyVacant = units.filter(u => u.status === "vacant").length;
+  // Cumulative new leases by window
+  const adIn30 = leasesPerMonth;
+  const adIn60 = leasesPerMonth;
+  const adIn90 = leasesPerMonth;
 
-  // Vacancies that still occur even with LUB (some tenants leave regardless)
-  const noticeVac30 = Math.round(notice * 0.35); // LUB retains 65% of notice tenants
-  const expVac30    = Math.round(exp30 * (1 - renewalRate));
-  const expVac60    = Math.round(exp60 * (1 - renewalRate));
-  const expVac90    = Math.round(exp90 * (1 - renewalRate));
-
-  // Fills: pipeline closures (distributed 55/30/15) + LUB AI outreach on vacant units
-  const pipeIn30 = Math.round(activePipeline * cvr * 0.55);
-  const pipeIn60 = Math.round(activePipeline * cvr * 0.30);
-  const pipeIn90 = Math.round(activePipeline * cvr * 0.15);
-
-  // LUB prospects on currently vacant + newly vacating units each window
-  const prospectsW1 = currentlyVacant + noticeVac30 + expVac30;
-  const prospectsW2 = prospectsW1 + expVac60;
-  const prospectsW3 = prospectsW2 + expVac90;
-  const aiIn30 = Math.max(1, Math.round(prospectsW1 * 0.20));
-  const aiIn60 = Math.max(1, Math.round(prospectsW2 * 0.16));
-  const aiIn90 = Math.max(1, Math.round(prospectsW3 * 0.12));
-
-  const totalIn30 = pipeIn30 + aiIn30;
-  const totalIn60 = pipeIn60 + aiIn60;
-  const totalIn90 = pipeIn90 + aiIn90;
-
-  // Net occupancy with LUB — guaranteed non-decreasing: LUB always improves or holds
-  const rawLub30 = occupied - noticeVac30 - expVac30 + totalIn30;
+  const rawLub30 = occupied - noticeVac - expVac30 + adIn30;
   const lubOcc30 = Math.min(totalUnits, Math.max(occupied, rawLub30));
 
-  const rawLub60 = lubOcc30 - expVac60 + totalIn60;
+  const rawLub60 = lubOcc30 - expVac60 + adIn60;
   const lubOcc60 = Math.min(totalUnits, Math.max(lubOcc30, rawLub60));
 
-  const rawLub90 = lubOcc60 - expVac90 + totalIn90;
+  const rawLub90 = lubOcc60 - expVac90 + adIn90;
   const lubOcc90 = Math.min(totalUnits, Math.max(lubOcc60, rawLub90));
 
+  // Days to 95% at current budget
+  const target95    = Math.ceil(totalUnits * 0.95);
+  const gap95       = Math.max(0, target95 - occupied);
+  const avgChurn    = Math.round((noticeVac + expVac30 + expVac60 + expVac90) / 3);
+  const netPerMonth = leasesPerMonth - avgChurn;
+  const daysTo95    = gap95 === 0 ? 0 : netPerMonth > 0 ? Math.ceil((gap95 / netPerMonth) * 30) : 999;
+
   return {
-    labels:   ["Today", "30 days", "60 days", "90 days"],
-    noAction: [currentPct, p(naOcc30), p(naOcc60), p(naOcc90)],
-    withLUB:  [currentPct, p(lubOcc30), p(lubOcc60), p(lubOcc90)],
+    labels:       ["Today", "30 days", "60 days", "90 days"],
+    noAction:     [currentPct, p(naOcc30), p(naOcc60), p(naOcc90)],
+    withLUB:      [currentPct, p(lubOcc30), p(lubOcc60), p(lubOcc90)],
+    leadsPerMonth,
+    leasesPerMonth,
+    daysTo95,
   };
 }
 
@@ -206,7 +205,7 @@ function OccupancyChart({ projection }: { projection: ProjectionData }) {
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top  - PAD.bottom;
 
-  const all  = [...projection.noAction, ...projection.withLUB, 90];
+  const all  = [...projection.noAction, ...projection.withLUB, 95];
   const minY = Math.max(0,   Math.min(...all) - 8);
   const maxY = Math.min(100, Math.max(...all) + 6);
 
@@ -216,7 +215,7 @@ function OccupancyChart({ projection }: { projection: ProjectionData }) {
   const path = (vals: number[]) =>
     vals.map((v, i) => `${i === 0 ? "M" : "L"}${xS(i).toFixed(1)},${yS(v).toFixed(1)}`).join(" ");
 
-  const t90   = yS(90);
+  const t90   = yS(95);
   const show90 = t90 >= PAD.top && t90 <= H - PAD.bottom;
 
   // 5 y-axis grid steps
@@ -234,11 +233,11 @@ function OccupancyChart({ projection }: { projection: ProjectionData }) {
         </g>
       ))}
 
-      {/* 90% target line */}
+      {/* 95% target line */}
       {show90 && (
         <>
           <line x1={PAD.left} y1={t90} x2={W - PAD.right} y2={t90} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5,3" />
-          <text x={W - PAD.right + 6} y={t90 + 4} fontSize={10} fill="#f59e0b" fontWeight="700">90%</text>
+          <text x={W - PAD.right + 6} y={t90 + 4} fontSize={10} fill="#f59e0b" fontWeight="700">95%</text>
         </>
       )}
 
@@ -283,13 +282,13 @@ function OccupancyChart({ projection }: { projection: ProjectionData }) {
       {/* Legend */}
       <g transform={`translate(${PAD.left}, 4)`}>
         <rect x={0} y={0} width={14} height={3} fill="#C8102E" rx={1.5} />
-        <text x={18} y={4} fontSize={10} fill="#6b7280">With LUB</text>
-        <line x1={90} y1={1.5} x2={104} y2={1.5} stroke="#9ca3af" strokeWidth={2} strokeDasharray="4,2" />
-        <text x={108} y={4} fontSize={10} fill="#6b7280">Without LUB</text>
+        <text x={18} y={4} fontSize={10} fill="#6b7280">With ad spend</text>
+        <line x1={106} y1={1.5} x2={120} y2={1.5} stroke="#9ca3af" strokeWidth={2} strokeDasharray="4,2" />
+        <text x={124} y={4} fontSize={10} fill="#6b7280">No ad spend</text>
         {show90 && (
           <>
-            <line x1={190} y1={1.5} x2={204} y2={1.5} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4,2" />
-            <text x={208} y={4} fontSize={10} fill="#f59e0b">90% target</text>
+            <line x1={204} y1={1.5} x2={218} y2={1.5} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4,2" />
+            <text x={222} y={4} fontSize={10} fill="#f59e0b">95% target</text>
           </>
         )}
       </g>
@@ -310,15 +309,19 @@ function OccupancyIntelligenceSection({
   leads: Lead[];
   daysSinceRentRoll: number | null;
 }) {
-  const [analysis, setAnalysis] = useState<OccupancyAnalysis | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
+  const [analysis, setAnalysis]     = useState<OccupancyAnalysis | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [customBudget, setCustomBudget] = useState<number | null>(null);
 
   const totalUnits    = property.total_units ?? units.length;
   const occupiedUnits = property.occupied_units ?? units.filter(u => u.status === "occupied").length;
   const vacantUnits   = units.filter(u => u.status === "vacant").length;
   const noticeUnits   = units.filter(u => u.status === "notice").length;
   const occPct        = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
+  const recBudget    = recommendMonthlyBudget(occupiedUnits, totalUnits);
+  const activeBudget = customBudget ?? recBudget;
 
   const activeLeads  = leads.filter(l => !["won","lost"].includes(l.status)).length;
   const tourLeads    = leads.filter(l => isTourOrBeyond(l.status)).length;
@@ -373,7 +376,7 @@ function OccupancyIntelligenceSection({
 
   useEffect(() => { fetchAnalysis(); }, [property.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const projection = computeProjection(units, leads, totalUnits);
+  const projection = computeBudgetProjection(units, activeBudget, totalUnits);
 
   const displayScore = analysis?.score ?? occPct;
   const displayLabel = analysis?.score_label ?? (occPct >= 90 ? "Excellent" : occPct >= 80 ? "Good" : occPct >= 70 ? "Fair" : occPct >= 60 ? "At Risk" : "Critical");
@@ -462,7 +465,7 @@ function OccupancyIntelligenceSection({
             </div>
             <div className="mt-1 flex items-center justify-between text-[10px]">
               <span className="text-gray-400">{occupiedUnits}/{totalUnits} units</span>
-              <span className="font-semibold text-amber-500">Target: 90%</span>
+              <span className="font-semibold text-amber-500">Target: 95%</span>
             </div>
           </div>
 
@@ -487,32 +490,93 @@ function OccupancyIntelligenceSection({
 
         {/* Projection chart */}
         <div className="lg:col-span-2 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-          <div className="mb-1 flex items-start justify-between">
+          <div className="mb-3 flex items-start justify-between">
             <div>
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">90-Day Occupancy Projection</p>
-              <p className="mt-0.5 text-xs text-gray-400">
-                {loading
-                  ? "Calculating based on your pipeline, lease expirations, and LUB AI outreach…"
-                  : `${leads.filter(l=>!["won","lost"].includes(l.status)).length} active leads · ${Math.round((leads.filter(l=>l.status==="won").length/(Math.max(1,leads.filter(l=>["won","lost"].includes(l.status)).length)))*100)}% close rate · LUB AI prospecting on vacant units`}
-              </p>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">90-Day Ad Spend Forecast</p>
+              <p className="mt-0.5 text-xs text-gray-400">Conservative estimate — adjust monthly budget to see impact</p>
             </div>
+            {/* Recommended badge */}
+            {!loading && (
+              <span className="shrink-0 rounded-full bg-[#C8102E]/10 px-2.5 py-1 text-[10px] font-bold text-[#C8102E]">
+                LUB recommends ${recBudget.toLocaleString()}/mo
+              </span>
+            )}
           </div>
 
           {loading ? (
-            <div className="mt-3 flex h-44 flex-col items-center justify-center gap-3">
+            <div className="flex h-52 flex-col items-center justify-center gap-3">
               <div className="h-3 w-3 animate-spin rounded-full border border-gray-200 border-t-[#C8102E]" />
               <p className="text-xs text-gray-400">AI is scoring your occupancy…</p>
             </div>
           ) : totalUnits > 0 ? (
-            <div className="mt-3">
+            <>
+              {/* Budget presets */}
+              <div className="mb-3 flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Monthly budget:</span>
+                {[
+                  { label: `$${Math.round(recBudget * 0.5 / 100) * 100}/mo`, value: Math.round(recBudget * 0.5 / 100) * 100, tag: "Conservative" },
+                  { label: `$${recBudget}/mo`, value: recBudget, tag: "Recommended" },
+                  { label: `$${recBudget * 2}/mo`, value: recBudget * 2, tag: "Aggressive" },
+                ].map(({ label, value, tag }) => (
+                  <button
+                    key={value}
+                    onClick={() => setCustomBudget(value)}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
+                      activeBudget === value
+                        ? "border-[#C8102E] bg-[#C8102E] text-white"
+                        : "border-gray-200 text-gray-600 hover:border-[#C8102E] hover:text-[#C8102E] dark:border-white/10 dark:text-gray-300"
+                    )}
+                  >
+                    {label}
+                    {tag === "Recommended" && activeBudget === value && <span className="ml-1 opacity-80">★</span>}
+                  </button>
+                ))}
+                {/* Custom input */}
+                <div className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/10 px-2 py-1">
+                  <span className="text-xs text-gray-400">$</span>
+                  <input
+                    type="number"
+                    min={100}
+                    step={100}
+                    placeholder="Custom"
+                    className="w-20 bg-transparent text-xs text-gray-700 dark:text-gray-200 focus:outline-none"
+                    onChange={e => { const v = parseInt(e.target.value); if (v > 0) setCustomBudget(v); }}
+                  />
+                  <span className="text-xs text-gray-400">/mo</span>
+                </div>
+              </div>
+
+              {/* Plan summary pills */}
+              <div className="mb-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 px-3 py-1 text-xs text-gray-600 dark:text-gray-300">
+                  ~<strong>{projection.leadsPerMonth}</strong> leads/mo
+                </span>
+                <span className="rounded-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 px-3 py-1 text-xs text-gray-600 dark:text-gray-300">
+                  ~<strong>{projection.leasesPerMonth}</strong> leases/mo
+                </span>
+                <span className={cn(
+                  "rounded-full border px-3 py-1 text-xs font-semibold",
+                  projection.daysTo95 <= 90
+                    ? "bg-green-50 border-green-100 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400"
+                    : "bg-amber-50 border-amber-100 text-amber-700 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400"
+                )}>
+                  {projection.daysTo95 <= 0
+                    ? "Already at 95% ✓"
+                    : projection.daysTo95 <= 90
+                    ? `Reach 95% in ~${projection.daysTo95} days`
+                    : `95% in ~${Math.round(projection.daysTo95 / 30)} months — increase budget`}
+                </span>
+              </div>
+
               <OccupancyChart projection={projection} />
-            </div>
+            </>
           ) : (
             <div className="flex h-44 flex-col items-center justify-center gap-2 text-center">
               <svg viewBox="0 0 24 24" fill="none" stroke="#C8102E" strokeWidth={1.5} className="h-10 w-10 opacity-40">
                 <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Upload a rent roll to see projections</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Upload a rent roll to see forecast</p>
             </div>
           )}
         </div>
