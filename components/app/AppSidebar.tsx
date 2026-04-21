@@ -82,16 +82,6 @@ function IconRenewals() {
   );
 }
 
-function IconTenants() {
-  return (
-    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
-      <circle cx="6.5" cy="5.5" r="2.5" />
-      <circle cx="13" cy="5.5" r="2" />
-      <path d="M1 16c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
-      <path d="M13 11c2 0 3.5 1.3 3.5 3.5" />
-    </svg>
-  );
-}
 
 function IconPortfolio() {
   return (
@@ -159,8 +149,7 @@ const NAV_PRIMARY: NavItem[] = [
 ];
 
 const NAV_SECONDARY: NavItem[] = [
-  { href: "/tenants",      label: "Tenants",      icon: <IconTenants /> },
-  { href: "/renewals",     label: "Renewals",     icon: <IconRenewals /> },
+{ href: "/renewals",     label: "Renewals",     icon: <IconRenewals /> },
   { href: "/calendar",     label: "Calendar",     icon: <IconCalendar /> },
   { href: "/marketing",    label: "Marketing",    icon: <IconMarketing /> },
   { href: "/competitors",  label: "Competitors",  icon: <IconCompetitors /> },
