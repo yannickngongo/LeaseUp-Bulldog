@@ -545,7 +545,7 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
         <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 px-5 py-4 shrink-0">
           <div>
             <p className="font-bold text-gray-900 dark:text-gray-100">Nearby Properties</p>
-            <p className="text-xs text-gray-400 mt-0.5">{propertyName} · Rentometer data</p>
+            <p className="text-xs text-gray-400 mt-0.5">{propertyName} · Rentcast data</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
         </div>
@@ -557,7 +557,7 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
               <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-[#C8102E]" />
               <div className="text-center">
                 <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Searching your market…</p>
-                <p className="text-xs text-gray-400 mt-1">Scanning nearby rentals via Rentometer…</p>
+                <p className="text-xs text-gray-400 mt-1">Pulling Rentcast comparable listings for this address…</p>
               </div>
             </div>
           )}
@@ -810,7 +810,7 @@ export default function CompetitorsPage() {
             <p className="text-4xl mb-3">🏢</p>
             <p className="font-bold text-gray-700 dark:text-gray-300 mb-1">No competitors tracked for {selectedProperty?.name}</p>
             <p className="text-sm text-gray-400 mb-6 max-w-xs mx-auto">
-              Discover nearby properties automatically from Rentometer, or add one manually.
+              Discover nearby properties automatically from Rentcast, or add one manually.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <button onClick={() => setShowDiscover(true)}
