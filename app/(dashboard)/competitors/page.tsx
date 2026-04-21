@@ -213,7 +213,7 @@ export default function CompetitorsPage() {
         .then(async d => {
           const opId = d.operator?.id;
           if (!opId) { setLoading(false); return; }
-          const propsRes = await fetch(`/api/properties?operator_id=${opId}`);
+          const propsRes = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
           const propsData = await propsRes.json();
           const props: Property[] = (propsData.properties ?? []).map((p: { id: string; name: string; city: string; state: string; avg_rent?: number }) => ({
             id: p.id, name: p.name, city: p.city ?? "", state: p.state ?? "", avg_rent: p.avg_rent ?? 1200,
