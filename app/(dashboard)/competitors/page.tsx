@@ -14,8 +14,10 @@ interface Suggestion {
   their_low: number;
   their_high: number;
   listed_price: number;
+  is_estimated: boolean;
   bedrooms: number | null;
   bathrooms: number | null;
+  sqft: number | null;
   threat_level: "high" | "medium" | "low";
   key_amenities: string[];
   property_type: string;
@@ -29,12 +31,14 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
   onClose: () => void;
   onAdded: (comp: TrackedCompetitor) => void;
 }) {
-  const [status, setStatus]         = useState<"loading" | "results" | "error">("loading");
-  const [errorMsg, setErrorMsg]     = useState("");
+  const [status, setStatus]           = useState<"loading" | "results" | "error">("loading");
+  const [errorMsg, setErrorMsg]       = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [dismissed, setDismissed]   = useState<Set<number>>(new Set());
-  const [adding, setAdding]         = useState<Set<number>>(new Set());
-  const [added, setAdded]           = useState<Set<number>>(new Set());
+  const [marketLow, setMarketLow]     = useState<number | null>(null);
+  const [marketHigh, setMarketHigh]   = useState<number | null>(null);
+  const [dismissed, setDismissed]     = useState<Set<number>>(new Set());
+  const [adding, setAdding]           = useState<Set<number>>(new Set());
+  const [added, setAdded]             = useState<Set<number>>(new Set());
 
   useEffect(() => {
     fetch("/api/competitors/discover", {
@@ -46,6 +50,8 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
       .then(d => {
         if (d.error) { setErrorMsg(d.error); setStatus("error"); return; }
         setSuggestions(d.competitors ?? []);
+        setMarketLow(d.market_low ?? null);
+        setMarketHigh(d.market_high ?? null);
         setStatus("results");
       })
       .catch(() => { setErrorMsg("Network error. Try again."); setStatus("error"); });
@@ -139,7 +145,12 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
               )}
 
               {suggestions.length > 0 && remaining.length > 0 && (
-                <p className="text-xs text-gray-400 mb-3">{remaining.length} listing{remaining.length !== 1 ? "s" : ""} found nearby — add the ones that are real competitors</p>
+                <div className="mb-3">
+                  <p className="text-xs text-gray-400">{remaining.length} propert{remaining.length !== 1 ? "ies" : "y"} found nearby — add the ones that compete with you</p>
+                  {marketLow && marketHigh && (
+                    <p className="text-xs text-gray-400 mt-0.5">Market rent range for this area: <span className="font-semibold text-gray-600 dark:text-gray-300">${marketLow.toLocaleString()}–${marketHigh.toLocaleString()}/mo</span></p>
+                  )}
+                </div>
               )}
 
               <div className="space-y-3">
@@ -162,14 +173,13 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
                       <div className="grid grid-cols-3 gap-2 mb-3">
                         <div className="rounded-lg bg-white dark:bg-white/5 p-2 text-center">
                           <p className="text-sm font-black text-gray-800 dark:text-gray-100">${s.listed_price.toLocaleString()}</p>
-                          <p className="text-[9px] text-gray-400">Listed/mo</p>
+                          <p className="text-[9px] text-gray-400">{s.is_estimated ? "Est. rent" : "Listed/mo"}</p>
                         </div>
                         <div className="rounded-lg bg-white dark:bg-white/5 p-2 text-center">
                           <p className="text-sm font-black text-gray-800 dark:text-gray-100">
-                            {s.bedrooms !== null ? `${s.bedrooms}BR` : "—"}
-                            {s.bathrooms !== null ? `/${s.bathrooms}BA` : ""}
+                            {s.bedrooms !== null ? `${s.bedrooms}BR` : s.sqft ? `${s.sqft}sf` : "—"}
                           </p>
-                          <p className="text-[9px] text-gray-400">Unit</p>
+                          <p className="text-[9px] text-gray-400">{s.property_type || "Unit"}</p>
                         </div>
                         <div className="rounded-lg bg-white dark:bg-white/5 p-2 text-center">
                           {diff !== null ? (

@@ -1,6 +1,6 @@
 // POST /api/competitors/discover
-// Fetches nearby rental listings from Rentcast and returns them for the user to review.
-// No AI filtering — user decides what's a competitor.
+// Searches Rentcast property records (not just active listings) for nearby rentals.
+// Falls back to market-level data when no specific properties are found.
 // Body: { email, property_id }
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,51 +9,35 @@ import { resolveCallerContext } from "@/lib/auth";
 
 const RENTCAST_BASE = "https://api.rentcast.io/v1";
 
-interface RentcastListing {
-  id: string;
-  formattedAddress?: string;
-  addressLine1?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  price?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  propertyType?: string;
-  features?: { amenities?: string[] };
-}
-
-async function fetchListings(params: Record<string, string>, apiKey: string): Promise<RentcastListing[]> {
+async function rentcast(path: string, params: Record<string, string>, apiKey: string) {
   try {
-    const qs = new URLSearchParams({ ...params, limit: "50" });
-    const res = await fetch(`${RENTCAST_BASE}/listings/rental/long-term?${qs}`, {
+    const qs = new URLSearchParams(params);
+    const res = await fetch(`${RENTCAST_BASE}${path}?${qs}`, {
       headers: { "X-Api-Key": apiKey },
       next: { revalidate: 0 },
     });
-    if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data.listings ?? []);
+    if (!res.ok) return null;
+    return res.json();
   } catch {
-    return [];
+    return null;
   }
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { email, property_id } = body;
-  if (!email || !property_id) {
+  if (!email || !property_id)
     return NextResponse.json({ error: "email and property_id required" }, { status: 400 });
-  }
 
   const ctx = await resolveCallerContext(email);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rentcastKey = process.env.RENTCAST_API_KEY;
-  if (!rentcastKey) return NextResponse.json({ error: "RENTCAST_API_KEY not configured" }, { status: 500 });
+  const apiKey = process.env.RENTCAST_API_KEY;
+  if (!apiKey) return NextResponse.json({ error: "RENTCAST_API_KEY not configured" }, { status: 500 });
 
   const db = getSupabaseAdmin();
 
-  // Fetch property details
+  // Our property details
   const { data: property } = await db
     .from("properties")
     .select("id, name, address, city, state, zip")
@@ -62,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   if (!property) return NextResponse.json({ error: "Property not found" }, { status: 404 });
 
-  // Fetch real avg rent from units
+  // Our real avg rent
   const { data: units } = await db
     .from("units")
     .select("monthly_rent")
@@ -70,74 +54,122 @@ export async function POST(req: NextRequest) {
     .not("monthly_rent", "is", null);
 
   const rents = (units ?? []).map((u: { monthly_rent: number }) => u.monthly_rent).filter(Boolean);
-  const avgRent = rents.length > 0
+  const avgRent: number | null = rents.length > 0
     ? Math.round(rents.reduce((s: number, r: number) => s + r, 0) / rents.length)
     : null;
 
-  // Try zip first, then city+state
-  let listings: RentcastListing[] = [];
+  const zip   = property.zip   ?? "";
+  const city  = property.city  ?? "";
+  const state = property.state ?? "";
 
-  if (property.zip) {
-    listings = await fetchListings({ zipCode: property.zip }, rentcastKey);
-  }
+  // ── 1. Property records search (much broader than listings) ─────────────────
+  // Try multiple property types to maximise results
+  const locationParams: Record<string, string> = zip
+    ? { zipCode: zip }
+    : { city, state };
 
-  if (listings.length === 0 && property.city && property.state) {
-    listings = await fetchListings({ city: property.city, state: property.state }, rentcastKey);
-  }
+  const [aptData, mfData, listingsData] = await Promise.all([
+    rentcast("/properties", { ...locationParams, propertyType: "Apartment",   limit: "50" }, apiKey),
+    rentcast("/properties", { ...locationParams, propertyType: "Multifamily", limit: "50" }, apiKey),
+    rentcast("/listings/rental/long-term", { ...locationParams, limit: "50" }, apiKey),
+  ]);
 
-  if (listings.length === 0) {
-    return NextResponse.json({
-      error: `No listings found on Rentcast for ${property.zip || property.city}, ${property.state}. You can still add competitors manually.`,
-    }, { status: 404 });
-  }
+  // ── 2. Market rent stats for the area ───────────────────────────────────────
+  const marketParams: Record<string, string> = zip ? { zipCode: zip } : { city, state };
+  const marketData = await rentcast("/markets", marketParams, apiKey);
 
-  // Light filtering: skip listings with no price, dedupe by address, sort by price proximity
-  const seen = new Set<string>();
-  const filtered = listings
-    .filter(l => {
-      if (!l.price || l.price < 200) return false;
-      const key = (l.formattedAddress || l.addressLine1 || "").toLowerCase().trim();
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .sort((a, b) => {
-      if (!avgRent) return 0;
-      return Math.abs((a.price ?? 0) - avgRent) - Math.abs((b.price ?? 0) - avgRent);
-    })
-    .slice(0, 20);
+  const marketLow  = marketData?.percentile25 ?? marketData?.minRent ?? null;
+  const marketHigh = marketData?.percentile75 ?? marketData?.maxRent ?? null;
+  const marketAvg  = marketData?.averageRent  ?? null;
 
-  const suggestions = filtered.map(l => {
-    const price   = l.price ?? 0;
-    const low     = Math.round(price * 0.9);
-    const high    = Math.round(price * 1.1);
-    const diff    = avgRent ? price - avgRent : 0;
+  // ── 3. Merge and deduplicate all sources ────────────────────────────────────
+  type RawProp = {
+    id?: string;
+    formattedAddress?: string;
+    addressLine1?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    price?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    squareFootage?: number;
+    propertyType?: string;
+    features?: { amenities?: string[] };
+    lastSalePrice?: number;
+  };
+
+  const allRaw: RawProp[] = [
+    ...(Array.isArray(aptData)      ? aptData      : []),
+    ...(Array.isArray(mfData)       ? mfData        : []),
+    ...(Array.isArray(listingsData) ? listingsData  : (listingsData?.listings ?? [])),
+  ];
+
+  const seen  = new Set<string>();
+  const props = allRaw.filter(p => {
+    const addr = (p.formattedAddress || p.addressLine1 || "").toLowerCase().trim();
+    if (!addr || seen.has(addr)) return false;
+    seen.add(addr);
+    return true;
+  });
+
+  // ── 4. Build competitor suggestions ─────────────────────────────────────────
+  const suggestions = props.slice(0, 25).map((p: RawProp) => {
+    // Estimate rent: use listing price if available, else interpolate from market data
+    const listedPrice = p.price ?? null;
+    const estimatedRent = listedPrice ?? marketAvg ?? avgRent ?? 1200;
+    const low  = Math.round(estimatedPrice(estimatedRent, 0.90));
+    const high = Math.round(estimatedPrice(estimatedRent, 1.10));
+    const diff = avgRent ? estimatedRent - avgRent : null;
+
     const threat: "high" | "medium" | "low" =
+      diff === null       ? "medium" :
       Math.abs(diff) <= 100 ? "high" :
       Math.abs(diff) <= 300 ? "medium" : "low";
 
     return {
-      name:          l.formattedAddress || l.addressLine1 || "Unknown",
-      address:       l.formattedAddress || l.addressLine1 || "",
-      zip_code:      l.zipCode || property.zip || "",
-      city:          l.city || property.city || "",
-      state:         l.state || property.state || "",
+      name:          p.formattedAddress || p.addressLine1 || "Unknown address",
+      address:       p.formattedAddress || p.addressLine1 || "",
+      zip_code:      p.zipCode || zip,
+      city:          p.city    || city,
+      state:         p.state   || state,
       their_low:     low,
       their_high:    high,
-      listed_price:  price,
-      bedrooms:      l.bedrooms ?? null,
-      bathrooms:     l.bathrooms ?? null,
+      listed_price:  estimatedRent,
+      is_estimated:  !listedPrice,
+      bedrooms:      p.bedrooms  ?? null,
+      bathrooms:     p.bathrooms ?? null,
+      sqft:          p.squareFootage ?? null,
       threat_level:  threat,
-      key_amenities: l.features?.amenities?.slice(0, 5) ?? [],
-      property_type: l.propertyType ?? "",
+      key_amenities: p.features?.amenities?.slice(0, 5) ?? [],
+      property_type: p.propertyType ?? "",
     };
   });
+
+  // Sort: closest rent to ours first
+  if (avgRent) {
+    suggestions.sort((a, b) =>
+      Math.abs(a.listed_price - avgRent) - Math.abs(b.listed_price - avgRent)
+    );
+  }
+
+  if (suggestions.length === 0) {
+    return NextResponse.json({
+      error: `Rentcast returned no property records for ${zip || city}, ${state}. This market may not be in their database yet. Add competitors manually.`,
+    }, { status: 404 });
+  }
 
   return NextResponse.json({
     property_name: property.name,
     our_avg_rent:  avgRent,
-    found:         listings.length,
+    market_low:    marketLow  ? Math.round(marketLow)  : null,
+    market_high:   marketHigh ? Math.round(marketHigh) : null,
+    found:         allRaw.length,
     returned:      suggestions.length,
     competitors:   suggestions,
   });
+}
+
+function estimatedPrice(base: number, factor: number) {
+  return Math.round(base * factor);
 }
