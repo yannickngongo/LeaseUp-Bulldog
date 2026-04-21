@@ -1259,6 +1259,46 @@ function CampaignDetail({
 
 // ─── New Campaign Modal ───────────────────────────────────────────────────────
 
+type CampaignMode = "pick" | "manual" | "assisted" | "autopilot";
+
+interface CampaignDraft {
+  headline: string;
+  subheadline: string;
+  body_copy: string;
+  offer: string;
+  cta: string;
+  messaging_angle: string;
+  recommended_channels: string[];
+  recommended_monthly_budget: number;
+  predicted_leads_30d: number;
+  predicted_leases_30d: number;
+  rationale: string;
+}
+
+function DraftCard({ draft, label, highlight }: { draft: CampaignDraft; label: string; highlight?: boolean }) {
+  return (
+    <div className={`rounded-2xl border p-4 space-y-2 ${highlight ? "border-[#C8102E]/40 bg-[#C8102E]/4 dark:bg-[#C8102E]/8" : "border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5"}`}>
+      <div className="flex items-center justify-between">
+        <p className={`text-[10px] font-bold uppercase tracking-widest ${highlight ? "text-[#C8102E]" : "text-gray-400"}`}>{label}</p>
+        {highlight && <span className="rounded-full bg-[#C8102E] px-2 py-0.5 text-[9px] font-bold text-white">AI PICK</span>}
+      </div>
+      <p className="text-base font-bold text-gray-800 dark:text-gray-100 leading-snug">{draft.headline}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{draft.subheadline}</p>
+      <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed border-t border-gray-100 dark:border-white/10 pt-2">{draft.body_copy}</p>
+      <div className="flex flex-wrap gap-1.5 pt-1">
+        <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2.5 py-1 text-[11px] font-semibold text-gray-700 dark:text-gray-200">🎁 {draft.offer}</span>
+        <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2.5 py-1 text-[11px] font-semibold text-gray-700 dark:text-gray-200">→ {draft.cta}</span>
+      </div>
+      <div className="flex gap-3 pt-1 text-[10px] text-gray-400">
+        <span>~{draft.predicted_leads_30d} leads/mo</span>
+        <span>~{draft.predicted_leases_30d} leases/mo</span>
+        <span>${draft.recommended_monthly_budget.toLocaleString()}/mo rec. budget</span>
+      </div>
+      {draft.rationale && <p className="text-[11px] text-gray-400 italic leading-relaxed">{draft.rationale}</p>}
+    </div>
+  );
+}
+
 function NewCampaignModal({
   onClose,
   operatorId,
@@ -1270,152 +1310,408 @@ function NewCampaignModal({
   operatorEmail: string;
   onCreated: (imageUrl?: string) => void;
 }) {
-  const [step, setStep] = useState<"form" | "generating" | "done">("form");
-  const [properties, setProperties] = useState<{ id: string; name: string }[]>([]);
-  const [imageUrl, setImageUrl]     = useState("");
+  const [mode, setMode]           = useState<CampaignMode>("pick");
+  const [properties, setProperties] = useState<{ id: string; name: string; city: string; state: string; total_units: number; occupied_units: number }[]>([]);
+  const [propertyId, setPropertyId] = useState("");
+  const [goalNote, setGoalNote]   = useState("");
+  const [urgency, setUrgency]     = useState("normal");
   const [imagePreview, setImagePreview] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
-  const [form, setForm] = useState({ propertyId: "", special: "", renterType: "", pricingSummary: "", occupancyGoal: "", urgency: "normal" });
+
+  // Manual mode fields
+  const [manual, setManual] = useState({ headline: "", subheadline: "", body_copy: "", offer: "", cta: "Schedule a Tour", target: "" });
+
+  // AI draft + refinement
+  const [aiDraft, setAiDraft]         = useState<CampaignDraft | null>(null);
+  const [manualGrade, setManualGrade] = useState<{ grade: string; score: number; strengths: string[]; weaknesses: string[]; verdict: string } | null>(null);
+  const [feedback, setFeedback]       = useState("");
+  const [loading, setLoading]         = useState(false);
+  const [refining, setRefining]       = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [chosen, setChosen]           = useState<"ai" | "manual" | null>(null);
+  const [saving, setSaving]           = useState(false);
+  const [saved, setSaved]             = useState(false);
+
+  const selectedProperty = properties.find(p => p.id === propertyId);
 
   useEffect(() => {
     if (!operatorEmail) return;
     fetch(`/api/properties?email=${encodeURIComponent(operatorEmail)}`)
-      .then(r => r.json()).then(d => setProperties(d.properties ?? [])).catch(() => {});
+      .then(r => r.json())
+      .then(d => setProperties(d.properties ?? []))
+      .catch(() => {});
   }, [operatorEmail]);
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = ev => {
-      const result = ev.target?.result as string;
-      setImagePreview(result);
-      setImageUrl(result);
-    };
+    reader.onload = ev => setImagePreview(ev.target?.result as string);
     reader.readAsDataURL(file);
   }
 
-  async function handleGenerate() {
-    if (!form.propertyId) return;
-    setStep("generating");
+  async function generate(manualVersion?: typeof manual) {
+    if (!selectedProperty) return;
+    setLoading(true);
+    setError(null);
+    setAiDraft(null);
+    setManualGrade(null);
     try {
-      const res = await fetch("/api/campaigns", {
-        method: "POST",
+      const res = await fetch("/api/campaigns/draft", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          property_id: form.propertyId, operator_id: operatorId,
-          current_special: form.special || undefined, target_renter_type: form.renterType || undefined,
-          pricing_summary: form.pricingSummary || undefined, occupancy_goal: form.occupancyGoal || undefined,
-          urgency: form.urgency,
+          property_name:         selectedProperty.name,
+          city:                  selectedProperty.city,
+          state:                 selectedProperty.state,
+          current_occupancy_pct: selectedProperty.total_units > 0
+            ? Math.round((selectedProperty.occupied_units / selectedProperty.total_units) * 100)
+            : 0,
+          total_units: selectedProperty.total_units,
+          goal_note:   goalNote,
+          urgency,
+          manual_version: manualVersion?.headline ? {
+            headline: manualVersion.headline,
+            body:     manualVersion.body_copy,
+            offer:    manualVersion.offer,
+            cta:      manualVersion.cta,
+          } : undefined,
         }),
       });
-      if (res.ok) { setStep("done"); }
-      else setStep("form");
-    } catch { setStep("form"); }
+      const json = await res.json();
+      if (!json.ok) { setError(json.error ?? "Generation failed"); return; }
+      setAiDraft(json.ai_version);
+      if (json.manual_grade) setManualGrade(json.manual_grade);
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setLoading(false);
+    }
   }
+
+  async function refine() {
+    if (!aiDraft || !feedback.trim() || !selectedProperty) return;
+    setRefining(true);
+    try {
+      const res = await fetch("/api/campaigns/refine", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          current_draft:  aiDraft,
+          feedback:       feedback.trim(),
+          property_name:  selectedProperty.name,
+          city:           selectedProperty.city,
+          state:          selectedProperty.state,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) { setAiDraft(json.ai_version); setFeedback(""); }
+    } catch { /* silent */ }
+    finally { setRefining(false); }
+  }
+
+  async function saveCampaign() {
+    if (!propertyId || !selectedProperty) return;
+    setSaving(true);
+    const finalDraft = (chosen === "manual" && aiDraft)
+      ? { ...aiDraft, headline: manual.headline, body_copy: manual.body_copy, offer: manual.offer, cta: manual.cta }
+      : aiDraft;
+    try {
+      await fetch("/api/campaigns", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          property_id:       propertyId,
+          operator_id:       operatorId,
+          current_special:   finalDraft?.offer,
+          target_renter_type: manual.target || undefined,
+          urgency,
+        }),
+      });
+      setSaved(true);
+      setTimeout(() => { onCreated(imagePreview || undefined); }, 1200);
+    } catch { setSaving(false); }
+  }
+
+  // ── Mode picker ─────────────────────────────────────────────────────────────
+
+  if (mode === "pick") return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 overflow-y-auto">
+      <div className="w-full max-w-xl rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E] my-auto">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
+          <h2 className="font-bold text-gray-900 dark:text-gray-100">New Campaign</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        </div>
+        <div className="p-6">
+          <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">How do you want to build this campaign?</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {([
+              { key: "manual",    icon: "✏️", title: "Build Manually",    desc: "You fill in every detail — headline, body, offer, CTA. AI grades your work and shows its version side-by-side." },
+              { key: "assisted",  icon: "🤝", title: "AI-Assisted",       desc: "AI writes the full campaign. You review it, give feedback, and refine until it's exactly what you want." },
+              { key: "autopilot", icon: "🚀", title: "AI Autopilot",      desc: "One click. AI handles everything — strategy, copy, offer, budget. Review and launch." },
+            ] as { key: CampaignMode; icon: string; title: string; desc: string }[]).map(m => (
+              <button
+                key={m.key}
+                onClick={() => setMode(m.key)}
+                className="flex flex-col items-start gap-2 rounded-2xl border border-gray-200 dark:border-white/10 p-4 text-left hover:border-[#C8102E] hover:bg-[#C8102E]/4 transition-colors group"
+              >
+                <span className="text-2xl">{m.icon}</span>
+                <p className="text-sm font-bold text-gray-800 dark:text-gray-100 group-hover:text-[#C8102E]">{m.title}</p>
+                <p className="text-[11px] text-gray-400 leading-relaxed">{m.desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Shared property selector ────────────────────────────────────────────────
+
+  const PropertyPicker = () => (
+    <div className="space-y-3 mb-4">
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Property *</label>
+        <select value={propertyId} onChange={e => setPropertyId(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100">
+          <option value="">Select a property…</option>
+          {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      {/* Photo upload */}
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Property Photo <span className="text-gray-400 font-normal">(optional, used in ad previews)</span></label>
+        <div onClick={() => fileRef.current?.click()} className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 transition-colors ${imagePreview ? "border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/10" : "border-gray-200 hover:border-gray-300 dark:border-white/10"}`}>
+          {imagePreview
+            ? <><img src={imagePreview} alt="" className="h-10 w-14 rounded object-cover" /><span className="text-sm text-green-700 dark:text-green-400">Photo ready · click to replace</span></>
+            : <><svg className="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span className="text-sm text-gray-400">Click to upload</span></>
+          }
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      </div>
+    </div>
+  );
+
+  // ── Shared "save / confirmed" step ─────────────────────────────────────────
+
+  const SaveBar = ({ label }: { label: string }) => (
+    <div className="mt-4 flex items-center justify-between border-t border-gray-100 dark:border-white/5 pt-4">
+      {saved
+        ? <div className="flex items-center gap-2 text-green-600"><span className="text-lg">✓</span><span className="text-sm font-semibold">Campaign created!</span></div>
+        : <button onClick={saveCampaign} disabled={saving} className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 transition-colors">
+            {saving ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-white/30 border-t-white" />Saving…</> : label}
+          </button>
+      }
+      <button onClick={() => setMode("pick")} className="text-xs text-gray-400 hover:text-gray-600">← Change mode</button>
+    </div>
+  );
+
+  // ── Feedback / refine row ───────────────────────────────────────────────────
+
+  const RefineRow = () => (
+    <div className="mt-3 flex gap-2">
+      <input
+        value={feedback}
+        onChange={e => setFeedback(e.target.value)}
+        onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); refine(); } }}
+        placeholder="What should change? (e.g. 'make the headline shorter', 'change offer to 2 weeks free')"
+        className="flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2 text-xs text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-[#C8102E]"
+      />
+      <button onClick={refine} disabled={!feedback.trim() || refining} className="rounded-lg bg-gray-800 dark:bg-white/10 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40 hover:bg-gray-700 transition-colors">
+        {refining ? "…" : "Refine"}
+      </button>
+    </div>
+  );
+
+  // ── MANUAL mode ─────────────────────────────────────────────────────────────
+
+  if (mode === "manual") return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 overflow-y-auto">
+      <div className="w-full max-w-2xl rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E] my-auto">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
+          <div><h2 className="font-bold text-gray-900 dark:text-gray-100">Build Manually</h2><p className="text-xs text-gray-400 mt-0.5">Fill in your campaign — AI will compare and grade it</p></div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        </div>
+
+        <div className="p-6 max-h-[80vh] overflow-y-auto space-y-4">
+          <PropertyPicker />
+
+          {[
+            { key: "headline",    label: "Headline *",         placeholder: "e.g. Your Next Home Awaits in Austin" },
+            { key: "subheadline", label: "Subheadline",        placeholder: "e.g. Modern 1 & 2BRs · Pet friendly · Starting at $1,450" },
+            { key: "offer",       label: "Special Offer *",    placeholder: "e.g. 6 weeks free on a 13-month lease" },
+            { key: "cta",         label: "Call to Action",     placeholder: "e.g. Schedule a Tour" },
+            { key: "target",      label: "Target Renter",      placeholder: "e.g. Young professionals, couples" },
+          ].map(f => (
+            <div key={f.key}>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{f.label}</label>
+              <input
+                value={(manual as Record<string, string>)[f.key]}
+                onChange={e => setManual(m => ({ ...m, [f.key]: e.target.value }))}
+                placeholder={f.placeholder}
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
+              />
+            </div>
+          ))}
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Ad Body Copy *</label>
+            <textarea
+              value={manual.body_copy}
+              onChange={e => setManual(m => ({ ...m, body_copy: e.target.value }))}
+              rows={3}
+              placeholder="e.g. Live steps from downtown Austin in a beautifully designed community. Spacious floor plans, resort-style pool, and co-working lounge — built for how you actually live."
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400 resize-none"
+            />
+          </div>
+
+          {error && <p className="rounded-xl bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+
+          {!aiDraft && (
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setMode("pick")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 dark:border-white/10 dark:text-gray-400">← Back</button>
+              <button
+                onClick={() => generate(manual)}
+                disabled={!propertyId || !manual.headline || !manual.offer || loading}
+                className="flex items-center gap-2 rounded-lg bg-[#C8102E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40"
+              >
+                {loading ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-white/30 border-t-white" />Comparing…</> : "Compare with AI →"}
+              </button>
+            </div>
+          )}
+
+          {aiDraft && (
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Comparison</p>
+
+              {manualGrade && (
+                <div className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className={`text-2xl font-black ${manualGrade.grade.startsWith("A") ? "text-green-600" : manualGrade.grade.startsWith("B") ? "text-blue-600" : "text-amber-600"}`}>{manualGrade.grade}</span>
+                    <div>
+                      <p className="text-xs font-bold text-gray-700 dark:text-gray-200">Your version — {manualGrade.score}/10</p>
+                      <p className="text-[11px] text-gray-400">{manualGrade.verdict}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 text-[11px]">
+                    <div className="space-y-0.5">{manualGrade.strengths.map((s, i) => <p key={i} className="text-green-600 dark:text-green-400">✓ {s}</p>)}</div>
+                    <div className="space-y-0.5">{manualGrade.weaknesses.map((w, i) => <p key={i} className="text-red-500">✕ {w}</p>)}</div>
+                  </div>
+                </div>
+              )}
+
+              <DraftCard draft={aiDraft} label="AI Version" highlight />
+              <RefineRow />
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button onClick={() => { setChosen("manual"); }} className={`rounded-lg border px-4 py-2 text-xs font-semibold transition-colors ${chosen === "manual" ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-200 text-gray-600 dark:border-white/10 dark:text-gray-300 hover:border-blue-400"}`}>Use My Version</button>
+                <button onClick={() => { setChosen("ai"); }} className={`rounded-lg border px-4 py-2 text-xs font-semibold transition-colors ${chosen === "ai" ? "border-[#C8102E] bg-[#C8102E]/10 text-[#C8102E]" : "border-gray-200 text-gray-600 dark:border-white/10 dark:text-gray-300 hover:border-[#C8102E]"}`}>Use AI Version</button>
+              </div>
+
+              {chosen && <SaveBar label={`Save & Continue with ${chosen === "ai" ? "AI" : "My"} Version →`} />}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── AI-ASSISTED mode ─────────────────────────────────────────────────────────
+
+  if (mode === "assisted") return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 overflow-y-auto">
+      <div className="w-full max-w-xl rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E] my-auto">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
+          <div><h2 className="font-bold text-gray-900 dark:text-gray-100">AI-Assisted Campaign</h2><p className="text-xs text-gray-400 mt-0.5">AI writes it — you refine until it's right</p></div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+        </div>
+
+        <div className="p-6 max-h-[80vh] overflow-y-auto space-y-4">
+          <PropertyPicker />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Campaign goal <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input value={goalNote} onChange={e => setGoalNote(e.target.value)} placeholder="e.g. Target young professionals, push 2BR units, emphasize rooftop amenity" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400" />
+          </div>
+
+          {error && <p className="rounded-xl bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+
+          {!aiDraft && !loading && (
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setMode("pick")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 dark:border-white/10 dark:text-gray-400">← Back</button>
+              <button onClick={() => generate()} disabled={!propertyId} className="rounded-lg bg-[#C8102E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40">
+                Generate Campaign →
+              </button>
+            </div>
+          )}
+
+          {loading && (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <div className="h-9 w-9 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" />
+              <p className="text-sm text-gray-500">AI is writing your campaign…</p>
+            </div>
+          )}
+
+          {aiDraft && (
+            <div className="space-y-3">
+              <DraftCard draft={aiDraft} label="AI-Generated Campaign" highlight />
+
+              <div className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3">
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">Like it? Or tell me what to change:</p>
+                <RefineRow />
+              </div>
+
+              <SaveBar label="Looks good — Save Campaign →" />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── AI AUTOPILOT mode ────────────────────────────────────────────────────────
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 overflow-y-auto">
-      <div className="w-full max-w-lg rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E] my-auto">
+      <div className="w-full max-w-xl rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E] my-auto">
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
-          <h2 className="font-bold text-gray-900 dark:text-gray-100">New Campaign</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none">×</button>
+          <div><h2 className="font-bold text-gray-900 dark:text-gray-100">AI Autopilot</h2><p className="text-xs text-gray-400 mt-0.5">Select a property — AI handles everything else</p></div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
         </div>
 
-        {step === "form" && (
-          <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Property *</label>
-              <select value={form.propertyId} onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100">
-                <option value="">Select a property…</option>
-                {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
+        <div className="p-6 max-h-[80vh] overflow-y-auto space-y-4">
+          <PropertyPicker />
 
-            {/* Property photo */}
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Property Photo <span className="text-gray-400 font-normal">(used in ad previews)</span></label>
-              <div
-                onClick={() => fileRef.current?.click()}
-                className={`relative flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${imagePreview ? "border-green-300 bg-green-50 dark:border-green-800 dark:bg-green-900/10" : "border-gray-200 bg-gray-50 hover:border-gray-300 dark:border-white/10 dark:bg-white/5"} px-4 py-6`}
-              >
-                {imagePreview ? (
-                  <div className="flex items-center gap-3">
-                    <img src={imagePreview} alt="Preview" className="h-14 w-20 rounded-lg object-cover" />
-                    <div>
-                      <p className="text-sm font-semibold text-green-700 dark:text-green-400">Photo ready</p>
-                      <p className="text-xs text-gray-500">Click to replace</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <svg className="h-8 w-8 text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p className="text-sm text-gray-500">Click to upload a property photo</p>
-                    <p className="text-xs text-gray-400 mt-0.5">JPG, PNG · Used in Facebook &amp; Instagram ad previews</p>
-                  </>
-                )}
-              </div>
-              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-            </div>
+          {error && <p className="rounded-xl bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
 
-            {[
-              { label: "Current Special / Offer", key: "special",        placeholder: "e.g. 1 month free on 12-month leases" },
-              { label: "Target Renter",           key: "renterType",     placeholder: "e.g. young professionals, families" },
-              { label: "Pricing Summary",         key: "pricingSummary", placeholder: "e.g. 1BR from $1,450/mo, 2BR from $1,800/mo" },
-            ].map(f => (
-              <div key={f.key}>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{f.label}</label>
-                <input
-                  value={(form as Record<string, string>)[f.key]}
-                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-                />
-              </div>
-            ))}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Occupancy Goal</label>
-                <input value={form.occupancyGoal} onChange={e => setForm(f => ({ ...f, occupancyGoal: e.target.value }))} placeholder="e.g. 95%" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400" />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Urgency</label>
-                <select value={form.urgency} onChange={e => setForm(f => ({ ...f, urgency: e.target.value }))} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100">
-                  <option value="low">Low</option>
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
+          {!aiDraft && !loading && (
             <div className="flex justify-end gap-3 pt-2">
-              <button onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 dark:border-white/10 dark:text-gray-400">Cancel</button>
-              <button onClick={handleGenerate} disabled={!form.propertyId} className="rounded-lg bg-[#C8102E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40">
-                Generate with AI →
+              <button onClick={() => setMode("pick")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 dark:border-white/10 dark:text-gray-400">← Back</button>
+              <button onClick={() => { setChosen("ai"); generate(); }} disabled={!propertyId} className="flex items-center gap-2 rounded-lg bg-[#C8102E] px-5 py-2 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40">
+                🚀 Let AI Do Everything
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {step === "generating" && (
-          <div className="flex flex-col items-center gap-4 px-6 py-14">
-            <div className="h-10 w-10 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" />
-            <p className="font-semibold text-gray-900 dark:text-gray-100">Generating campaign…</p>
-            <p className="text-sm text-gray-500">AI is building your strategy and ad variations</p>
-          </div>
-        )}
+          {loading && (
+            <div className="flex flex-col items-center gap-3 py-10">
+              <div className="h-9 w-9 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" />
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">AI is building your campaign…</p>
+              <p className="text-xs text-gray-400">Analyzing market, writing copy, setting strategy</p>
+            </div>
+          )}
 
-        {step === "done" && (
-          <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-600 text-2xl dark:bg-green-900/30 dark:text-green-400">✓</div>
-            <p className="font-semibold text-gray-900 dark:text-gray-100">Campaign created!</p>
-            <p className="text-sm text-gray-500">Ad variations are ready. Click below to see previews and set your budget.</p>
-            <button onClick={() => onCreated(imageUrl || undefined)} className="mt-2 rounded-lg bg-[#C8102E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25]">
-              View Ad Previews →
-            </button>
-          </div>
-        )}
+          {aiDraft && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 rounded-xl bg-green-50 dark:bg-green-900/20 px-3 py-2">
+                <span className="text-green-600 text-lg">✓</span>
+                <p className="text-xs font-semibold text-green-700 dark:text-green-400">Campaign built. Review and launch.</p>
+              </div>
+              <DraftCard draft={aiDraft} label="AI-Built Campaign" highlight />
+              <RefineRow />
+              <SaveBar label="Launch-Ready — Save Campaign →" />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
