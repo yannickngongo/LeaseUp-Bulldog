@@ -511,39 +511,41 @@ function OccupancyIntelligenceSection({
           ) : totalUnits > 0 ? (
             <>
               {/* Budget presets */}
-              <div className="mb-3 flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Monthly budget:</span>
-                {[
-                  { label: `$${Math.round(recBudget * 0.5 / 100) * 100}/mo`, value: Math.round(recBudget * 0.5 / 100) * 100, tag: "Conservative" },
-                  { label: `$${recBudget}/mo`, value: recBudget, tag: "Recommended" },
-                  { label: `$${recBudget * 2}/mo`, value: recBudget * 2, tag: "Aggressive" },
-                ].map(({ label, value, tag }) => (
-                  <button
-                    key={value}
-                    onClick={() => setCustomBudget(value)}
-                    className={cn(
-                      "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
-                      activeBudget === value
-                        ? "border-[#C8102E] bg-[#C8102E] text-white"
-                        : "border-gray-200 text-gray-600 hover:border-[#C8102E] hover:text-[#C8102E] dark:border-white/10 dark:text-gray-300"
-                    )}
-                  >
-                    {label}
-                    {tag === "Recommended" && activeBudget === value && <span className="ml-1 opacity-80">★</span>}
-                  </button>
-                ))}
-                {/* Custom input */}
-                <div className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/10 px-2 py-1">
-                  <span className="text-xs text-gray-400">$</span>
-                  <input
-                    type="number"
-                    min={100}
-                    step={100}
-                    placeholder="Custom"
-                    className="w-20 bg-transparent text-xs text-gray-700 dark:text-gray-200 focus:outline-none"
-                    onChange={e => { const v = parseInt(e.target.value); if (v > 0) setCustomBudget(v); }}
-                  />
-                  <span className="text-xs text-gray-400">/mo</span>
+              <div className="mb-3 space-y-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Monthly ad budget:</span>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: `$${Math.round(recBudget * 0.5 / 100) * 100}/mo`, value: Math.round(recBudget * 0.5 / 100) * 100, tag: "Conservative" },
+                    { label: `$${recBudget}/mo`, value: recBudget, tag: "Recommended ★" },
+                    { label: `$${recBudget * 2}/mo`, value: recBudget * 2, tag: "Aggressive" },
+                  ].map(({ label, value, tag }) => (
+                    <button
+                      key={value}
+                      onClick={() => setCustomBudget(value)}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-xs font-semibold transition-colors",
+                        activeBudget === value
+                          ? "border-[#C8102E] bg-[#C8102E] text-white"
+                          : "border-gray-200 text-gray-600 hover:border-[#C8102E] hover:text-[#C8102E] dark:border-white/10 dark:text-gray-300"
+                      )}
+                    >
+                      <span className="block">{label}</span>
+                      <span className={cn("block text-[9px] mt-0.5", activeBudget === value ? "opacity-80" : "text-gray-400")}>{tag}</span>
+                    </button>
+                  ))}
+                  {/* Custom input */}
+                  <div className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-white/10 px-2.5 py-1.5">
+                    <span className="text-xs text-gray-400">$</span>
+                    <input
+                      type="number"
+                      min={100}
+                      step={100}
+                      placeholder="Custom"
+                      className="w-16 bg-transparent text-xs text-gray-700 dark:text-gray-200 focus:outline-none"
+                      onChange={e => { const v = parseInt(e.target.value); if (v > 0) setCustomBudget(v); }}
+                    />
+                    <span className="text-xs text-gray-400">/mo</span>
+                  </div>
                 </div>
               </div>
 
@@ -569,7 +571,40 @@ function OccupancyIntelligenceSection({
                 </span>
               </div>
 
-              <OccupancyChart projection={projection} />
+              {/* Mobile: card-based timeline */}
+              <div className="block lg:hidden mt-1">
+                <div className="grid grid-cols-4 gap-2">
+                  {projection.labels.map((label, i) => (
+                    <div key={i} className="flex flex-col items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-gray-400 text-center leading-tight">
+                        {label === "Today" ? "Today" : label.replace(" days", "d")}
+                      </span>
+                      <div className="w-full rounded-xl bg-[#C8102E]/10 px-1 py-2.5 text-center">
+                        <span className="text-xl font-black text-[#C8102E] leading-none">{projection.withLUB[i]}%</span>
+                        {i === 0 && <p className="text-[9px] text-[#C8102E]/60 mt-0.5">now</p>}
+                      </div>
+                      {i > 0 && (
+                        <div className="w-full rounded-xl bg-gray-100 dark:bg-white/5 px-1 py-2 text-center">
+                          <span className="text-sm font-semibold text-gray-400">{projection.noAction[i]}%</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-4 text-[10px] text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-4 rounded-sm bg-[#C8102E]" />With ad spend
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-4 rounded-sm bg-gray-200 dark:bg-white/10" />No ad spend
+                  </span>
+                </div>
+              </div>
+
+              {/* Desktop: full SVG chart */}
+              <div className="hidden lg:block">
+                <OccupancyChart projection={projection} />
+              </div>
             </>
           ) : (
             <div className="flex h-44 flex-col items-center justify-center gap-2 text-center">
