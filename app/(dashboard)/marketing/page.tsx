@@ -410,49 +410,6 @@ function LaunchModal({
   const [launching, setLaunching]     = useState(false);
   const [launched, setLaunched]       = useState(false);
 
-  // Offer scoring state
-  const [offerText, setOfferText]           = useState("");
-  const [offerResult, setOfferResult]       = useState<null | {
-    your_offer: { label: string; score: number; grade: string; rationale: string; weaknesses?: string[]; metrics: { expected_leases_90d: number; cost_per_lease: number; occupancy_gain_90d: number } };
-    recommended_offer: { label: string; description?: string; score: number; grade: string; rationale: string; strengths: string[]; why_better_than_yours?: string; metrics: { expected_leases_90d: number; cost_per_lease: number; occupancy_gain_90d: number } };
-    budget_verdict: string;
-    recommended_channels: string[];
-  }>(null);
-  const [offerLoading, setOfferLoading]     = useState(false);
-  const [offerError, setOfferError]         = useState<string | null>(null);
-
-  async function scoreOffer() {
-    if (!offerText.trim() || !property) return;
-    setOfferLoading(true);
-    setOfferError(null);
-    setOfferResult(null);
-    try {
-      const res = await fetch("/api/properties/offer-score", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          property_name:         campaign.property,
-          city:                  property.city,
-          state:                 property.state,
-          current_occupancy_pct: currentOccPct,
-          total_units:           property.total_units,
-          occupied_units:        property.occupied_units,
-          unit_types:            [],
-          avg_rents:             {},
-          your_offer:            offerText.trim(),
-          monthly_budget:        budget,
-        }),
-      });
-      const json = await res.json();
-      if (json.ok) setOfferResult(json);
-      else setOfferError(json.error ?? "Scoring failed");
-    } catch {
-      setOfferError("Network error. Please try again.");
-    } finally {
-      setOfferLoading(false);
-    }
-  }
-
   useEffect(() => {
     fetch(`/api/properties/${campaign.property_id}/details`)
       .then(r => r.json())
@@ -577,83 +534,9 @@ function LaunchModal({
 
             </div>
 
-            {/* Step 2: Offer Scoring */}
+            {/* AI Impact Forecast */}
             <div className="border-t border-gray-100 dark:border-white/5 pt-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">2. Score Your Offer</p>
-              <p className="text-xs text-gray-400 mb-3">Tell LUB what offer you plan to run. AI will score it against the {property?.city ?? ""} market and suggest what would actually convert better.</p>
-
-              <textarea
-                value={offerText}
-                onChange={e => setOfferText(e.target.value)}
-                placeholder='e.g. "1 month free on a 12-month lease" or "$500 gift card at move-in"'
-                rows={2}
-                className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-[#C8102E] resize-none mb-2"
-              />
-              <button
-                onClick={scoreOffer}
-                disabled={!offerText.trim() || offerLoading || !property}
-                className="flex items-center gap-2 rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors"
-              >
-                {offerLoading ? <><span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />Scoring…</> : "Score My Offer"}
-              </button>
-
-              {offerError && <p className="mt-2 text-xs text-red-500">{offerError}</p>}
-
-              {offerResult && (
-                <div className="mt-4 space-y-3">
-                  {/* Side-by-side grades */}
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Your offer */}
-                    <div className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Your Offer</p>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 leading-snug pr-2">{offerResult.your_offer.label}</p>
-                        <span className={`shrink-0 text-xl font-black ${offerResult.your_offer.grade.startsWith("A") ? "text-green-600" : offerResult.your_offer.grade.startsWith("B") ? "text-blue-600" : "text-amber-600"}`}>
-                          {offerResult.your_offer.grade}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1 text-center">
-                        <div><p className="text-sm font-black text-gray-600 dark:text-gray-300">{offerResult.your_offer.metrics.expected_leases_90d}</p><p className="text-[9px] text-gray-400">leases/90d</p></div>
-                        <div><p className="text-sm font-black text-gray-600 dark:text-gray-300">+{offerResult.your_offer.metrics.occupancy_gain_90d}%</p><p className="text-[9px] text-gray-400">occ gain</p></div>
-                        <div><p className="text-sm font-black text-gray-600 dark:text-gray-300">${offerResult.your_offer.metrics.cost_per_lease.toLocaleString()}</p><p className="text-[9px] text-gray-400">cost/lease</p></div>
-                      </div>
-                    </div>
-
-                    {/* Recommended offer */}
-                    <div className="rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/5 dark:bg-[#C8102E]/10 p-3 relative">
-                      <span className="absolute top-2 right-2 rounded-full bg-[#C8102E] px-1.5 py-0.5 text-[8px] font-bold text-white">AI PICK</span>
-                      <p className="text-[9px] font-bold uppercase tracking-wider text-[#C8102E] mb-1">LUB Recommends</p>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 leading-snug pr-2">{offerResult.recommended_offer.label}</p>
-                        <span className="shrink-0 text-xl font-black text-green-600">{offerResult.recommended_offer.grade}</span>
-                      </div>
-                      {offerResult.recommended_offer.description && (
-                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2 leading-snug">{offerResult.recommended_offer.description}</p>
-                      )}
-                      <div className="grid grid-cols-3 gap-1 text-center">
-                        <div><p className="text-sm font-black text-[#C8102E]">{offerResult.recommended_offer.metrics.expected_leases_90d}</p><p className="text-[9px] text-gray-400">leases/90d</p></div>
-                        <div><p className="text-sm font-black text-[#C8102E]">+{offerResult.recommended_offer.metrics.occupancy_gain_90d}%</p><p className="text-[9px] text-gray-400">occ gain</p></div>
-                        <div><p className="text-sm font-black text-[#C8102E]">${offerResult.recommended_offer.metrics.cost_per_lease.toLocaleString()}</p><p className="text-[9px] text-gray-400">cost/lease</p></div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Why it wins */}
-                  {offerResult.recommended_offer.why_better_than_yours && (
-                    <div className="rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 px-3 py-2.5">
-                      <p className="text-xs text-amber-700 dark:text-amber-400"><strong>Why it wins:</strong> {offerResult.recommended_offer.why_better_than_yours}</p>
-                    </div>
-                  )}
-
-                  {/* Budget verdict */}
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">{offerResult.budget_verdict}</p>
-                </div>
-              )}
-            </div>
-
-            {/* AI Forecast — between offer scoring and payment */}
-            <div className="border-t border-gray-100 dark:border-white/5 pt-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">3. AI Impact Forecast</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">2. AI Impact Forecast</p>
               {!property ? (
                 <div className="flex items-center gap-3 rounded-xl bg-gray-50 dark:bg-white/5 px-4 py-4">
                   <div className="h-4 w-4 rounded-full border-2 border-[#C8102E]/20 border-t-[#C8102E] animate-spin shrink-0" />
@@ -678,7 +561,7 @@ function LaunchModal({
             {/* Step 3: Payment */}
             <div className="border-t border-gray-100 dark:border-white/5 pt-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">4. Payment</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">3. Payment</p>
                 <div className="flex items-center gap-1.5">
                   <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -794,100 +677,247 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 
 // ─── Intelligence Panels (unchanged from before) ──────────────────────────────
 
-function OfferLabPanel({ campaign }: { campaign: Campaign }) {
-  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [result, setResult] = useState<OfferLabResult | null>(null);
+interface OfferScoreData {
+  your_offer: {
+    label: string; score: number; grade: string; rationale: string;
+    strengths: string[]; weaknesses?: string[];
+    metrics: { expected_inquiries_90d: number; expected_leases_90d: number; cost_per_lease: number; occupancy_gain_90d: number; monthly_revenue_impact: number };
+  };
+  recommended_offer: {
+    label: string; description?: string; score: number; grade: string; rationale: string;
+    strengths: string[]; why_better_than_yours?: string;
+    metrics: { expected_inquiries_90d: number; expected_leases_90d: number; cost_per_lease: number; occupancy_gain_90d: number; monthly_revenue_impact: number };
+  };
+  market_context: string;
+  budget_verdict: string;
+  recommended_channels: string[];
+}
 
-  async function runOfferLab() {
-    setState("loading");
+function offerGradeColor(grade: string) {
+  if (grade.startsWith("A")) return { text: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-900/20", ring: "ring-green-300 dark:ring-green-700" };
+  if (grade.startsWith("B")) return { text: "text-blue-600 dark:text-blue-400",   bg: "bg-blue-50 dark:bg-blue-900/20",   ring: "ring-blue-300 dark:ring-blue-700"  };
+  if (grade.startsWith("C")) return { text: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/20", ring: "ring-amber-300 dark:ring-amber-700" };
+  return                            { text: "text-red-600 dark:text-red-400",     bg: "bg-red-50 dark:bg-red-900/20",     ring: "ring-red-300 dark:ring-red-700"    };
+}
+
+function OfferMetricRow({ label, yours, rec, format }: { label: string; yours: number; rec: number; format: (n: number) => string }) {
+  const maxV = Math.max(yours, rec, 1);
+  const yoursWins = yours >= rec;
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
+      <div className="flex items-center gap-2">
+        <span className="w-16 shrink-0 text-right text-xs font-bold text-gray-500">{format(yours)}</span>
+        <div className="flex-1 space-y-1">
+          <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-white/5">
+            <div className={`h-full rounded-full ${yoursWins ? "bg-blue-400" : "bg-gray-300 dark:bg-white/20"}`} style={{ width: `${Math.round((yours/maxV)*100)}%` }} />
+          </div>
+          <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-white/5">
+            <div className="h-full rounded-full bg-[#C8102E]" style={{ width: `${Math.round((rec/maxV)*100)}%` }} />
+          </div>
+        </div>
+        <span className="w-16 shrink-0 text-xs font-bold text-[#C8102E]">{format(rec)}</span>
+      </div>
+    </div>
+  );
+}
+
+function OfferLabPanel({ campaign }: { campaign: Campaign }) {
+  const [offerText, setOfferText]   = useState(campaign.current_special ?? "");
+  const [budget, setBudget]         = useState(1000);
+  const [result, setResult]         = useState<OfferScoreData | null>(null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [property, setProperty]     = useState<{ city: string; state: string; total_units: number; occupied_units: number } | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/properties/${campaign.property_id}/details`)
+      .then(r => r.json())
+      .then(d => { const p = d.property ?? d; setProperty({ city: p.city, state: p.state, total_units: p.total_units ?? 0, occupied_units: p.occupied_units ?? 0 }); })
+      .catch(() => {});
+  }, [campaign.property_id]);
+
+  async function score() {
+    if (!offerText.trim() || !property) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
     try {
-      const res = await fetch("/api/intelligence/offer-lab", {
+      const res = await fetch("/api/properties/offer-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          propertyId: campaign.property_id,
-          operatorId: campaign.operator_id,
-          campaignName: `${campaign.property} Campaign`,
-          specialOffer: campaign.current_special ?? "No current offer",
-          campaignGoal: "maximize leads and lease conversions",
+          property_name:         campaign.property,
+          city:                  property.city,
+          state:                 property.state,
+          current_occupancy_pct: property.total_units > 0 ? Math.round((property.occupied_units / property.total_units) * 100) : 0,
+          total_units:           property.total_units,
+          occupied_units:        property.occupied_units,
+          unit_types:            [],
+          avg_rents:             {},
+          your_offer:            offerText.trim(),
+          monthly_budget:        budget,
         }),
       });
-      const data = await res.json();
-      if (data.ok) { setResult({ scores: data.scores, recommendation: data.recommendation, simulation: data.simulation }); setState("done"); }
-      else setState("error");
-    } catch { setState("error"); }
+      const json = await res.json();
+      if (json.ok) setResult(json);
+      else setError(json.error ?? "Scoring failed");
+    } catch { setError("Network error. Try again."); }
+    finally { setLoading(false); }
   }
+
+  const fmt = { num: (n: number) => n.toLocaleString(), usd: (n: number) => `$${n.toLocaleString()}`, pct: (n: number) => `+${n}%` };
 
   return (
     <div className="rounded-xl border border-gray-100 bg-white dark:border-white/5 dark:bg-[#1C1F2E]">
-      <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 px-5 py-4">
-        <div>
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">Offer Lab</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">AI scores your offer and suggests improvements</p>
+      {/* Header */}
+      <div className="border-b border-gray-100 dark:border-white/5 px-5 py-4">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="font-semibold text-gray-900 dark:text-gray-100">Offer Lab</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enter any offer idea — AI grades it against the market, suggests what would convert better, and shows the performance difference</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[#C8102E]/10 px-2.5 py-1 text-[10px] font-bold text-[#C8102E]">AI-Powered</span>
         </div>
-        {state !== "loading" && (
-          <button onClick={runOfferLab} className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors">
-            {state === "done" ? "Re-run →" : "Run Offer Lab →"}
+
+        {/* Input row */}
+        <textarea
+          value={offerText}
+          onChange={e => setOfferText(e.target.value)}
+          rows={2}
+          placeholder='e.g. "1 month free on a 12-month lease" or "No security deposit + $300 gift card"'
+          className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-[#C8102E] resize-none mb-3"
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2 text-xs">
+            <span className="text-gray-400">Monthly ad budget:</span>
+            <span className="font-semibold text-gray-500">$</span>
+            <input type="number" min={100} step={100} value={budget} onChange={e => setBudget(Math.max(100, parseInt(e.target.value) || 100))} className="w-20 bg-transparent font-bold text-gray-800 dark:text-gray-100 focus:outline-none" />
+            <span className="text-gray-400">/mo</span>
+          </div>
+          <button onClick={score} disabled={!offerText.trim() || loading || !property} className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
+            {loading ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border border-white/30 border-t-white" />Scoring…</> : result ? "Re-score →" : "Score My Offer"}
           </button>
-        )}
+        </div>
+        {error && <p className="mt-2 text-xs text-red-500 dark:text-red-400">{error}</p>}
       </div>
-      {state === "idle" && <div className="flex flex-col items-center gap-2 px-5 py-10 text-center"><div className="text-3xl">🧪</div><p className="text-sm font-medium text-gray-700 dark:text-gray-300">Score your offer with AI</p><p className="text-xs text-gray-400 dark:text-gray-500">Get an offer strength score, AI-improved version, and simulation comparison</p></div>}
-      {state === "loading" && <div className="flex flex-col items-center gap-3 px-5 py-10"><div className="h-8 w-8 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" /><p className="text-sm text-gray-500 dark:text-gray-400">Analyzing your offer…</p></div>}
-      {state === "error"   && <div className="px-5 py-6 text-center text-sm text-red-500">Failed to run analysis.</div>}
-      {state === "done" && result && (
+
+      {/* Results */}
+      {result && (
         <div className="divide-y divide-gray-100 dark:divide-white/5">
-          <div className="px-5 py-5">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">Offer Scores</p>
-            <div className="space-y-3">
-              <ScoreBar label="Offer Strength"         value={result.scores.offerStrength} />
-              <ScoreBar label="Market Competitiveness" value={result.scores.marketCompetitiveness} />
-              <ScoreBar label="Lead Attraction"        value={result.scores.leadAttraction} />
-              <ScoreBar label="Conversion Potential"   value={result.scores.conversionPotential} />
-            </div>
-            <div className="mt-4 flex items-center gap-3 rounded-lg bg-gray-50 dark:bg-white/5 px-4 py-3">
-              <span className={`text-2xl font-bold ${scoreText(result.scores.overall)}`}>{result.scores.overall}</span>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{result.scores.explanation}</p>
-            </div>
+
+          {/* Market context */}
+          <div className="px-5 py-4 bg-blue-50/50 dark:bg-blue-900/10">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-1">Market Context — {property?.city}, {property?.state}</p>
+            <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{result.market_context}</p>
           </div>
-          <div className="px-5 py-5">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">AI Recommendation</p>
-            <div className="space-y-3">
-              <div><p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Improved Offer</p><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{result.recommendation.improvedSpecial}</p></div>
-              <div><p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Messaging Angle</p><p className="text-sm text-gray-700 dark:text-gray-300">{result.recommendation.improvedMessagingAngle}</p></div>
-              <div><p className="text-xs text-gray-400 dark:text-gray-500 mb-1">Positioning</p><p className="text-sm text-gray-700 dark:text-gray-300">{result.recommendation.suggestedPositioning}</p></div>
-              <div className="rounded-lg border border-blue-100 bg-blue-50 dark:border-blue-900/30 dark:bg-blue-900/10 px-3 py-2"><p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">{result.recommendation.reasoning}</p></div>
-            </div>
-          </div>
-          <div className="px-5 py-5">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Simulation: Your Offer vs AI Version</p>
-              <span className="text-xs text-gray-400">{result.simulation.confidenceScore}% confidence</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {([
-                { label: "Your Offer", data: result.simulation.userVersion, border: "border-gray-200 dark:border-white/10" },
-                { label: "AI Version", data: result.simulation.aiVersion,   border: "border-[#C8102E]/30 dark:border-[#C8102E]/20" },
-              ] as const).map(col => (
-                <div key={col.label} className={`rounded-xl border ${col.border} p-4`}>
-                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-3">{col.label}</p>
-                  {[
-                    { label: "Lead increase",    val: col.data.expectedLeadIncreasePct,    suffix: "%" },
-                    { label: "Application rate", val: col.data.expectedApplicationRatePct, suffix: "%" },
-                    { label: "Lease conversion", val: col.data.expectedLeaseConversionPct, suffix: "%" },
-                    { label: "Occupancy impact", val: col.data.estimatedOccupancyImpact,   suffix: "%" },
-                  ].map(m => {
-                    const { arrow, cls } = impactArrow(m.val);
-                    return (
-                      <div key={m.label} className="flex items-center justify-between py-1 border-b border-gray-50 dark:border-white/5 last:border-0">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">{m.label}</span>
-                        <span className={`text-xs font-bold ${cls}`}>{arrow} {Math.abs(m.val)}{m.suffix}</span>
+
+          {/* Head-to-head cards */}
+          <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
+            {/* Your offer */}
+            {(() => {
+              const o = result.your_offer;
+              const gc = offerGradeColor(o.grade);
+              return (
+                <div className={`rounded-2xl border bg-white dark:bg-[#1C1F2E] p-4 shadow-sm ring-2 ${gc.ring} dark:border-white/5`}>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div><p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1">Your Offer</p><p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug">{o.label}</p></div>
+                    <div className={`shrink-0 flex flex-col items-center rounded-xl px-2.5 py-1.5 ${gc.bg}`}>
+                      <span className={`text-2xl font-black leading-none ${gc.text}`}>{o.grade}</span>
+                      <span className="text-[9px] text-gray-400">{o.score}/10</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-3">{o.rationale}</p>
+                  <div className="grid grid-cols-2 gap-1.5 mb-3">
+                    {[
+                      { v: o.metrics.expected_leases_90d, l: "leases/90d" },
+                      { v: `$${o.metrics.cost_per_lease.toLocaleString()}`, l: "cost/lease" },
+                      { v: `+${o.metrics.occupancy_gain_90d}%`, l: "occ. gain" },
+                      { v: o.metrics.expected_inquiries_90d, l: "inquiries" },
+                    ].map(({ v, l }) => (
+                      <div key={l} className="rounded-lg bg-gray-50 dark:bg-white/5 p-2 text-center">
+                        <p className="text-sm font-black text-gray-700 dark:text-gray-200">{v}</p>
+                        <p className="text-[9px] text-gray-400">{l}</p>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                  {o.weaknesses?.map((w, i) => <p key={i} className="flex items-start gap-1 text-[11px] text-gray-500"><span className="text-red-400 shrink-0">✕</span>{w}</p>)}
                 </div>
-              ))}
+              );
+            })()}
+
+            {/* Recommended offer */}
+            {(() => {
+              const o = result.recommended_offer;
+              const gc = offerGradeColor(o.grade);
+              return (
+                <div className={`rounded-2xl border bg-white dark:bg-[#1C1F2E] p-4 shadow-sm ring-2 ${gc.ring} dark:border-white/5 relative overflow-hidden`}>
+                  <div className="absolute top-3 right-12 rounded-full bg-[#C8102E] px-2 py-0.5 text-[8px] font-bold text-white">AI PICK</div>
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-[#C8102E] mb-1">LUB Recommends</p>
+                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug">{o.label}</p>
+                      {o.description && <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{o.description}</p>}
+                    </div>
+                    <div className={`shrink-0 flex flex-col items-center rounded-xl px-2.5 py-1.5 ${gc.bg}`}>
+                      <span className={`text-2xl font-black leading-none ${gc.text}`}>{o.grade}</span>
+                      <span className="text-[9px] text-gray-400">{o.score}/10</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-3">{o.rationale}</p>
+                  <div className="grid grid-cols-2 gap-1.5 mb-3">
+                    {[
+                      { v: o.metrics.expected_leases_90d, l: "leases/90d" },
+                      { v: `$${o.metrics.cost_per_lease.toLocaleString()}`, l: "cost/lease" },
+                      { v: `+${o.metrics.occupancy_gain_90d}%`, l: "occ. gain" },
+                      { v: o.metrics.expected_inquiries_90d, l: "inquiries" },
+                    ].map(({ v, l }) => (
+                      <div key={l} className="rounded-lg bg-[#C8102E]/8 dark:bg-[#C8102E]/12 p-2 text-center">
+                        <p className="text-sm font-black text-[#C8102E]">{v}</p>
+                        <p className="text-[9px] text-gray-400">{l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {o.strengths.map((s, i) => <p key={i} className="flex items-start gap-1 text-[11px] text-gray-500"><span className="text-green-500 shrink-0">✓</span>{s}</p>)}
+                  {o.why_better_than_yours && (
+                    <div className="mt-2 rounded-lg bg-[#C8102E]/8 dark:bg-[#C8102E]/12 px-3 py-2">
+                      <p className="text-[11px] font-semibold text-[#C8102E]">Why it wins: {o.why_better_than_yours}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Performance comparison bars */}
+          <div className="px-5 py-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Performance Comparison</p>
+            <div className="mb-3 flex gap-4 text-[10px] text-gray-400">
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-4 rounded bg-blue-400" />Your offer</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-4 rounded bg-[#C8102E]" />LUB recommended</span>
             </div>
-            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{result.simulation.comparisonSummary}</p>
+            <div className="space-y-4">
+              <OfferMetricRow label="Leases in 90 days"     yours={result.your_offer.metrics.expected_leases_90d}     rec={result.recommended_offer.metrics.expected_leases_90d}     format={fmt.num} />
+              <OfferMetricRow label="Total inquiries"       yours={result.your_offer.metrics.expected_inquiries_90d}   rec={result.recommended_offer.metrics.expected_inquiries_90d}   format={fmt.num} />
+              <OfferMetricRow label="Occupancy gain"        yours={result.your_offer.metrics.occupancy_gain_90d}       rec={result.recommended_offer.metrics.occupancy_gain_90d}       format={fmt.pct} />
+              <OfferMetricRow label="Monthly revenue impact" yours={result.your_offer.metrics.monthly_revenue_impact}  rec={result.recommended_offer.metrics.monthly_revenue_impact}  format={fmt.usd} />
+            </div>
+          </div>
+
+          {/* Budget verdict + channels */}
+          <div className="grid gap-3 p-5 sm:grid-cols-2">
+            <div className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+              <p className="text-xs font-bold text-gray-700 dark:text-gray-200 mb-1">Budget Verdict</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{result.budget_verdict}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+              <p className="text-xs font-bold text-gray-700 dark:text-gray-200 mb-2">Best Channels</p>
+              <div className="flex flex-wrap gap-1.5">
+                {result.recommended_channels.map((ch, i) => (
+                  <span key={i} className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">{ch}</span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
