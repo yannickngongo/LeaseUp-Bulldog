@@ -572,31 +572,32 @@ function OccupancyIntelligenceSection({
               </div>
 
               {/* Mobile: card-based timeline */}
-              <div className="block lg:hidden mt-1">
+              <div className="block lg:hidden mt-2">
                 <div className="grid grid-cols-4 gap-2">
                   {projection.labels.map((label, i) => (
-                    <div key={i} className="flex flex-col items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-gray-400 text-center leading-tight">
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 text-center leading-tight">
                         {label === "Today" ? "Today" : label.replace(" days", "d")}
                       </span>
-                      <div className="w-full rounded-xl bg-[#C8102E]/10 px-1 py-2.5 text-center">
-                        <span className="text-xl font-black text-[#C8102E] leading-none">{projection.withLUB[i]}%</span>
-                        {i === 0 && <p className="text-[9px] text-[#C8102E]/60 mt-0.5">now</p>}
+                      <div className="w-full rounded-2xl bg-[#C8102E]/10 px-1 py-5 text-center">
+                        <span className="text-3xl font-black text-[#C8102E] leading-none">{projection.withLUB[i]}%</span>
+                        {i === 0 && <p className="text-[10px] text-[#C8102E]/60 mt-1">now</p>}
                       </div>
                       {i > 0 && (
-                        <div className="w-full rounded-xl bg-gray-100 dark:bg-white/5 px-1 py-2 text-center">
-                          <span className="text-sm font-semibold text-gray-400">{projection.noAction[i]}%</span>
+                        <div className="w-full rounded-2xl bg-gray-100 dark:bg-white/5 px-1 py-4 text-center">
+                          <span className="text-xl font-bold text-gray-400">{projection.noAction[i]}%</span>
+                          <p className="text-[10px] text-gray-400 mt-0.5">no spend</p>
                         </div>
                       )}
                     </div>
                   ))}
                 </div>
-                <div className="mt-3 flex gap-4 text-[10px] text-gray-400">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-4 rounded-sm bg-[#C8102E]" />With ad spend
+                <div className="mt-4 flex gap-5 text-xs text-gray-400">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2.5 w-5 rounded bg-[#C8102E]" />With ad spend
                   </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-4 rounded-sm bg-gray-200 dark:bg-white/10" />No ad spend
+                  <span className="flex items-center gap-2">
+                    <span className="h-2.5 w-5 rounded bg-gray-200 dark:bg-white/10" />No ad spend
                   </span>
                 </div>
               </div>
