@@ -477,7 +477,10 @@ interface DiscoverResult {
   bathrooms: number | null;
   sqft: number | null;
   property_type: string | null;
-  amenities: string[];
+  distance: number | null;
+  similarity: number | null;
+  last_seen: string | null;
+  amenities?: string[];
 }
 
 function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
@@ -517,16 +520,15 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email,
-        property_id:    propertyId,
-        name:           r.address,
-        address:        r.address,
-        zip_code:       r.zip_code,
-        city:           r.city,
-        state:          r.state,
-        their_low:      r.price ?? 0,
-        their_high:     r.price ?? 0,
-        threat_level:   "medium",
-        key_amenities:  r.amenities,
+        property_id:  propertyId,
+        name:         r.address,
+        address:      r.address,
+        zip_code:     r.zip_code,
+        city:         r.city,
+        state:        r.state,
+        their_low:    r.price ?? 0,
+        their_high:   r.price ?? 0,
+        threat_level: "medium",
       }),
     });
     const json = await res.json();
@@ -611,9 +613,22 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
                         {r.sqft != null && (
                           <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.sqft.toLocaleString()} sqft</span>
                         )}
-                        {r.amenities.slice(0, 3).map(a => (
-                          <span key={a} className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{a}</span>
-                        ))}
+                        {r.property_type && (
+                          <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.property_type}</span>
+                        )}
+                        {r.distance != null && (
+                          <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.distance.toFixed(2)} mi</span>
+                        )}
+                        {r.similarity != null && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.similarity >= 80 ? "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400" : "bg-gray-100 dark:bg-white/5 text-gray-500"}`}>
+                            {r.similarity}% match
+                          </span>
+                        )}
+                        {r.last_seen && (
+                          <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">
+                            Seen {new Date(r.last_seen).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </span>
+                        )}
                       </div>
 
                       <div className="mt-3">

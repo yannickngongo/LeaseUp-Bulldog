@@ -1,7 +1,6 @@
 // POST /api/competitors/discover
-// Geocodes the property address, then searches Rentcast.
-// Tries radius search (1.5 → 3 → 5 miles) then falls back to zip/city search.
-// Returns raw results — no AI filtering, caller decides what's a competitor.
+// Uses Rentcast's AVM comparables endpoint — the same data Rentcast's own UI shows
+// when you search a property address. Falls back to radius search if AVM returns nothing.
 // Body: { email, property_id }
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,22 +8,6 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext } from "@/lib/auth";
 
 const RENTCAST_BASE = "https://api.rentcast.io/v1";
-
-async function geocode(address: string, city: string, state: string, zip: string): Promise<{ lat: number; lng: number } | null> {
-  const q = [address, city, state, zip].filter(Boolean).join(", ");
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
-      { headers: { "User-Agent": "LeaseUpBulldog/1.0" }, next: { revalidate: 86400 } }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data?.[0]) return null;
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-  } catch {
-    return null;
-  }
-}
 
 async function rentcast(path: string, params: Record<string, string>, apiKey: string) {
   try {
@@ -39,7 +22,7 @@ async function rentcast(path: string, params: Record<string, string>, apiKey: st
   }
 }
 
-interface RawProperty {
+interface Comparable {
   id?: string;
   formattedAddress?: string;
   addressLine1?: string;
@@ -51,9 +34,13 @@ interface RawProperty {
   bathrooms?: number;
   squareFootage?: number;
   propertyType?: string;
-  latitude?: number;
-  longitude?: number;
-  features?: { amenities?: string[] };
+  distance?: number;
+  daysOnMarket?: number;
+  listedDate?: string;
+  removedDate?: string;
+  lastSeenDate?: string;
+  similarity?: number;
+  correlationScore?: number;
 }
 
 export async function POST(req: NextRequest) {
@@ -78,109 +65,80 @@ export async function POST(req: NextRequest) {
 
   if (!property) return NextResponse.json({ error: "Property not found" }, { status: 404 });
 
-  const coords = await geocode(
-    property.address ?? "",
-    property.city    ?? "",
-    property.state   ?? "",
-    property.zip     ?? ""
-  );
-
-  if (!coords) {
+  if (!property.address) {
     return NextResponse.json({
-      error: `Could not geocode address for ${property.name}. Make sure the property has a full street address saved.`,
+      error: `${property.name} has no street address saved. Add a full address in Properties → Edit before running discovery.`,
     }, { status: 400 });
   }
 
-  const { lat, lng } = coords;
-  function makeRadiusParams(radius: string): Record<string, string> {
-    return { latitude: lat.toString(), longitude: lng.toString(), radius, limit: "50" };
+  // ── Primary: AVM comparables — exactly what Rentcast's UI shows ─────────────
+  const avmParams: Record<string, string> = {
+    address: property.address,
+    ...(property.city  ? { city:    property.city  } : {}),
+    ...(property.state ? { state:   property.state } : {}),
+    ...(property.zip   ? { zipCode: property.zip   } : {}),
+    radius:  "1.5",
+    limit:   "25",
+  };
+
+  let comparables: Comparable[] = [];
+  let searchLabel = "AVM comparables · 1.5-mile radius";
+
+  const avmData = await rentcast("/avm/rent/long-term", avmParams, rentcastKey);
+  if (avmData?.comparables?.length) {
+    comparables = avmData.comparables;
   }
 
-  // Try progressively wider radii, then fall back to zip/city search
-  let allRaw: RawProperty[] = [];
-  let searchLabel = "";
-
-  for (const radius of ["1.5", "3", "5"]) {
-    const rp = makeRadiusParams(radius);
-    const [listingsData, aptData, mfData] = await Promise.all([
-      rentcast("/listings/rental/long-term", rp, rentcastKey),
-      rentcast("/properties", { ...rp, propertyType: "Apartment" },   rentcastKey),
-      rentcast("/properties", { ...rp, propertyType: "Multifamily" }, rentcastKey),
-    ]);
-    allRaw = [
-      ...(Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? [])),
-      ...(Array.isArray(aptData)      ? aptData      : []),
-      ...(Array.isArray(mfData)       ? mfData       : []),
-    ];
-    if (allRaw.length > 0) { searchLabel = `${radius}-mile radius`; break; }
+  // ── Fallback: widen AVM radius ───────────────────────────────────────────────
+  if (comparables.length === 0) {
+    for (const radius of ["3", "5"]) {
+      const data = await rentcast("/avm/rent/long-term", { ...avmParams, radius, limit: "25" }, rentcastKey);
+      if (data?.comparables?.length) {
+        comparables = data.comparables;
+        searchLabel = `AVM comparables · ${radius}-mile radius`;
+        break;
+      }
+    }
   }
 
-  // Zip-code fallback
-  if (allRaw.length === 0 && property.zip) {
-    const zipParams: Record<string, string> = { zipCode: property.zip, limit: "50" };
-    const [listingsData, aptData, mfData] = await Promise.all([
-      rentcast("/listings/rental/long-term", zipParams, rentcastKey),
-      rentcast("/properties", { ...zipParams, propertyType: "Apartment" },   rentcastKey),
-      rentcast("/properties", { ...zipParams, propertyType: "Multifamily" }, rentcastKey),
-    ]);
-    allRaw = [
-      ...(Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? [])),
-      ...(Array.isArray(aptData)      ? aptData      : []),
-      ...(Array.isArray(mfData)       ? mfData       : []),
-    ];
-    if (allRaw.length > 0) searchLabel = `ZIP ${property.zip}`;
+  // ── Fallback: listings radius search ────────────────────────────────────────
+  if (comparables.length === 0 && property.zip) {
+    const listingsData = await rentcast("/listings/rental/long-term", { zipCode: property.zip, limit: "50" }, rentcastKey);
+    const raw: Comparable[] = Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? []);
+    if (raw.length) { comparables = raw; searchLabel = `Active listings · ZIP ${property.zip}`; }
   }
 
-  // City fallback
-  if (allRaw.length === 0 && property.city && property.state) {
-    const cityParams: Record<string, string> = { city: property.city, state: property.state, limit: "50" };
-    const [listingsData, aptData, mfData] = await Promise.all([
-      rentcast("/listings/rental/long-term", cityParams, rentcastKey),
-      rentcast("/properties", { ...cityParams, propertyType: "Apartment" },   rentcastKey),
-      rentcast("/properties", { ...cityParams, propertyType: "Multifamily" }, rentcastKey),
-    ]);
-    allRaw = [
-      ...(Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? [])),
-      ...(Array.isArray(aptData)      ? aptData      : []),
-      ...(Array.isArray(mfData)       ? mfData       : []),
-    ];
-    if (allRaw.length > 0) searchLabel = `${property.city}, ${property.state}`;
-  }
-
-  // Deduplicate by address, skip our own property
-  const seen = new Set<string>();
-  const results = allRaw
-    .filter(p => {
-      const key = (p.formattedAddress || p.addressLine1 || "").toLowerCase().trim();
-      if (!key || seen.has(key)) return false;
-      if (property.address && key.includes(property.address.toLowerCase().slice(0, 10))) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 50)
-    .map(p => ({
-      address:       p.formattedAddress || p.addressLine1 || "Unknown address",
-      city:          p.city    ?? property.city    ?? "",
-      state:         p.state   ?? property.state   ?? "",
-      zip_code:      p.zipCode ?? property.zip     ?? "",
-      price:         p.price   ?? null,
-      bedrooms:      p.bedrooms      ?? null,
-      bathrooms:     p.bathrooms     ?? null,
-      sqft:          p.squareFootage ?? null,
-      property_type: p.propertyType  ?? null,
-      amenities:     p.features?.amenities?.slice(0, 6) ?? [],
-    }));
-
-  if (results.length === 0) {
+  if (comparables.length === 0) {
     return NextResponse.json({
-      error: `Rentcast has no rental data for ${property.city}, ${property.state}. This market may not be indexed yet. Add competitors manually instead.`,
+      error: `Rentcast has no rental data for ${property.address}, ${property.city}. Try adding competitors manually.`,
     }, { status: 404 });
   }
+
+  // Skip our own property address
+  const ourPrefix = property.address.toLowerCase().slice(0, 12);
+  const results = comparables
+    .filter(c => {
+      const addr = (c.formattedAddress || c.addressLine1 || "").toLowerCase();
+      return addr && !addr.startsWith(ourPrefix);
+    })
+    .map(c => ({
+      address:       c.formattedAddress || c.addressLine1 || "Unknown address",
+      city:          c.city     ?? property.city  ?? "",
+      state:         c.state    ?? property.state ?? "",
+      zip_code:      c.zipCode  ?? property.zip   ?? "",
+      price:         c.price    ?? null,
+      bedrooms:      c.bedrooms      ?? null,
+      bathrooms:     c.bathrooms     ?? null,
+      sqft:          c.squareFootage ?? null,
+      property_type: c.propertyType  ?? null,
+      distance:      c.distance      ?? null,
+      similarity:    c.similarity != null ? Math.round(c.similarity * 10) / 10 : null,
+      last_seen:     c.lastSeenDate  ?? c.listedDate ?? null,
+    }));
 
   return NextResponse.json({
     property_name: property.name,
     search_label:  searchLabel,
-    coords,
     count: results.length,
     results,
   });
