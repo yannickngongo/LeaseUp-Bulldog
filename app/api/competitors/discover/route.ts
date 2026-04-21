@@ -1,5 +1,6 @@
 // POST /api/competitors/discover
-// Geocodes the property address, then searches Rentcast within 1.5 miles.
+// Geocodes the property address, then searches Rentcast.
+// Tries radius search (1.5 → 3 → 5 miles) then falls back to zip/city search.
 // Returns raw results — no AI filtering, caller decides what's a competitor.
 // Body: { email, property_id }
 
@@ -90,24 +91,61 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  const radiusParams: Record<string, string> = {
-    latitude:  coords.lat.toString(),
-    longitude: coords.lng.toString(),
-    radius:    "1.5",
-    limit:     "50",
-  };
+  const { lat, lng } = coords;
+  function makeRadiusParams(radius: string): Record<string, string> {
+    return { latitude: lat.toString(), longitude: lng.toString(), radius, limit: "50" };
+  }
 
-  const [listingsData, aptData, mfData] = await Promise.all([
-    rentcast("/listings/rental/long-term", radiusParams, rentcastKey),
-    rentcast("/properties", { ...radiusParams, propertyType: "Apartment" },   rentcastKey),
-    rentcast("/properties", { ...radiusParams, propertyType: "Multifamily" }, rentcastKey),
-  ]);
+  // Try progressively wider radii, then fall back to zip/city search
+  let allRaw: RawProperty[] = [];
+  let searchLabel = "";
 
-  const allRaw: RawProperty[] = [
-    ...(Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? [])),
-    ...(Array.isArray(aptData)      ? aptData      : []),
-    ...(Array.isArray(mfData)       ? mfData       : []),
-  ];
+  for (const radius of ["1.5", "3", "5"]) {
+    const rp = makeRadiusParams(radius);
+    const [listingsData, aptData, mfData] = await Promise.all([
+      rentcast("/listings/rental/long-term", rp, rentcastKey),
+      rentcast("/properties", { ...rp, propertyType: "Apartment" },   rentcastKey),
+      rentcast("/properties", { ...rp, propertyType: "Multifamily" }, rentcastKey),
+    ]);
+    allRaw = [
+      ...(Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? [])),
+      ...(Array.isArray(aptData)      ? aptData      : []),
+      ...(Array.isArray(mfData)       ? mfData       : []),
+    ];
+    if (allRaw.length > 0) { searchLabel = `${radius}-mile radius`; break; }
+  }
+
+  // Zip-code fallback
+  if (allRaw.length === 0 && property.zip) {
+    const zipParams: Record<string, string> = { zipCode: property.zip, limit: "50" };
+    const [listingsData, aptData, mfData] = await Promise.all([
+      rentcast("/listings/rental/long-term", zipParams, rentcastKey),
+      rentcast("/properties", { ...zipParams, propertyType: "Apartment" },   rentcastKey),
+      rentcast("/properties", { ...zipParams, propertyType: "Multifamily" }, rentcastKey),
+    ]);
+    allRaw = [
+      ...(Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? [])),
+      ...(Array.isArray(aptData)      ? aptData      : []),
+      ...(Array.isArray(mfData)       ? mfData       : []),
+    ];
+    if (allRaw.length > 0) searchLabel = `ZIP ${property.zip}`;
+  }
+
+  // City fallback
+  if (allRaw.length === 0 && property.city && property.state) {
+    const cityParams: Record<string, string> = { city: property.city, state: property.state, limit: "50" };
+    const [listingsData, aptData, mfData] = await Promise.all([
+      rentcast("/listings/rental/long-term", cityParams, rentcastKey),
+      rentcast("/properties", { ...cityParams, propertyType: "Apartment" },   rentcastKey),
+      rentcast("/properties", { ...cityParams, propertyType: "Multifamily" }, rentcastKey),
+    ]);
+    allRaw = [
+      ...(Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? [])),
+      ...(Array.isArray(aptData)      ? aptData      : []),
+      ...(Array.isArray(mfData)       ? mfData       : []),
+    ];
+    if (allRaw.length > 0) searchLabel = `${property.city}, ${property.state}`;
+  }
 
   // Deduplicate by address, skip our own property
   const seen = new Set<string>();
@@ -119,7 +157,7 @@ export async function POST(req: NextRequest) {
       seen.add(key);
       return true;
     })
-    .slice(0, 40)
+    .slice(0, 50)
     .map(p => ({
       address:       p.formattedAddress || p.addressLine1 || "Unknown address",
       city:          p.city    ?? property.city    ?? "",
@@ -135,12 +173,13 @@ export async function POST(req: NextRequest) {
 
   if (results.length === 0) {
     return NextResponse.json({
-      error: `No properties found within 1.5 miles of ${property.address}, ${property.city}. Rentcast may not have coverage for this area.`,
+      error: `Rentcast has no rental data for ${property.city}, ${property.state}. This market may not be indexed yet. Add competitors manually instead.`,
     }, { status: 404 });
   }
 
   return NextResponse.json({
     property_name: property.name,
+    search_label:  searchLabel,
     coords,
     count: results.length,
     results,

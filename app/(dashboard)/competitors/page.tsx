@@ -487,11 +487,12 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
   onClose: () => void;
   onAdded: (comp: Competitor) => void;
 }) {
-  const [status, setStatus]       = useState<"loading" | "results" | "error">("loading");
-  const [errorMsg, setErrorMsg]   = useState("");
-  const [results, setResults]     = useState<DiscoverResult[]>([]);
-  const [added, setAdded]         = useState<Set<number>>(new Set());
-  const [adding, setAdding]       = useState<Set<number>>(new Set());
+  const [status, setStatus]           = useState<"loading" | "results" | "error">("loading");
+  const [errorMsg, setErrorMsg]       = useState("");
+  const [results, setResults]         = useState<DiscoverResult[]>([]);
+  const [searchLabel, setSearchLabel] = useState("");
+  const [added, setAdded]             = useState<Set<number>>(new Set());
+  const [adding, setAdding]           = useState<Set<number>>(new Set());
 
   useEffect(() => {
     fetch("/api/competitors/discover", {
@@ -503,6 +504,7 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
       .then(d => {
         if (d.error) { setErrorMsg(d.error); setStatus("error"); return; }
         setResults(d.results ?? []);
+        setSearchLabel(d.search_label ?? "");
         setStatus("results");
       })
       .catch(() => { setErrorMsg("Network error — please try again."); setStatus("error"); });
@@ -541,7 +543,7 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
         <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 px-5 py-4 shrink-0">
           <div>
             <p className="font-bold text-gray-900 dark:text-gray-100">Nearby Properties</p>
-            <p className="text-xs text-gray-400 mt-0.5">{propertyName} · 1.5-mile radius · Rentcast data</p>
+            <p className="text-xs text-gray-400 mt-0.5">{propertyName} · Rentcast data</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
         </div>
@@ -568,7 +570,9 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
           {status === "results" && (
             <>
               <p className="text-xs text-gray-400 mb-4">
-                {results.length} propert{results.length !== 1 ? "ies" : "y"} found — add the ones that compete with you
+                {results.length} propert{results.length !== 1 ? "ies" : "y"} found
+                {searchLabel ? ` · ${searchLabel}` : ""}
+                {" "}— add the ones that compete with you
               </p>
               <div className="space-y-3">
                 {results.map((r, i) => {
