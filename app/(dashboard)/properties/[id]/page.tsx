@@ -102,38 +102,63 @@ function computeProjection(units: Unit[], leads: Lead[], totalUnits: number): Pr
   const now      = Date.now();
   const occupied = units.filter(u => u.status === "occupied").length;
   const notice   = units.filter(u => u.status === "notice").length;
+  const currentPct = Math.round((occupied / totalUnits) * 100);
+  const p = (n: number) => Math.min(100, Math.round((n / totalUnits) * 100));
 
-  function expiringIn(days: number) {
+  // Expiring leases — cumulative, then incremental per window
+  function expiringBy(days: number) {
     return units.filter(u => {
       if (u.status !== "occupied" || !u.lease_end) return false;
       const ms = new Date(u.lease_end).getTime() - now;
       return ms >= 0 && ms <= days * 86_400_000;
     }).length;
   }
-  const exp30 = expiringIn(30);
-  const exp60 = expiringIn(60);
-  const exp90 = expiringIn(90);
+  const expBy30 = expiringBy(30);
+  const expBy60 = expiringBy(60);
+  const expBy90 = expiringBy(90);
+  const exp30   = expBy30;
+  const exp60   = expBy60 - expBy30; // incremental 30→60
+  const exp90   = expBy90 - expBy60; // incremental 60→90
 
-  const currentPct = Math.round((occupied / totalUnits) * 100);
-  const p = (n: number) => Math.round((n / totalUnits) * 100);
+  // Actual lead conversion rate from closed leads; fall back to 18% multifamily industry avg
+  const wonLeads  = leads.filter(l => l.status === "won").length;
+  const lostLeads = leads.filter(l => l.status === "lost").length;
+  const closed    = wonLeads + lostLeads;
+  const cvr       = closed >= 5 ? wonLeads / closed : 0.18;
 
-  // Without LUB: units on notice vacate, expiring leases don't renew, no new leases
-  const na30 = Math.max(0, occupied - notice - exp30);
-  const na60 = Math.max(0, occupied - notice - exp60);
-  const na90 = Math.max(0, occupied - notice - exp90);
+  // Active pipeline (not won or lost) — the leads LUB is currently working
+  const activePipeline = leads.filter(l => !["won","lost"].includes(l.status)).length;
 
-  // With LUB: always a positive upward curve toward 90%
-  // If already at or above 90%, hold steady; otherwise interpolate toward 90%
-  const target = 90;
-  const gap    = Math.max(0, target - currentPct);
-  const lub30  = currentPct >= target ? currentPct : Math.min(target, Math.round(currentPct + gap * 0.35));
-  const lub60  = currentPct >= target ? currentPct : Math.min(target, Math.round(currentPct + gap * 0.65));
-  const lub90  = currentPct >= target ? currentPct : Math.min(target, Math.round(currentPct + gap * 0.90));
+  // New move-ins from pipeline distributed across 3 windows
+  // Lead-to-lease typically takes 2–6 weeks, so bulk closes in first two windows
+  const newIn30 = Math.round(activePipeline * cvr * 0.50);
+  const newIn60 = Math.round(activePipeline * cvr * 0.30);
+  const newIn90 = Math.round(activePipeline * cvr * 0.20);
+
+  // Renewal rate for expiring leases with LUB engagement (industry ~68%, slightly higher with active outreach)
+  const renewalRate = 0.72;
+
+  // No-action: notice units all vacate, expiring leases don't renew, no new leases close
+  const naOcc30 = Math.max(0, occupied - notice - exp30);
+  const naOcc60 = Math.max(0, naOcc30 - exp60);
+  const naOcc90 = Math.max(0, naOcc60 - exp90);
+
+  // With LUB: renewals retained at 72%, pipeline closes fill vacancies
+  // Notice: LUB re-engages some → 60% still leave (vs 100% without)
+  const noticeVac = Math.round(notice * 0.60);
+  const lubVac30  = noticeVac + Math.round(exp30 * (1 - renewalRate));
+  const lubOcc30  = Math.min(totalUnits, Math.max(0, occupied - lubVac30 + newIn30));
+
+  const lubVac60  = Math.round(exp60 * (1 - renewalRate));
+  const lubOcc60  = Math.min(totalUnits, Math.max(0, lubOcc30 - lubVac60 + newIn60));
+
+  const lubVac90  = Math.round(exp90 * (1 - renewalRate));
+  const lubOcc90  = Math.min(totalUnits, Math.max(0, lubOcc60 - lubVac90 + newIn90));
 
   return {
     labels:   ["Today", "30 days", "60 days", "90 days"],
-    noAction: [currentPct, p(na30), p(na60), p(na90)],
-    withLUB:  [currentPct, lub30,   lub60,   lub90],
+    noAction: [currentPct, p(naOcc30), p(naOcc60), p(naOcc90)],
+    withLUB:  [currentPct, p(lubOcc30), p(lubOcc60), p(lubOcc90)],
   };
 }
 
@@ -441,11 +466,20 @@ function OccupancyIntelligenceSection({
           <div className="mb-1 flex items-start justify-between">
             <div>
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">90-Day Occupancy Projection</p>
-              <p className="mt-0.5 text-xs text-gray-400">Based on current pipeline conversion rate and lease expirations</p>
+              <p className="mt-0.5 text-xs text-gray-400">
+                {loading
+                  ? "Calculating based on your pipeline conversion rate and lease expirations…"
+                  : `Based on ${leads.filter(l=>!["won","lost"].includes(l.status)).length} active leads · ${Math.round((leads.filter(l=>l.status==="won").length/(Math.max(1,leads.filter(l=>["won","lost"].includes(l.status)).length)))*100)}% close rate · lease expirations`}
+              </p>
             </div>
           </div>
 
-          {totalUnits > 0 ? (
+          {loading ? (
+            <div className="mt-3 flex h-44 flex-col items-center justify-center gap-3">
+              <div className="h-3 w-3 animate-spin rounded-full border border-gray-200 border-t-[#C8102E]" />
+              <p className="text-xs text-gray-400">AI is scoring your occupancy…</p>
+            </div>
+          ) : totalUnits > 0 ? (
             <div className="mt-3">
               <OccupancyChart projection={projection} />
             </div>
