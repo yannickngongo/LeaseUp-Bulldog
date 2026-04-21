@@ -296,6 +296,101 @@ function OccupancyChart({ projection }: { projection: ProjectionData }) {
   );
 }
 
+// ─── Mobile Occupancy Chart ───────────────────────────────────────────────────
+// Larger viewBox + bigger fonts so it reads well at phone width (~350px)
+
+function OccupancyChartMobile({ projection }: { projection: ProjectionData }) {
+  const W = 340, H = 280;
+  const PAD = { top: 36, right: 52, bottom: 48, left: 46 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top  - PAD.bottom;
+
+  const all  = [...projection.noAction, ...projection.withLUB, 95];
+  const minY = Math.max(0,   Math.min(...all) - 8);
+  const maxY = Math.min(100, Math.max(...all) + 6);
+
+  const xS = (i: number) => PAD.left + (i / 3) * cW;
+  const yS = (v: number) => PAD.top  + cH - ((v - minY) / (maxY - minY)) * cH;
+
+  const path = (vals: number[]) =>
+    vals.map((v, i) => `${i === 0 ? "M" : "L"}${xS(i).toFixed(1)},${yS(v).toFixed(1)}`).join(" ");
+
+  const t95   = yS(95);
+  const show95 = t95 >= PAD.top && t95 <= H - PAD.bottom;
+
+  const gridVals = Array.from({ length: 5 }, (_, i) =>
+    Math.round(minY + ((maxY - minY) / 4) * i)
+  );
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+      {/* Grid lines */}
+      {gridVals.map(v => (
+        <g key={v}>
+          <line x1={PAD.left} y1={yS(v)} x2={W - PAD.right} y2={yS(v)} stroke="rgba(150,150,150,0.15)" strokeWidth={1} />
+          <text x={PAD.left - 6} y={yS(v) + 4} textAnchor="end" fontSize={12} fill="#9ca3af">{v}%</text>
+        </g>
+      ))}
+
+      {/* 95% target line */}
+      {show95 && (
+        <>
+          <line x1={PAD.left} y1={t95} x2={W - PAD.right} y2={t95} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5,3" />
+          <text x={W - PAD.right + 5} y={t95 + 4} fontSize={12} fill="#f59e0b" fontWeight="700">95%</text>
+        </>
+      )}
+
+      {/* Shaded area under withLUB */}
+      <path
+        d={`${path(projection.withLUB)} L${xS(3).toFixed(1)},${yS(minY).toFixed(1)} L${xS(0).toFixed(1)},${yS(minY).toFixed(1)} Z`}
+        fill="#C8102E" fillOpacity={0.08}
+      />
+
+      {/* No spend (dashed) */}
+      <path d={path(projection.noAction)} fill="none" stroke="#9ca3af" strokeWidth={2} strokeDasharray="6,3" />
+
+      {/* With spend (solid) */}
+      <path d={path(projection.withLUB)} fill="none" stroke="#C8102E" strokeWidth={3} />
+
+      {/* Data labels — withLUB */}
+      {projection.withLUB.map((v, i) => (
+        <g key={i}>
+          <circle cx={xS(i)} cy={yS(v)} r={6} fill="#C8102E" />
+          <text x={xS(i)} y={yS(v) - 11} textAnchor="middle" fontSize={13} fill="#C8102E" fontWeight="800">{v}%</text>
+        </g>
+      ))}
+
+      {/* Data labels — noAction */}
+      {projection.noAction.map((v, i) => (
+        <g key={i}>
+          <circle cx={xS(i)} cy={yS(v)} r={4} fill="white" stroke="#9ca3af" strokeWidth={1.5} />
+          {i > 0 && (
+            <text x={xS(i)} y={yS(v) + 18} textAnchor="middle" fontSize={12} fill="#9ca3af">{v}%</text>
+          )}
+        </g>
+      ))}
+
+      {/* X axis */}
+      <line x1={PAD.left} y1={H - PAD.bottom} x2={W - PAD.right} y2={H - PAD.bottom} stroke="rgba(150,150,150,0.2)" strokeWidth={1} />
+
+      {/* X labels */}
+      {projection.labels.map((label, i) => (
+        <text key={i} x={xS(i)} y={H - 10} textAnchor="middle" fontSize={13} fill="#6b7280">
+          {label === "Today" ? "Today" : label.replace(" days", "d")}
+        </text>
+      ))}
+
+      {/* Legend */}
+      <g transform={`translate(${PAD.left}, 8)`}>
+        <rect x={0} y={0} width={16} height={4} fill="#C8102E" rx={2} />
+        <text x={20} y={5} fontSize={12} fill="#6b7280">With ad spend</text>
+        <line x1={118} y1={2} x2={134} y2={2} stroke="#9ca3af" strokeWidth={2} strokeDasharray="4,2" />
+        <text x={138} y={5} fontSize={12} fill="#6b7280">No spend</text>
+      </g>
+    </svg>
+  );
+}
+
 // ─── Occupancy Intelligence Section ──────────────────────────────────────────
 
 function OccupancyIntelligenceSection({
@@ -571,35 +666,9 @@ function OccupancyIntelligenceSection({
                 </span>
               </div>
 
-              {/* Mobile: card-based timeline */}
+              {/* Mobile: full graph, optimised for phone width */}
               <div className="block lg:hidden mt-2">
-                <div className="grid grid-cols-4 gap-2">
-                  {projection.labels.map((label, i) => (
-                    <div key={i} className="flex flex-col items-center gap-2">
-                      <span className="text-xs font-bold text-gray-500 dark:text-gray-400 text-center leading-tight">
-                        {label === "Today" ? "Today" : label.replace(" days", "d")}
-                      </span>
-                      <div className="w-full rounded-2xl bg-[#C8102E]/10 px-1 py-5 text-center">
-                        <span className="text-3xl font-black text-[#C8102E] leading-none">{projection.withLUB[i]}%</span>
-                        {i === 0 && <p className="text-[10px] text-[#C8102E]/60 mt-1">now</p>}
-                      </div>
-                      {i > 0 && (
-                        <div className="w-full rounded-2xl bg-gray-100 dark:bg-white/5 px-1 py-4 text-center">
-                          <span className="text-xl font-bold text-gray-400">{projection.noAction[i]}%</span>
-                          <p className="text-[10px] text-gray-400 mt-0.5">no spend</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 flex gap-5 text-xs text-gray-400">
-                  <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-5 rounded bg-[#C8102E]" />With ad spend
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <span className="h-2.5 w-5 rounded bg-gray-200 dark:bg-white/10" />No ad spend
-                  </span>
-                </div>
+                <OccupancyChartMobile projection={projection} />
               </div>
 
               {/* Desktop: full SVG chart */}
