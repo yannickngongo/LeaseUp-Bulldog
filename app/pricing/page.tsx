@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "What is the Marketing Add-On?",
-    a: "For $500/month + 10% of your ad spend, our AI generates ad strategy, headlines, and copy for Facebook and Google. You approve everything before it goes live. Leads flow directly into your LUB pipeline.",
+    a: "For $500/month + 2% of your ad spend, our AI generates ad strategy, headlines, and copy for Facebook and Google. You approve everything before it goes live. Leads flow directly into your LUB pipeline.",
   },
   {
     q: "Is there a free trial?",
@@ -158,16 +158,16 @@ export default function PricingPage() {
                   <span className="text-3xl font-black text-white">$500</span>
                   <span className="text-sm text-gray-400">/mo</span>
                   <span className="text-sm text-gray-500">+</span>
-                  <span className="text-3xl font-black text-white">10%</span>
+                  <span className="text-3xl font-black text-white">2%</span>
                   <span className="text-sm text-gray-400">of ad spend</span>
                 </div>
-                <p className="text-sm text-gray-400">AI ad strategy, creative, and copy for Facebook & Google. You approve before anything goes live.</p>
+                <p className="text-sm text-gray-400">AI ad strategy, creative, and copy for Facebook & Google. You approve before anything goes live. The 2% fee covers platform tracking and optimization — most operators never notice it.</p>
               </div>
               <div className="shrink-0">
                 <div className="rounded-xl border border-amber-800/30 bg-amber-900/20 p-4 text-center min-w-[160px]">
                   <p className="text-xs text-amber-400 font-semibold mb-1">Example: $5K ad spend</p>
-                  <p className="text-2xl font-black text-white">$1,000/mo</p>
-                  <p className="text-xs text-gray-500">$500 + $500 (10%)</p>
+                  <p className="text-2xl font-black text-white">$600/mo</p>
+                  <p className="text-xs text-gray-500">$500 + $100 (2%)</p>
                 </div>
               </div>
             </div>
