@@ -60,7 +60,7 @@ function CompetitorCard({ comp }: { comp: TrackedCompetitor }) {
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <p className="font-bold text-gray-900 dark:text-gray-100 truncate">{comp.name}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{comp.property_name} · {comp.city}, {comp.state}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{comp.city}, {comp.state}</p>
         </div>
         <span className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold ${tc.badge}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${tc.dot}`} />
@@ -101,12 +101,13 @@ function CompetitorCard({ comp }: { comp: TrackedCompetitor }) {
   );
 }
 
-function AddCompetitorModal({ properties, onClose, onAdd }: {
+function AddCompetitorModal({ properties, defaultPropertyId, onClose, onAdd }: {
   properties: Property[];
+  defaultPropertyId: string;
   onClose: () => void;
   onAdd: (comp: Omit<TrackedCompetitor, "id" | "last_updated" | "alert">) => void;
 }) {
-  const [propertyId, setPropertyId] = useState(properties[0]?.id ?? "");
+  const [propertyId, setPropertyId] = useState(defaultPropertyId || properties[0]?.id || "");
   const [name, setName]             = useState("");
   const [rentLow, setRentLow]       = useState("");
   const [rentHigh, setRentHigh]     = useState("");
@@ -200,6 +201,7 @@ export default function CompetitorsPage() {
   const [properties, setProperties]   = useState<Property[]>([]);
   const [loading, setLoading]         = useState(true);
   const [showAdd, setShowAdd]         = useState(false);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("");
   const [filter, setFilter]           = useState<"all" | "high" | "medium" | "low" | "alerts">("all");
   const [syncing, setSyncing]         = useState(false);
 
@@ -217,12 +219,13 @@ export default function CompetitorsPage() {
             id: p.id, name: p.name, city: p.city ?? "", state: p.state ?? "", avg_rent: p.avg_rent ?? 1200,
           }));
           setProperties(props);
+          if (props.length > 0) setSelectedPropertyId(props[0].id);
 
-          // Seed demo competitors if no real ones
-          const seed: TrackedCompetitor[] = props.slice(0, 2).flatMap((p, pi) => [
+          // Seed demo competitors per property
+          const seed: TrackedCompetitor[] = props.slice(0, 3).flatMap((p, pi) => [
             {
               id:              `seed-${pi}-1`,
-              name:            pi === 0 ? "The Reserve at Midtown" : "Parkview Apartments",
+              name:            ["The Reserve at Midtown", "Parkview Apartments", "Harbor Lofts"][pi] ?? "Riverview Commons",
               property_name:   p.name,
               property_id:     p.id,
               city:            p.city,
@@ -238,7 +241,7 @@ export default function CompetitorsPage() {
             },
             {
               id:              `seed-${pi}-2`,
-              name:            pi === 0 ? "Oak Creek Flats" : "Sunrise Commons",
+              name:            ["Oak Creek Flats", "Sunrise Commons", "The Pines"][pi] ?? "Westgate Residences",
               property_name:   p.name,
               property_id:     p.id,
               city:            p.city,
@@ -268,6 +271,8 @@ export default function CompetitorsPage() {
       alert:        null,
     };
     setCompetitors(prev => [newComp, ...prev]);
+    // Switch to that property's view
+    setSelectedPropertyId(comp.property_id);
   }
 
   async function syncAll() {
@@ -277,14 +282,19 @@ export default function CompetitorsPage() {
     setSyncing(false);
   }
 
-  const filtered = competitors.filter(c => {
+  const selectedProperty = properties.find(p => p.id === selectedPropertyId);
+
+  // Competitors for the selected property only
+  const propertyCompetitors = competitors.filter(c => c.property_id === selectedPropertyId);
+
+  const filtered = propertyCompetitors.filter(c => {
     if (filter === "alerts") return c.alert != null;
     if (filter === "all") return true;
     return c.threat_level === filter;
   });
 
-  const alerts = competitors.filter(c => c.alert != null).length;
-  const highThreats = competitors.filter(c => c.threat_level === "high").length;
+  const alerts = propertyCompetitors.filter(c => c.alert != null).length;
+  const highThreats = propertyCompetitors.filter(c => c.threat_level === "high").length;
 
   return (
     <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#0E1017]">
@@ -294,7 +304,7 @@ export default function CompetitorsPage() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">Competitor Tracking</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Monitor competitor rents and get alerted when you're priced wrong</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Monitor competitor rents per property — each market is different</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={syncAll} disabled={syncing}
@@ -308,15 +318,67 @@ export default function CompetitorsPage() {
           </div>
         </div>
 
+        {/* Property selector tabs */}
+        {properties.length > 0 && (
+          <div className="mb-5 overflow-x-auto">
+            <div className="flex gap-2 min-w-max pb-1">
+              {properties.map(p => {
+                const propComps = competitors.filter(c => c.property_id === p.id);
+                const propAlerts = propComps.filter(c => c.alert != null).length;
+                const isActive = p.id === selectedPropertyId;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => { setSelectedPropertyId(p.id); setFilter("all"); }}
+                    className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors border ${
+                      isActive
+                        ? "bg-[#C8102E] text-white border-[#C8102E] shadow-sm shadow-[#C8102E]/20"
+                        : "bg-white dark:bg-white/5 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20"
+                    }`}
+                  >
+                    <span className="truncate max-w-[160px]">{p.name}</span>
+                    {propComps.length > 0 && (
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                        isActive ? "bg-white/20 text-white" : "bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400"
+                      }`}>
+                        {propComps.length}
+                      </span>
+                    )}
+                    {propAlerts > 0 && (
+                      <span className={`h-2 w-2 rounded-full ${isActive ? "bg-white" : "bg-red-500"}`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Selected property context */}
+        {selectedProperty && (
+          <div className="mb-5 flex items-center gap-2 rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] px-4 py-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#C8102E]/10">
+              <svg viewBox="0 0 18 18" fill="none" stroke="#C8102E" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M1.5 16.5V7.5L9 2.5l7.5 5v9" /><path d="M6.5 16.5v-5h5v5" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{selectedProperty.name}</p>
+              <p className="text-xs text-gray-400">{selectedProperty.city}{selectedProperty.state ? `, ${selectedProperty.state}` : ""} · Avg. rent ${(selectedProperty.avg_rent ?? 1200).toLocaleString()}/mo</p>
+            </div>
+            <p className="text-xs text-gray-400 shrink-0">{propertyCompetitors.length} competitor{propertyCompetitors.length !== 1 ? "s" : ""} tracked</p>
+          </div>
+        )}
+
         {/* Stats row */}
         <div className="mb-5 grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-4 text-center">
-            <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{competitors.length}</p>
+            <p className="text-2xl font-black text-gray-900 dark:text-gray-100">{propertyCompetitors.length}</p>
             <p className="text-xs text-gray-500 mt-0.5">Tracked</p>
           </div>
-          <div className="rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 p-4 text-center">
-            <p className="text-2xl font-black text-red-600 dark:text-red-400">{alerts}</p>
-            <p className="text-xs text-red-500 mt-0.5">Active Alerts</p>
+          <div className={`rounded-xl border p-4 text-center ${alerts > 0 ? "border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10" : "border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E]"}`}>
+            <p className={`text-2xl font-black ${alerts > 0 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-gray-100"}`}>{alerts}</p>
+            <p className={`text-xs mt-0.5 ${alerts > 0 ? "text-red-500" : "text-gray-500"}`}>Active Alerts</p>
           </div>
           <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-4 text-center">
             <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{highThreats}</p>
@@ -324,11 +386,11 @@ export default function CompetitorsPage() {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Threat filters */}
         <div className="mb-4 flex gap-1 overflow-x-auto">
           {([
             { key: "all",     label: "All" },
-            { key: "alerts",  label: `Alerts ${alerts > 0 ? `(${alerts})` : ""}` },
+            { key: "alerts",  label: `Alerts${alerts > 0 ? ` (${alerts})` : ""}` },
             { key: "high",    label: "High Threat" },
             { key: "medium",  label: "Medium Threat" },
             { key: "low",     label: "Low Threat" },
@@ -350,12 +412,20 @@ export default function CompetitorsPage() {
         ) : filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 dark:border-white/10 bg-white dark:bg-[#1C1F2E] py-16 text-center">
             <p className="text-4xl mb-3">🔍</p>
-            <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">No competitors tracked yet</p>
-            <p className="text-sm text-gray-400 mb-4">Add competitors to get alerted when their pricing changes relative to yours.</p>
-            <button onClick={() => setShowAdd(true)} disabled={properties.length === 0}
-              className="rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40">
-              Track Your First Competitor
-            </button>
+            <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              {filter !== "all" ? "No competitors match this filter" : `No competitors tracked for ${selectedProperty?.name ?? "this property"}`}
+            </p>
+            <p className="text-sm text-gray-400 mb-4">
+              {filter !== "all"
+                ? "Try a different filter or add more competitors."
+                : "Add nearby competitors to get alerted when their pricing changes."}
+            </p>
+            {filter === "all" && (
+              <button onClick={() => setShowAdd(true)} disabled={properties.length === 0}
+                className="rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40">
+                Track First Competitor for This Property
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -369,14 +439,19 @@ export default function CompetitorsPage() {
             <span className="text-xl">⚡</span>
             <div>
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-0.5">Auto-tracking coming soon</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">LUB will automatically pull competitor rents from Zillow and Rentometer weekly. You'll get an alert any time a competitor drops price or a new property opens near you — without manually checking.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">LUB will automatically pull competitor rents from Zillow and Rentometer weekly — per property. You&apos;ll get an alert any time a competitor drops price or a new property opens near you.</p>
             </div>
           </div>
         </div>
       </div>
 
       {showAdd && (
-        <AddCompetitorModal properties={properties} onClose={() => setShowAdd(false)} onAdd={handleAdd} />
+        <AddCompetitorModal
+          properties={properties}
+          defaultPropertyId={selectedPropertyId}
+          onClose={() => setShowAdd(false)}
+          onAdd={handleAdd}
+        />
       )}
     </div>
   );
