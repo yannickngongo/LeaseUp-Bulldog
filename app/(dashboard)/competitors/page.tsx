@@ -25,7 +25,7 @@ interface Property {
   name: string;
   city: string;
   state: string;
-  avg_rent?: number;
+  avg_rent: number | null;
 }
 
 function threatColor(t: TrackedCompetitor["threat_level"]) {
@@ -117,7 +117,7 @@ function AddCompetitorModal({ properties, defaultPropertyId, onClose, onAdd }: {
   const property = properties.find(p => p.id === propertyId);
 
   function handleAdd() {
-    if (!name.trim() || !rentLow || !rentHigh || !property) return;
+    if (!name.trim() || !rentLow || !rentHigh || !property || property.avg_rent === null) return;
     const low = parseInt(rentLow), high = parseInt(rentHigh);
     onAdd({
       name: name.trim(),
@@ -125,7 +125,7 @@ function AddCompetitorModal({ properties, defaultPropertyId, onClose, onAdd }: {
       property_id: propertyId,
       city: property.city,
       state: property.state,
-      our_avg_rent: property.avg_rent ?? 1200,
+      our_avg_rent: property.avg_rent,
       their_rent_range: `$${low.toLocaleString()}–$${high.toLocaleString()}`,
       their_low: low,
       their_high: high,
@@ -183,9 +183,14 @@ function AddCompetitorModal({ properties, defaultPropertyId, onClose, onAdd }: {
             <input value={amenities} onChange={e => setAmenities(e.target.value)} placeholder="Pool, Gym, Covered Parking"
               className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-[#C8102E]" />
           </div>
+          {property?.avg_rent === null && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-900/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              This property has no unit rent data yet. Add units with monthly rent before tracking competitors.
+            </div>
+          )}
           <div className="flex gap-2 pt-1">
             <button onClick={onClose} className="flex-1 rounded-lg border border-gray-200 dark:border-white/10 py-2.5 text-sm font-semibold text-gray-600 dark:text-gray-300">Cancel</button>
-            <button onClick={handleAdd} disabled={!name.trim() || !rentLow || !rentHigh}
+            <button onClick={handleAdd} disabled={!name.trim() || !rentLow || !rentHigh || property?.avg_rent === null}
               className="flex-1 rounded-lg bg-[#C8102E] py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40">
               Add Competitor
             </button>
@@ -213,50 +218,25 @@ export default function CompetitorsPage() {
         .then(async d => {
           const opId = d.operator?.id;
           if (!opId) { setLoading(false); return; }
-          const propsRes = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
+
+          const [propsRes, unitsRes] = await Promise.all([
+            fetch(`/api/properties?email=${encodeURIComponent(email)}`),
+            fetch(`/api/units?email=${encodeURIComponent(email)}`),
+          ]);
           const propsData = await propsRes.json();
-          const props: Property[] = (propsData.properties ?? []).map((p: { id: string; name: string; city: string; state: string; avg_rent?: number }) => ({
-            id: p.id, name: p.name, city: p.city ?? "", state: p.state ?? "", avg_rent: p.avg_rent ?? 1200,
+          const unitsData = await unitsRes.json();
+          const avgRentByProperty: Record<string, number> = unitsData.avgRentByProperty ?? {};
+
+          const props: Property[] = (propsData.properties ?? []).map((p: { id: string; name: string; city: string; state: string }) => ({
+            id: p.id,
+            name: p.name,
+            city: p.city ?? "",
+            state: p.state ?? "",
+            avg_rent: avgRentByProperty[p.id] ?? null,
           }));
           setProperties(props);
           if (props.length > 0) setSelectedPropertyId(props[0].id);
-
-          // Seed demo competitors per property
-          const seed: TrackedCompetitor[] = props.slice(0, 3).flatMap((p, pi) => [
-            {
-              id:              `seed-${pi}-1`,
-              name:            ["The Reserve at Midtown", "Parkview Apartments", "Harbor Lofts"][pi] ?? "Riverview Commons",
-              property_name:   p.name,
-              property_id:     p.id,
-              city:            p.city,
-              state:           p.state,
-              our_avg_rent:    p.avg_rent ?? 1200,
-              their_rent_range: `$${(p.avg_rent ?? 1200) - 100}–$${(p.avg_rent ?? 1200) + 200}`,
-              their_low:       (p.avg_rent ?? 1200) - 100,
-              their_high:      (p.avg_rent ?? 1200) + 200,
-              threat_level:    "high" as const,
-              key_amenities:   ["Pool", "Gym", "Dog Park"],
-              last_updated:    "2 days ago",
-              alert:           "They dropped rent by $75 this week. You may be overpriced.",
-            },
-            {
-              id:              `seed-${pi}-2`,
-              name:            ["Oak Creek Flats", "Sunrise Commons", "The Pines"][pi] ?? "Westgate Residences",
-              property_name:   p.name,
-              property_id:     p.id,
-              city:            p.city,
-              state:           p.state,
-              our_avg_rent:    p.avg_rent ?? 1200,
-              their_rent_range: `$${(p.avg_rent ?? 1200) + 50}–$${(p.avg_rent ?? 1200) + 300}`,
-              their_low:       (p.avg_rent ?? 1200) + 50,
-              their_high:      (p.avg_rent ?? 1200) + 300,
-              threat_level:    "medium" as const,
-              key_amenities:   ["Rooftop Deck", "Co-working Space"],
-              last_updated:    "5 days ago",
-              alert:           null,
-            },
-          ]);
-          if (props.length > 0) setCompetitors(seed);
+          // No seed data — competitors are added manually only
         })
         .catch(() => {})
         .finally(() => setLoading(false));
@@ -364,7 +344,7 @@ export default function CompetitorsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{selectedProperty.name}</p>
-              <p className="text-xs text-gray-400">{selectedProperty.city}{selectedProperty.state ? `, ${selectedProperty.state}` : ""} · Avg. rent ${(selectedProperty.avg_rent ?? 1200).toLocaleString()}/mo</p>
+              <p className="text-xs text-gray-400">{selectedProperty.city}{selectedProperty.state ? `, ${selectedProperty.state}` : ""} · Avg. rent {selectedProperty.avg_rent !== null ? `$${selectedProperty.avg_rent.toLocaleString()}/mo` : "no unit data yet"}</p>
             </div>
             <p className="text-xs text-gray-400 shrink-0">{propertyCompetitors.length} competitor{propertyCompetitors.length !== 1 ? "s" : ""} tracked</p>
           </div>
