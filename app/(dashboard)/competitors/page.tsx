@@ -612,7 +612,7 @@ export default function CompetitorsPage() {
             </button>
             <button
               onClick={() => setShowDiscover(true)}
-              disabled={properties.length === 0 || !selectedPropertyId || (avgRentByProperty[selectedPropertyId] ?? null) === null}
+              disabled={properties.length === 0 || !selectedPropertyId}
               className="flex items-center gap-2 rounded-xl border border-[#C8102E] bg-[#C8102E]/10 px-4 py-2 text-sm font-bold text-[#C8102E] hover:bg-[#C8102E]/20 disabled:opacity-40 transition-colors"
             >
               ✦ Discover
@@ -764,11 +764,11 @@ export default function CompetitorsPage() {
         />
       )}
 
-      {showDiscover && selectedPropertyId && email && (avgRentByProperty[selectedPropertyId] ?? null) !== null && (
+      {showDiscover && selectedPropertyId && email && (
         <DiscoverModal
           propertyId={selectedPropertyId}
           propertyName={selectedProperty?.name ?? ""}
-          ourAvgRent={avgRentByProperty[selectedPropertyId]}
+          ourAvgRent={avgRentByProperty[selectedPropertyId] ?? 0}
           email={email}
           onClose={() => setShowDiscover(false)}
           onAdded={comp => {
