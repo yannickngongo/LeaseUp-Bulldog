@@ -814,137 +814,112 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
             <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">{result.market_context}</p>
           </div>
 
-          {/* Head-to-head cards */}
-          <div className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
-            {/* Your offer */}
-            {(() => {
-              const o = result.your_offer;
-              const gc = offerGradeColor(o.grade);
-              return (
-                <div className={`rounded-2xl border bg-white dark:bg-[#1C1F2E] p-4 shadow-sm ring-2 ${gc.ring} dark:border-white/5`}>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div><p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1">Your Offer</p><p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug">{o.label}</p></div>
-                    <div className={`shrink-0 flex flex-col items-center rounded-xl px-2.5 py-1.5 ${gc.bg}`}>
-                      <span className={`text-2xl font-black leading-none ${gc.text}`}>{o.grade}</span>
-                      <span className="text-[9px] text-gray-400">{o.score}/10</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-3">{o.rationale}</p>
-                  <div className="grid grid-cols-2 gap-1.5 mb-3">
-                    {[
-                      { v: o.metrics.expected_leases_90d, l: "leases/90d" },
-                      { v: `$${o.metrics.cost_per_lease.toLocaleString()}`, l: "cost/lease" },
-                      { v: `+${o.metrics.occupancy_gain_90d}%`, l: "occ. gain" },
-                      { v: o.metrics.expected_inquiries_90d, l: "inquiries" },
-                    ].map(({ v, l }) => (
-                      <div key={l} className="rounded-lg bg-gray-50 dark:bg-white/5 p-2 text-center">
-                        <p className="text-sm font-black text-gray-700 dark:text-gray-200">{v}</p>
-                        <p className="text-[9px] text-gray-400">{l}</p>
+          {/* Head-to-head cards — click to select */}
+          <div className="p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Choose which offer to run — tap a card to select it</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Your offer */}
+              {(() => {
+                const o = result.your_offer;
+                const gc = offerGradeColor(o.grade);
+                const selected = selectedOffer === "yours";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOffer(selected ? null : "yours")}
+                    className={`text-left rounded-2xl border p-4 shadow-sm transition-all cursor-pointer w-full relative ${
+                      selected
+                        ? "ring-[3px] ring-blue-500 border-blue-300 dark:border-blue-700 bg-blue-50/60 dark:bg-blue-900/20"
+                        : `ring-1 ${gc.ring} border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] hover:ring-2 hover:ring-blue-300`
+                    }`}
+                  >
+                    {selected && (
+                      <span className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white text-[10px] font-black">✓</span>
+                    )}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div><p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-1">Your Offer</p><p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug">{o.label}</p></div>
+                      <div className={`shrink-0 flex flex-col items-center rounded-xl px-2.5 py-1.5 ${gc.bg}`}>
+                        <span className={`text-2xl font-black leading-none ${gc.text}`}>{o.grade}</span>
+                        <span className="text-[9px] text-gray-400">{o.score}/10</span>
                       </div>
-                    ))}
-                  </div>
-                  {o.weaknesses?.map((w, i) => <p key={i} className="flex items-start gap-1 text-[11px] text-gray-500"><span className="text-red-400 shrink-0">✕</span>{w}</p>)}
-                </div>
-              );
-            })()}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-3">{o.rationale}</p>
+                    <div className="grid grid-cols-2 gap-1.5 mb-3">
+                      {[
+                        { v: o.metrics.expected_leases_90d, l: "leases/90d" },
+                        { v: `$${o.metrics.cost_per_lease.toLocaleString()}`, l: "cost/lease" },
+                        { v: `+${o.metrics.occupancy_gain_90d}%`, l: "occ. gain" },
+                        { v: o.metrics.expected_inquiries_90d, l: "inquiries" },
+                      ].map(({ v, l }) => (
+                        <div key={l} className="rounded-lg bg-gray-50 dark:bg-white/5 p-2 text-center">
+                          <p className="text-sm font-black text-gray-700 dark:text-gray-200">{v}</p>
+                          <p className="text-[9px] text-gray-400">{l}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {o.weaknesses?.map((w, i) => <p key={i} className="flex items-start gap-1 text-[11px] text-gray-500"><span className="text-red-400 shrink-0">✕</span>{w}</p>)}
+                  </button>
+                );
+              })()}
 
-            {/* Recommended offer */}
-            {(() => {
-              const o = result.recommended_offer;
-              const gc = offerGradeColor(o.grade);
-              return (
-                <div className={`rounded-2xl border bg-white dark:bg-[#1C1F2E] p-4 shadow-sm ring-2 ${gc.ring} dark:border-white/5 relative overflow-hidden`}>
-                  <div className="absolute top-3 right-12 rounded-full bg-[#C8102E] px-2 py-0.5 text-[8px] font-bold text-white">AI PICK</div>
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div>
-                      <p className="text-[9px] font-bold uppercase tracking-widest text-[#C8102E] mb-1">LUB Recommends</p>
-                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug">{o.label}</p>
-                      {o.description && <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{o.description}</p>}
-                    </div>
-                    <div className={`shrink-0 flex flex-col items-center rounded-xl px-2.5 py-1.5 ${gc.bg}`}>
-                      <span className={`text-2xl font-black leading-none ${gc.text}`}>{o.grade}</span>
-                      <span className="text-[9px] text-gray-400">{o.score}/10</span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-3">{o.rationale}</p>
-                  <div className="grid grid-cols-2 gap-1.5 mb-3">
-                    {[
-                      { v: o.metrics.expected_leases_90d, l: "leases/90d" },
-                      { v: `$${o.metrics.cost_per_lease.toLocaleString()}`, l: "cost/lease" },
-                      { v: `+${o.metrics.occupancy_gain_90d}%`, l: "occ. gain" },
-                      { v: o.metrics.expected_inquiries_90d, l: "inquiries" },
-                    ].map(({ v, l }) => (
-                      <div key={l} className="rounded-lg bg-[#C8102E]/8 dark:bg-[#C8102E]/12 p-2 text-center">
-                        <p className="text-sm font-black text-[#C8102E]">{v}</p>
-                        <p className="text-[9px] text-gray-400">{l}</p>
+              {/* Recommended offer */}
+              {(() => {
+                const o = result.recommended_offer;
+                const gc = offerGradeColor(o.grade);
+                const selected = selectedOffer === "recommended";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOffer(selected ? null : "recommended")}
+                    className={`text-left rounded-2xl border p-4 shadow-sm transition-all cursor-pointer w-full relative overflow-hidden ${
+                      selected
+                        ? "ring-[3px] ring-[#C8102E] border-[#C8102E]/40 bg-[#C8102E]/5 dark:bg-[#C8102E]/10"
+                        : `ring-1 ${gc.ring} border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] hover:ring-2 hover:ring-[#C8102E]/50`
+                    }`}
+                  >
+                    {selected && (
+                      <span className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-[#C8102E] text-white text-[10px] font-black">✓</span>
+                    )}
+                    {!selected && <div className="absolute top-3 right-3 rounded-full bg-[#C8102E] px-2 py-0.5 text-[8px] font-bold text-white">AI PICK</div>}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-widest text-[#C8102E] mb-1">LUB Recommends</p>
+                        <p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug">{o.label}</p>
+                        {o.description && <p className="text-[11px] text-gray-400 mt-0.5 leading-snug">{o.description}</p>}
                       </div>
-                    ))}
-                  </div>
-                  {o.strengths.map((s, i) => <p key={i} className="flex items-start gap-1 text-[11px] text-gray-500"><span className="text-green-500 shrink-0">✓</span>{s}</p>)}
-                  {o.why_better_than_yours && (
-                    <div className="mt-2 rounded-lg bg-[#C8102E]/8 dark:bg-[#C8102E]/12 px-3 py-2">
-                      <p className="text-[11px] font-semibold text-[#C8102E]">Why it wins: {o.why_better_than_yours}</p>
+                      <div className={`shrink-0 flex flex-col items-center rounded-xl px-2.5 py-1.5 ${gc.bg}`}>
+                        <span className={`text-2xl font-black leading-none ${gc.text}`}>{o.grade}</span>
+                        <span className="text-[9px] text-gray-400">{o.score}/10</span>
+                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-
-          {/* Performance comparison bars */}
-          <div className="px-5 py-5">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Performance Comparison</p>
-            <div className="mb-3 flex gap-4 text-[10px] text-gray-400">
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-4 rounded bg-blue-400" />Your offer</span>
-              <span className="flex items-center gap-1.5"><span className="h-1.5 w-4 rounded bg-[#C8102E]" />LUB recommended</span>
-            </div>
-            <div className="space-y-4">
-              <OfferMetricRow label="Leases in 90 days"     yours={result.your_offer.metrics.expected_leases_90d}     rec={result.recommended_offer.metrics.expected_leases_90d}     format={fmt.num} />
-              <OfferMetricRow label="Total inquiries"       yours={result.your_offer.metrics.expected_inquiries_90d}   rec={result.recommended_offer.metrics.expected_inquiries_90d}   format={fmt.num} />
-              <OfferMetricRow label="Occupancy gain"        yours={result.your_offer.metrics.occupancy_gain_90d}       rec={result.recommended_offer.metrics.occupancy_gain_90d}       format={fmt.pct} />
-              <OfferMetricRow label="Monthly revenue impact" yours={result.your_offer.metrics.monthly_revenue_impact}  rec={result.recommended_offer.metrics.monthly_revenue_impact}  format={fmt.usd} />
-            </div>
-          </div>
-
-          {/* Choose your offer */}
-          <div className="px-5 py-5 border-t border-gray-100 dark:border-white/5">
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Which offer do you want to run?</p>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setSelectedOffer("yours")}
-                className={`rounded-xl border-2 px-4 py-3 text-left transition-all ${
-                  selectedOffer === "yours"
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                    : "border-gray-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-700"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500">My Offer</p>
-                  {selectedOffer === "yours" && <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[8px] font-bold text-white">SELECTED</span>}
-                </div>
-                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{result.your_offer.label}</p>
-                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{result.your_offer.grade} · {result.your_offer.score}/10</p>
-              </button>
-
-              <button
-                onClick={() => setSelectedOffer("recommended")}
-                className={`rounded-xl border-2 px-4 py-3 text-left transition-all ${
-                  selectedOffer === "recommended"
-                    ? "border-[#C8102E] bg-[#C8102E]/5 dark:bg-[#C8102E]/10"
-                    : "border-gray-200 dark:border-white/10 hover:border-[#C8102E]/50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#C8102E]">LUB Recommends</p>
-                  {selectedOffer === "recommended" && <span className="rounded-full bg-[#C8102E] px-2 py-0.5 text-[8px] font-bold text-white">SELECTED</span>}
-                </div>
-                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{result.recommended_offer.label}</p>
-                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{result.recommended_offer.grade} · {result.recommended_offer.score}/10</p>
-              </button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-3">{o.rationale}</p>
+                    <div className="grid grid-cols-2 gap-1.5 mb-3">
+                      {[
+                        { v: o.metrics.expected_leases_90d, l: "leases/90d" },
+                        { v: `$${o.metrics.cost_per_lease.toLocaleString()}`, l: "cost/lease" },
+                        { v: `+${o.metrics.occupancy_gain_90d}%`, l: "occ. gain" },
+                        { v: o.metrics.expected_inquiries_90d, l: "inquiries" },
+                      ].map(({ v, l }) => (
+                        <div key={l} className="rounded-lg bg-[#C8102E]/8 dark:bg-[#C8102E]/12 p-2 text-center">
+                          <p className="text-sm font-black text-[#C8102E]">{v}</p>
+                          <p className="text-[9px] text-gray-400">{l}</p>
+                        </div>
+                      ))}
+                    </div>
+                    {o.strengths.map((s, i) => <p key={i} className="flex items-start gap-1 text-[11px] text-gray-500"><span className="text-green-500 shrink-0">✓</span>{s}</p>)}
+                    {o.why_better_than_yours && (
+                      <div className="mt-2 rounded-lg bg-[#C8102E]/8 dark:bg-[#C8102E]/12 px-3 py-2">
+                        <p className="text-[11px] font-semibold text-[#C8102E]">Why it wins: {o.why_better_than_yours}</p>
+                      </div>
+                    )}
+                  </button>
+                );
+              })()}
             </div>
 
+            {/* Confirmation bar */}
             {selectedOffer && (
-              <div className={`mt-3 rounded-xl px-4 py-3 flex items-center justify-between ${
+              <div className={`mt-4 rounded-xl px-4 py-3 flex items-center justify-between gap-3 ${
                 selectedOffer === "yours"
                   ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
                   : "bg-[#C8102E]/5 dark:bg-[#C8102E]/10 border border-[#C8102E]/20"
@@ -960,13 +935,28 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
                     }
                   </p>
                 </div>
-                <button className={`rounded-lg px-4 py-2 text-xs font-bold text-white transition-colors ${
+                <button className={`shrink-0 rounded-lg px-4 py-2 text-xs font-bold text-white transition-colors ${
                   selectedOffer === "yours" ? "bg-blue-500 hover:bg-blue-600" : "bg-[#C8102E] hover:bg-[#A50D25]"
                 }`}>
                   Use This Offer →
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Performance comparison bars */}
+          <div className="px-5 py-5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Performance Comparison</p>
+            <div className="mb-3 flex gap-4 text-[10px] text-gray-400">
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-4 rounded bg-blue-400" />Your offer</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-4 rounded bg-[#C8102E]" />LUB recommended</span>
+            </div>
+            <div className="space-y-4">
+              <OfferMetricRow label="Leases in 90 days"     yours={result.your_offer.metrics.expected_leases_90d}     rec={result.recommended_offer.metrics.expected_leases_90d}     format={fmt.num} />
+              <OfferMetricRow label="Total inquiries"       yours={result.your_offer.metrics.expected_inquiries_90d}   rec={result.recommended_offer.metrics.expected_inquiries_90d}   format={fmt.num} />
+              <OfferMetricRow label="Occupancy gain"        yours={result.your_offer.metrics.occupancy_gain_90d}       rec={result.recommended_offer.metrics.occupancy_gain_90d}       format={fmt.pct} />
+              <OfferMetricRow label="Monthly revenue impact" yours={result.your_offer.metrics.monthly_revenue_impact}  rec={result.recommended_offer.metrics.monthly_revenue_impact}  format={fmt.usd} />
+            </div>
           </div>
 
           {/* Budget verdict + channels */}

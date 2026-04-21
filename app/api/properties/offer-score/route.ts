@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
     ? competitors.map(c => `- ${c.name}: ${c.est_rent_range}, amenities: ${c.key_amenities.join(", ")}`).join("\n")
     : "No competitor data available.";
 
-  const prompt = `You are a multifamily leasing strategy expert with deep knowledge of the ${city}, ${state} rental market. Analyze this operator's offer and produce a rigorous, market-grounded comparison.
+  const prompt = `You are an elite multifamily leasing strategist. Your recommended offer must always be exceptional — minimum grade A-, score 9 or 10. If you cannot devise a genuinely A- offer for this market, keep refining until you can. Average is unacceptable.
+
+Analyze this operator's offer and produce a rigorous, market-grounded comparison.
 
 PROPERTY: ${property_name}
 LOCATION: ${city}, ${state}${neighborhood ? ` (${neighborhood})` : ""}
@@ -74,8 +76,8 @@ Return ONLY this raw JSON:
   "recommended_offer": {
     "label": "<specific, compelling offer name>",
     "description": "<exactly what the offer is — specific terms, e.g. '6 weeks free on 13-month lease + $0 security deposit'>",
-    "score": <1-10 integer, always higher than your_offer score>,
-    "grade": "<grade>",
+    "score": <9 or 10 — the recommended offer must always be elite>,
+    "grade": "<must be A- or higher: A+, A, or A->",
     "rationale": "<2 sentences: why this outperforms in this specific market>",
     "strengths": ["<3 specific strengths>"],
     "why_better_than_yours": "<1 sentence: the key reason it beats the operator's offer>",
