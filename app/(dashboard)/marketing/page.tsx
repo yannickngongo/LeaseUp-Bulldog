@@ -1087,7 +1087,7 @@ function WhatIfPanel({ campaign }: { campaign: Campaign }) {
           <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Scenario Description *</label>
           <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. What if I doubled my Facebook budget and added a free parking offer?" className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400" />
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             { label: "Budget Change %", key: "budgetChangePct", placeholder: "+20 or -10" },
             { label: "Offer Change",    key: "offerChange",    placeholder: "e.g. free parking" },
@@ -1208,7 +1208,7 @@ function CampaignDetail({
             </button>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-100 pt-4 dark:border-white/5">
+        <div className="mt-4 grid grid-cols-1 gap-4 border-t border-gray-100 pt-4 dark:border-white/5 sm:grid-cols-3">
           <div><p className="text-xs text-gray-500 dark:text-gray-400">Created</p><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.created_at}</p></div>
           <div><p className="text-xs text-gray-500 dark:text-gray-400">Leads Generated</p><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.leads_generated}</p></div>
           <div><p className="text-xs text-gray-500 dark:text-gray-400">Special Offer</p><p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{campaign.current_special ?? "—"}</p></div>
@@ -1298,7 +1298,7 @@ function CampaignDetail({
           {/* Approve bar */}
           <div className="mt-6">
             {!approved && (
-              <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-900/40 dark:bg-amber-900/10">
+              <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-900/40 dark:bg-amber-900/10 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{selected.size} variation{selected.size !== 1 ? "s" : ""} selected</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Nothing goes live until you approve and set a budget</p>
@@ -1311,7 +1311,7 @@ function CampaignDetail({
               </div>
             )}
             {approved && (
-              <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-5 py-4 dark:border-green-900/40 dark:bg-green-900/10">
+              <div className="flex flex-col gap-3 rounded-xl border border-green-200 bg-green-50 px-5 py-4 dark:border-green-900/40 dark:bg-green-900/10 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                   <span className="text-green-600 dark:text-green-400 text-lg">✓</span>
                   <p className="text-sm font-semibold text-green-800 dark:text-green-300">Variations approved. Click &quot;Set Budget &amp; Launch&quot; to go live.</p>
@@ -1907,7 +1907,7 @@ export default function MarketingPage() {
           />
         ) : (
           <>
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Marketing</h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">AI-generated ad campaigns · visual previews · budget forecasts</p>
@@ -1917,7 +1917,7 @@ export default function MarketingPage() {
               </button>
             </div>
 
-            <div className="mb-6 grid grid-cols-3 gap-4">
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[
                 { label: "Total Leads Generated", value: totalLeads,      note: "across all campaigns" },
                 { label: "Active Campaigns",       value: activeCampaigns, note: "currently running"    },

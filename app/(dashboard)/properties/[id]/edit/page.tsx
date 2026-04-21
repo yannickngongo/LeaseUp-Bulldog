@@ -111,7 +111,7 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
 
       {/* Current stats */}
       {units.length > 0 && (
-        <div className="mb-5 grid grid-cols-4 gap-3">
+        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             { label: "Total Units", value: units.length, color: "text-gray-900 dark:text-white" },
             { label: "Occupied",    value: occupied,     color: "text-green-600" },
@@ -164,7 +164,7 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
         return (
           <div className="mt-4 rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
             <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-200">AI found {preview.length} units — review before saving</p>
-            <div className="mb-3 grid grid-cols-4 gap-2">
+            <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
                 { label: "Total",    value: preview.length, color: "text-gray-900 dark:text-white" },
                 { label: "Occupied", value: occ,            color: "text-green-600" },
@@ -186,8 +186,8 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
                 <div className="h-full rounded-full bg-green-500" style={{ width: `${Math.round((occ / preview.length) * 100)}%` }} />
               </div>
             </div>
-            <div className="max-h-52 overflow-y-auto">
-              <table className="w-full text-xs">
+            <div className="max-h-52 overflow-y-auto overflow-x-auto">
+              <table className="min-w-[520px] w-full text-xs">
                 <thead><tr className="sticky top-0 bg-gray-50 dark:bg-[#1C1F2E] text-left text-gray-400">
                   <th className="pb-1.5 pr-3">Unit</th>
                   <th className="pb-1.5 pr-3">Status</th>
@@ -230,7 +230,7 @@ function RentRollSection({ propertyId }: { propertyId: string }) {
       {!loadingUnits && units.length > 0 && (
         <div className="mt-5">
           <p className="mb-2 text-xs font-semibold text-gray-500">Current Units on File</p>
-          <div className="max-h-64 overflow-y-auto rounded-xl border border-gray-100 dark:border-white/5">
+          <div className="max-h-64 overflow-y-auto overflow-x-auto rounded-xl border border-gray-100 dark:border-white/5">
             <table className="w-full text-xs">
               <thead><tr className="border-b border-gray-100 dark:border-white/5 text-left text-gray-400">
                 <th className="px-3 py-2">Unit</th>
@@ -377,7 +377,7 @@ export default function EditPropertyPage() {
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Street Address <span className="text-red-500">*</span></label>
                 <input value={form.address} onChange={e => set("address", e.target.value)} className={inputCls} />
               </div>
-              <div className="grid gap-3 grid-cols-3">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">City <span className="text-red-500">*</span></label>
                   <input value={form.city} onChange={e => set("city", e.target.value)} className={inputCls} />
@@ -395,7 +395,7 @@ export default function EditPropertyPage() {
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Neighborhood</label>
                 <input value={form.neighborhood} onChange={e => set("neighborhood", e.target.value)} placeholder="e.g. Downtown, Midtown" className={inputCls} />
               </div>
-              <div className="grid gap-3 grid-cols-2">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Total Units</label>
                   <input type="number" value={form.total_units} onChange={e => set("total_units", e.target.value)} placeholder="120" className={inputCls} />
@@ -434,9 +434,9 @@ export default function EditPropertyPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Link href="/properties" className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
+              <Link href="/properties" className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-center">
                 Cancel
               </Link>
               <button type="button" disabled={deleting}

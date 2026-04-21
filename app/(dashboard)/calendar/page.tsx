@@ -193,7 +193,7 @@ export default function CalendarPage() {
       </div>
 
       {view === "month" ? (
-        <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-[1fr_280px]">
 
           {/* Calendar grid */}
           <div className="rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">

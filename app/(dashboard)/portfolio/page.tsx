@@ -59,7 +59,7 @@ function PropertyCard({ p, view }: { p: PortfolioProperty; view: "grid" | "list"
           </div>
           <p className="text-xs text-gray-400">{p.city}, {p.state}</p>
         </div>
-        <div className="hidden sm:grid grid-cols-4 gap-6 text-center shrink-0">
+        <div className="hidden sm:grid grid-cols-2 gap-4 text-center shrink-0 sm:grid-cols-4 sm:gap-6">
           <div><p className={`text-lg font-black ${occ >= 90 ? "text-green-600 dark:text-green-400" : occ >= 80 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>{occ}%</p><p className="text-[9px] text-gray-400">Occupancy</p></div>
           <div><p className="text-lg font-black text-gray-700 dark:text-gray-200">{vacant}</p><p className="text-[9px] text-gray-400">Vacant</p></div>
           <div><p className="text-lg font-black text-gray-700 dark:text-gray-200">{p.active_leads}</p><p className="text-[9px] text-gray-400">Leads</p></div>
@@ -216,7 +216,7 @@ export default function PortfolioPage() {
         </div>
 
         {/* Portfolio KPIs */}
-        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {[
             { label: "Properties",     value: totals.properties,                                                  color: "text-gray-900 dark:text-gray-100" },
             { label: "Total Units",    value: totals.units,                                                        color: "text-gray-900 dark:text-gray-100" },

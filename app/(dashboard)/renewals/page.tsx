@@ -84,7 +84,7 @@ function RenewalRow({ renewal, onSend }: { renewal: Renewal; onSend: (r: Renewal
       renewal.urgency === "warning"  ? "border-amber-200 dark:border-amber-900/40" :
                                        "border-gray-100 dark:border-white/5"
     }`}>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <p className="font-semibold text-gray-900 dark:text-gray-100">
@@ -112,11 +112,11 @@ function RenewalRow({ renewal, onSend }: { renewal: Renewal; onSend: (r: Renewal
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Link href={`/properties/${renewal.property_id}`}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5 transition-colors">
+            className="flex-1 sm:flex-none rounded-lg border border-gray-200 px-3 py-2 text-xs font-semibold text-center text-gray-600 hover:bg-gray-50 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5 transition-colors">
             View Property
           </Link>
           <button onClick={() => onSend(renewal)}
-            className="rounded-lg bg-[#C8102E] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors"
+            className="flex-1 sm:flex-none rounded-lg bg-[#C8102E] px-3 py-2 text-xs font-semibold text-white hover:bg-[#A50D25] transition-colors"
             style={{ boxShadow: "0 2px 8px rgba(200,16,46,0.2)" }}>
             Send Renewal →
           </button>
@@ -354,7 +354,7 @@ export default function RenewalsPage() {
 
         {/* Summary cards */}
         {!loading && (
-          <div className="mb-6 grid grid-cols-3 gap-4">
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[
               { label: "Expiring ≤30d", count: counts.critical, color: "text-red-600 dark:text-red-400",   bg: "bg-red-50 dark:bg-red-900/10",   border: "border-red-200 dark:border-red-900/40" },
               { label: "Expiring 31–60d", count: counts.warning,  color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/10", border: "border-amber-200 dark:border-amber-900/40" },

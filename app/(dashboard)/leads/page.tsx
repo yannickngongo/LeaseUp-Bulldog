@@ -241,7 +241,7 @@ function AddLeadModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
               </select>
             }
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wide">First Name</label>
               <input type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="Jordan" className={inputCls} />
@@ -259,7 +259,7 @@ function AddLeadModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
             <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wide">Email <span className="normal-case font-normal text-gray-400">(optional)</span></label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="jordan@email.com" className={inputCls} />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wide">Move-in</label>
               <input type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)} className={inputCls} />

@@ -499,11 +499,11 @@ export default function SettingsPage() {
               {now.toLocaleString("default", { month: "long", year: "numeric" })}
             </p>
             {loading ? (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 {[1,2,3].map(i => <Skeleton key={i} className="h-10" />)}
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{wonThisMonth}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Leases signed</p>

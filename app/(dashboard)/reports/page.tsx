@@ -178,7 +178,7 @@ Write a concise owner-ready report. Return ONLY this JSON:
             <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">Owner Reports</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">AI-generated monthly performance summaries you can share with asset owners</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select value={month} onChange={e => { setMonth(e.target.value); setAiReport(null); }}
               className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm font-semibold text-gray-700 dark:text-gray-300 focus:outline-none">
               {MONTH_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
@@ -336,11 +336,11 @@ Write a concise owner-ready report. Return ONLY this JSON:
                 </div>
 
                 {/* Export bar */}
-                <div className="flex items-center justify-between rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] px-5 py-4">
+                <div className="flex flex-col gap-3 rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Share with asset owner</p>
                   <div className="flex gap-2">
-                    <button className="rounded-lg border border-gray-200 dark:border-white/10 px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">Copy Link</button>
-                    <button className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-bold text-white hover:bg-[#A50D25]">Export PDF</button>
+                    <button className="flex-1 sm:flex-none rounded-lg border border-gray-200 dark:border-white/10 px-4 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5">Copy Link</button>
+                    <button className="flex-1 sm:flex-none rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-bold text-white hover:bg-[#A50D25]">Export PDF</button>
                   </div>
                 </div>
               </div>

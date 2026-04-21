@@ -100,7 +100,7 @@ export default function NewLeadPage() {
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Full Name <span className="text-red-500">*</span></label>
                 <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="Jordan Ellis" className={inputCls} />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Phone <span className="text-red-500">*</span></label>
                   <input value={form.phone} onChange={e => set("phone", e.target.value)} type="tel" placeholder="+17025550101" className={inputCls} />
@@ -193,11 +193,11 @@ export default function NewLeadPage() {
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-between">
-            <Link href="/leads" className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Link href="/leads" className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-center sm:text-left">
               Cancel
             </Link>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
               <button
                 type="button"
                 onClick={e => handleSubmit(e as unknown as React.FormEvent, false)}

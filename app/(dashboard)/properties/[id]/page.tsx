@@ -916,7 +916,7 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
       </div>
 
       {units.length > 0 && (
-        <div className="mb-4 flex gap-4">
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:flex sm:gap-4">
           {[
             { label: "Total Units", value: units.length },
             { label: "Occupied",    value: occupied, color: "text-green-600" },
@@ -1008,8 +1008,8 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
           {preview.length > 0 && (
             <div className="mt-3 rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-white/5 dark:bg-white/5">
               <p className="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-200">{preview.length} units extracted — review before saving</p>
-              <div className="max-h-44 overflow-y-auto">
-                <table className="w-full text-xs">
+              <div className="max-h-44 overflow-y-auto overflow-x-auto">
+                <table className="min-w-[400px] w-full text-xs">
                   <thead><tr className="text-left text-gray-400">
                     <th className="pb-1.5 pr-3">Unit</th><th className="pb-1.5 pr-3">Status</th>
                     <th className="pb-1.5 pr-3">Type</th><th className="pb-1.5 pr-3">Resident</th><th className="pb-1.5">Rent</th>
@@ -1053,25 +1053,27 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
             <p className="text-xs text-gray-400">Upload a rent roll or add units manually.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-gray-100 dark:border-white/5 text-left">
-              {["Unit","Status","Type","Resident","Rent","Lease End"].map(h => (
-                <th key={h} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{h}</th>
-              ))}
-            </tr></thead>
-            <tbody className="divide-y divide-gray-50 dark:divide-white/5">
-              {units.map((u, i) => (
-                <tr key={u.id ?? i} className="hover:bg-gray-50/50 dark:hover:bg-white/5">
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{u.unit_name}</td>
-                  <td className="px-4 py-3"><span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize", STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-600")}>{u.status}</span></td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.unit_type ?? "—"}</td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{u.current_resident || "—"}</td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{u.monthly_rent ? `$${u.monthly_rent.toLocaleString()}` : "—"}</td>
-                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.lease_end || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="min-w-[520px] w-full text-sm">
+              <thead><tr className="border-b border-gray-100 dark:border-white/5 text-left">
+                {["Unit","Status","Type","Resident","Rent","Lease End"].map(h => (
+                  <th key={h} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50 dark:divide-white/5">
+                {units.map((u, i) => (
+                  <tr key={u.id ?? i} className="hover:bg-gray-50/50 dark:hover:bg-white/5">
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">{u.unit_name}</td>
+                    <td className="px-4 py-3"><span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize", STATUS_COLORS[u.status] ?? "bg-gray-100 text-gray-600")}>{u.status}</span></td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.unit_type ?? "—"}</td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{u.current_resident || "—"}</td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{u.monthly_rent ? `$${u.monthly_rent.toLocaleString()}` : "—"}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.lease_end || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>
@@ -1204,7 +1206,8 @@ function MarketPositionSection({ property, units }: { property: Property; units:
 
           {/* Benchmarks table */}
           <Card padding="none">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="min-w-[640px] w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-white/5">
                   {["Unit Type","Your Rent","Market Avg","Market Range","vs Market","Recommendation"].map(h => (
@@ -1245,6 +1248,7 @@ function MarketPositionSection({ property, units }: { property: Property; units:
                 })}
               </tbody>
             </table>
+            </div>
           </Card>
         </div>
       )}

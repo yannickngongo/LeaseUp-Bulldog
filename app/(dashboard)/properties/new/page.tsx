@@ -172,8 +172,8 @@ function RentRollUpload({ onChange }: { onChange: (units: ParsedUnit[]) => void 
               hide
             </button>
           </div>
-          <div className="max-h-48 overflow-y-auto">
-            <table className="w-full text-xs">
+          <div className="max-h-48 overflow-y-auto overflow-x-auto">
+            <table className="min-w-[480px] w-full text-xs">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-white/5">
                   {["Unit", "Type", "Status", "Resident", "Lease End", "Rent"].map(h => (
@@ -313,7 +313,7 @@ export default function NewPropertyPage() {
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Street Address <span className="text-red-500">*</span></label>
                 <input value={form.address} onChange={e => set("address", e.target.value)} placeholder="1234 Desert Rose Blvd" className={inputCls} />
               </div>
-              <div className="grid gap-3 grid-cols-3">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">City <span className="text-red-500">*</span></label>
                   <input value={form.city} onChange={e => set("city", e.target.value)} placeholder="Las Vegas" className={inputCls} />
@@ -332,7 +332,7 @@ export default function NewPropertyPage() {
                 <input value={form.neighborhood} onChange={e => set("neighborhood", e.target.value)} placeholder="e.g. Summerlin, Henderson, Downtown Las Vegas" className={inputCls} />
                 <p className="mt-1 text-xs text-gray-400">Used for neighborhood-level market analysis (more precise than ZIP code).</p>
               </div>
-              <div className="grid gap-3 grid-cols-2">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Total Units</label>
                   <input type="number" value={form.totalUnits} onChange={e => set("totalUnits", e.target.value)} placeholder="120" className={inputCls} />
@@ -385,8 +385,8 @@ export default function NewPropertyPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <Link href="/properties" className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <Link href="/properties" className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors text-center sm:text-left">
               Cancel
             </Link>
             <button

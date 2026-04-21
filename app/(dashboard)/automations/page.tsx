@@ -247,7 +247,7 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (a:
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Action — what should happen?</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {ACTION_OPTIONS.map((a) => (
                 <button key={a.value} onClick={() => setAction(a.value)}
                   className={`rounded-lg border p-3 text-left transition-colors ${

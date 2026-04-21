@@ -34,7 +34,7 @@ export default async function LeadDetailPage({
   const convos: Conversation[] = conversations ?? [];
 
   return (
-    <main className="min-h-screen bg-gray-50 p-8">
+    <main className="min-h-screen bg-gray-50 p-4 sm:p-8">
       <div className="mx-auto max-w-4xl space-y-6">
         {/* Back */}
         <a
@@ -45,8 +45,8 @@ export default async function LeadDetailPage({
         </a>
 
         {/* Lead header */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="flex items-start justify-between">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold text-gray-900">{lead.name}</h1>
               <p className="text-sm text-gray-500">{lead.phone}</p>
@@ -68,7 +68,7 @@ export default async function LeadDetailPage({
           )}
 
           {/* Details grid */}
-          <dl className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4">
+          <dl className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-4 overflow-x-auto">
             <div>
               <dt className="text-gray-400">Move-in</dt>
               <dd className="font-medium text-gray-700">
@@ -99,7 +99,7 @@ export default async function LeadDetailPage({
         </div>
 
         {/* Conversation history */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
             Conversation History
           </h2>
