@@ -73,7 +73,6 @@ async function fetchListingsByLatLng(
     radius:    "2",
     bedrooms:  bedrooms.toString(),
     limit:     "50",
-    status:    "Active",
   });
   return fetchListingsRaw(`${RENTCAST_BASE}/listings/rental/long-term?${params}`, apiKey);
 }
@@ -87,7 +86,6 @@ async function fetchListingsByZip(
     zipCode:  zip,
     bedrooms: bedrooms.toString(),
     limit:    "50",
-    status:   "Active",
   });
   return fetchListingsRaw(`${RENTCAST_BASE}/listings/rental/long-term?${params}`, apiKey);
 }
@@ -103,7 +101,6 @@ async function fetchListingsByCity(
     state,
     bedrooms: bedrooms.toString(),
     limit:    "50",
-    status:   "Active",
   });
   return fetchListingsRaw(`${RENTCAST_BASE}/listings/rental/long-term?${params}`, apiKey);
 }
@@ -114,13 +111,15 @@ async function fetchListingsRaw(url: string, apiKey: string): Promise<RentcastLi
       headers: { "X-Api-Key": apiKey },
       next:    { revalidate: 0 },
     });
+    const text = await res.text();
     if (!res.ok) {
-      console.error(`Listings ${res.status} for ${url}:`, await res.text().catch(() => ""));
+      console.error(`Listings ${res.status} [${url}]: ${text.slice(0, 200)}`);
       return [];
     }
-    const data = await res.json();
-    const listings = Array.isArray(data) ? data : (data.listings ?? []);
-    console.log(`Listings → ${listings.length} results`);
+    let data: unknown;
+    try { data = JSON.parse(text); } catch { console.error("JSON parse fail:", text.slice(0, 100)); return []; }
+    const listings: RentcastListing[] = Array.isArray(data) ? data : (((data as Record<string, unknown>).listings as RentcastListing[]) ?? []);
+    console.log(`Listings [${url}] → ${listings.length} results | first keys: ${listings.length ? Object.keys(listings[0]).join(",") : "n/a"}`);
     return listings;
   } catch (e) {
     console.error("fetchListings error:", e);
