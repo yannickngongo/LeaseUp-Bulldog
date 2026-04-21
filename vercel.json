@@ -15,10 +15,6 @@
     {
       "path": "/api/automations/lease-expiry",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/competitors/sync-all",
-      "schedule": "0 6 * * 1"
     }
   ]
 }
