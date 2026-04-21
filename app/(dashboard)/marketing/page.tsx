@@ -1363,12 +1363,51 @@ interface CampaignDraft {
   rationale: string;
 }
 
-function DraftCard({ draft, label, highlight }: { draft: CampaignDraft; label: string; highlight?: boolean }) {
+function ConfidenceBadge({ score, factors }: { score: number; factors?: string[] }) {
+  const color = score >= 70 ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+              : score >= 50 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+              : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400";
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-bold ${color}`}
+      >
+        {score}% confidence
+        <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </button>
+      {open && factors && factors.length > 0 && (
+        <div className="absolute right-0 top-full mt-1 z-20 w-64 rounded-xl border border-gray-100 dark:border-white/10 bg-white dark:bg-[#1C1F2E] shadow-lg p-3 space-y-1.5">
+          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Score Breakdown</p>
+          {factors.map((f, i) => (
+            <p key={i} className="flex items-start gap-1.5 text-[11px] text-gray-600 dark:text-gray-300">
+              <span className="text-gray-300 dark:text-white/30 shrink-0">·</span>{f}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DraftCard({ draft, label, highlight, confidenceScore, confidenceFactors }: {
+  draft: CampaignDraft;
+  label: string;
+  highlight?: boolean;
+  confidenceScore?: number;
+  confidenceFactors?: string[];
+}) {
   return (
     <div className={`rounded-2xl border p-4 space-y-2 ${highlight ? "border-[#C8102E]/40 bg-[#C8102E]/4 dark:bg-[#C8102E]/8" : "border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5"}`}>
       <div className="flex items-center justify-between">
         <p className={`text-[10px] font-bold uppercase tracking-widest ${highlight ? "text-[#C8102E]" : "text-gray-400"}`}>{label}</p>
-        {highlight && <span className="rounded-full bg-[#C8102E] px-2 py-0.5 text-[9px] font-bold text-white">AI PICK</span>}
+        <div className="flex items-center gap-1.5">
+          {confidenceScore != null && <ConfidenceBadge score={confidenceScore} factors={confidenceFactors} />}
+          {highlight && <span className="rounded-full bg-[#C8102E] px-2 py-0.5 text-[9px] font-bold text-white">AI PICK</span>}
+        </div>
       </div>
       <p className="text-base font-bold text-gray-800 dark:text-gray-100 leading-snug">{draft.headline}</p>
       <p className="text-xs text-gray-500 dark:text-gray-400">{draft.subheadline}</p>
@@ -1411,6 +1450,7 @@ function NewCampaignModal({
 
   // AI draft + refinement
   const [aiDraft, setAiDraft]         = useState<CampaignDraft | null>(null);
+  const [draftConfidence, setDraftConfidence] = useState<{ score: number; factors: string[] } | null>(null);
   const [manualGrade, setManualGrade] = useState<{ grade: string; score: number; strengths: string[]; weaknesses: string[]; verdict: string } | null>(null);
   const [feedback, setFeedback]       = useState("");
   const [loading, setLoading]         = useState(false);
@@ -1469,6 +1509,7 @@ function NewCampaignModal({
       const json = await res.json();
       if (!json.ok) { setError(json.error ?? "Generation failed"); return; }
       setAiDraft(json.ai_version);
+      if (json.confidence_score != null) setDraftConfidence({ score: json.confidence_score, factors: json.confidence_factors ?? [] });
       if (json.manual_grade) setManualGrade(json.manual_grade);
     } catch {
       setError("Network error. Try again.");
@@ -1687,7 +1728,7 @@ function NewCampaignModal({
                 </div>
               )}
 
-              <DraftCard draft={aiDraft} label="AI Version" highlight />
+              <DraftCard draft={aiDraft} label="AI Version" highlight confidenceScore={draftConfidence?.score} confidenceFactors={draftConfidence?.factors} />
               <RefineRow />
 
               <div className="flex flex-wrap gap-2 pt-1">
@@ -1741,7 +1782,7 @@ function NewCampaignModal({
 
           {aiDraft && (
             <div className="space-y-3">
-              <DraftCard draft={aiDraft} label="AI-Generated Campaign" highlight />
+              <DraftCard draft={aiDraft} label="AI-Generated Campaign" highlight confidenceScore={draftConfidence?.score} confidenceFactors={draftConfidence?.factors} />
 
               <div className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3">
                 <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">Like it? Or tell me what to change:</p>
@@ -1794,7 +1835,7 @@ function NewCampaignModal({
                 <span className="text-green-600 text-lg">✓</span>
                 <p className="text-xs font-semibold text-green-700 dark:text-green-400">Campaign built. Review and launch.</p>
               </div>
-              <DraftCard draft={aiDraft} label="AI-Built Campaign" highlight />
+              <DraftCard draft={aiDraft} label="AI-Built Campaign" highlight confidenceScore={draftConfidence?.score} confidenceFactors={draftConfidence?.factors} />
               <RefineRow />
               <SaveBar label="Launch-Ready — Save Campaign →" />
             </div>

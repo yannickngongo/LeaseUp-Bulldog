@@ -32,6 +32,57 @@ export async function POST(req: NextRequest) {
     };
   };
 
+  // Confidence score computed from real property data (0–100)
+  // Factors: data completeness + occupancy pressure signal
+  let confidenceScore = 40;
+  const confidenceFactors: string[] = [];
+
+  if (current_occupancy_pct != null) {
+    confidenceScore += 10;
+    confidenceFactors.push("Real occupancy data provided");
+    if (current_occupancy_pct < 85) {
+      confidenceScore += 12;
+      confidenceFactors.push(`Occupancy at ${current_occupancy_pct}% — clear demand gap signals strong marketing ROI`);
+    }
+    if (current_occupancy_pct < 75) {
+      confidenceScore += 5;
+      confidenceFactors.push("Critical vacancy level increases response predictability");
+    }
+  } else {
+    confidenceScore -= 10;
+    confidenceFactors.push("No occupancy data — predictions less reliable");
+  }
+
+  if (avg_rents && Object.keys(avg_rents).length > 0) {
+    confidenceScore += 10;
+    confidenceFactors.push("Actual rent data anchors pricing strategy");
+  } else {
+    confidenceScore -= 5;
+    confidenceFactors.push("No rent data — budget recommendations less precise");
+  }
+
+  if (unit_types && unit_types.length > 0) {
+    confidenceScore += 5;
+    confidenceFactors.push("Unit mix known — targeting segmented by bedroom type");
+  }
+  if (goal_note) {
+    confidenceScore += 5;
+    confidenceFactors.push("Clear campaign goal defined");
+  }
+  if (neighborhood) {
+    confidenceScore += 5;
+    confidenceFactors.push("Neighborhood context enables hyperlocal copy");
+  }
+  if (total_units >= 50) {
+    confidenceScore += 5;
+    confidenceFactors.push(`${total_units}-unit property — strong statistical signal`);
+  } else if (total_units >= 20) {
+    confidenceScore += 3;
+    confidenceFactors.push(`${total_units}-unit property — moderate sample size`);
+  }
+
+  confidenceScore = Math.min(100, Math.max(0, confidenceScore));
+
   const client = new Anthropic();
   const rentSummary = (unit_types ?? []).map(t => `${t}: $${(avg_rents ?? {})[t] ?? "unknown"}/mo`).join(", ") || "not specified";
 
@@ -90,7 +141,7 @@ Return ONLY this raw JSON:
       text = m[0];
     }
 
-    return NextResponse.json({ ok: true, ...JSON.parse(text) });
+    return NextResponse.json({ ok: true, confidence_score: confidenceScore, confidence_factors: confidenceFactors, ...JSON.parse(text) });
   } catch (err) {
     console.error("Campaign draft failed:", err);
     return NextResponse.json({ error: "Draft generation failed. Try again." }, { status: 500 });

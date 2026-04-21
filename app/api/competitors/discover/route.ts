@@ -1,46 +1,47 @@
 // POST /api/competitors/discover
-// Uses Rentcast's AVM comparables endpoint — the same data Rentcast's own UI shows
-// when you search a property address. Falls back to radius search if AVM returns nothing.
+// Uses Rentometer /api/v1/nearby_comps to return individual rental comps near the property.
+// Calls for each unique bedroom count found in the property's units (fallback: 1BR + 2BR).
 // Body: { email, property_id }
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext } from "@/lib/auth";
 
-const RENTCAST_BASE = "https://api.rentcast.io/v1";
+const RENTOMETER_BASE = "https://www.rentometer.com/api/v1";
 
-async function rentcast(path: string, params: Record<string, string>, apiKey: string) {
-  try {
-    const res = await fetch(`${RENTCAST_BASE}${path}?${new URLSearchParams(params)}`, {
-      headers: { "X-Api-Key": apiKey },
-      next: { revalidate: 0 },
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
-    return null;
-  }
+interface RentometerComp {
+  address?:       string;
+  latitude?:      number;
+  longitude?:     number;
+  distance?:      number;
+  price?:         number;
+  bedrooms?:      number;
+  baths?:         string;
+  property_type?: string;
+  last_seen?:     string;
+  sqft?:          number;
 }
 
-interface Comparable {
-  id?: string;
-  formattedAddress?: string;
-  addressLine1?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  price?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  squareFootage?: number;
-  propertyType?: string;
-  distance?: number;
-  daysOnMarket?: number;
-  listedDate?: string;
-  removedDate?: string;
-  lastSeenDate?: string;
-  similarity?: number;
-  correlationScore?: number;
+async function fetchNearbyComps(
+  address: string,
+  bedrooms: number,
+  apiKey: string
+): Promise<RentometerComp[]> {
+  const params = new URLSearchParams({
+    api_key:  apiKey,
+    address,
+    bedrooms: bedrooms.toString(),
+  });
+  try {
+    const res = await fetch(`${RENTOMETER_BASE}/nearby_comps?${params}`, {
+      next: { revalidate: 0 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.nearby_properties) ? data.nearby_properties : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -52,8 +53,9 @@ export async function POST(req: NextRequest) {
   const ctx = await resolveCallerContext(email);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rentcastKey = process.env.RENTCAST_API_KEY;
-  if (!rentcastKey) return NextResponse.json({ error: "RENTCAST_API_KEY not configured" }, { status: 500 });
+  const rentometerKey = process.env.RENTOMETER_API_KEY;
+  if (!rentometerKey)
+    return NextResponse.json({ error: "RENTOMETER_API_KEY not configured" }, { status: 500 });
 
   const db = getSupabaseAdmin();
 
@@ -63,83 +65,84 @@ export async function POST(req: NextRequest) {
     .eq("id", property_id)
     .single();
 
-  if (!property) return NextResponse.json({ error: "Property not found" }, { status: 404 });
+  if (!property)
+    return NextResponse.json({ error: "Property not found" }, { status: 404 });
 
-  if (!property.address) {
+  if (!property.address)
     return NextResponse.json({
       error: `${property.name} has no street address saved. Add a full address in Properties → Edit before running discovery.`,
     }, { status: 400 });
-  }
 
-  // ── Primary: AVM comparables — exactly what Rentcast's UI shows ─────────────
-  const avmParams: Record<string, string> = {
-    address: property.address,
-    ...(property.city  ? { city:    property.city  } : {}),
-    ...(property.state ? { state:   property.state } : {}),
-    ...(property.zip   ? { zipCode: property.zip   } : {}),
-    radius:  "1.5",
-    limit:   "25",
-  };
+  // Determine which bedroom counts to search for based on this property's actual units
+  const { data: units } = await db
+    .from("units")
+    .select("bedrooms")
+    .eq("property_id", property_id)
+    .not("bedrooms", "is", null);
 
-  let comparables: Comparable[] = [];
-  let searchLabel = "AVM comparables · 1.5-mile radius";
+  const uniqueBedrooms = [
+    ...new Set(
+      (units ?? [])
+        .map((u: { bedrooms: number | null }) => u.bedrooms)
+        .filter((b): b is number => b != null && b >= 0)
+    ),
+  ].slice(0, 3); // cap at 3 API calls
 
-  const avmData = await rentcast("/avm/rent/long-term", avmParams, rentcastKey);
-  if (avmData?.comparables?.length) {
-    comparables = avmData.comparables;
-  }
+  const searchBedrooms = uniqueBedrooms.length > 0 ? uniqueBedrooms : [1, 2];
 
-  // ── Fallback: widen AVM radius ───────────────────────────────────────────────
-  if (comparables.length === 0) {
-    for (const radius of ["3", "5"]) {
-      const data = await rentcast("/avm/rent/long-term", { ...avmParams, radius, limit: "25" }, rentcastKey);
-      if (data?.comparables?.length) {
-        comparables = data.comparables;
-        searchLabel = `AVM comparables · ${radius}-mile radius`;
-        break;
-      }
-    }
-  }
+  const fullAddress = [property.address, property.city, property.state, property.zip]
+    .filter(Boolean)
+    .join(", ");
 
-  // ── Fallback: listings radius search ────────────────────────────────────────
-  if (comparables.length === 0 && property.zip) {
-    const listingsData = await rentcast("/listings/rental/long-term", { zipCode: property.zip, limit: "50" }, rentcastKey);
-    const raw: Comparable[] = Array.isArray(listingsData) ? listingsData : (listingsData?.listings ?? []);
-    if (raw.length) { comparables = raw; searchLabel = `Active listings · ZIP ${property.zip}`; }
-  }
+  // Fetch comps for each bedroom count in parallel
+  const compArrays = await Promise.all(
+    searchBedrooms.map(br => fetchNearbyComps(fullAddress, br, rentometerKey))
+  );
 
-  if (comparables.length === 0) {
+  // Merge, deduplicate by address, skip our own property
+  const seen     = new Set<string>();
+  const ourSlice = property.address.toLowerCase().slice(0, 12);
+
+  const allComps = compArrays.flat().filter(c => {
+    const key = (c.address ?? "").toLowerCase().trim();
+    if (!key || seen.has(key))         return false;
+    if (key.startsWith(ourSlice))      return false;
+    seen.add(key);
+    return true;
+  });
+
+  if (allComps.length === 0) {
     return NextResponse.json({
-      error: `Rentcast has no rental data for ${property.address}, ${property.city}. Try adding competitors manually.`,
+      error: `No rental comps found near ${property.address}, ${property.city}. Rentometer may not have coverage for this area — try adding competitors manually.`,
     }, { status: 404 });
   }
 
-  // Skip our own property address
-  const ourPrefix = property.address.toLowerCase().slice(0, 12);
-  const results = comparables
-    .filter(c => {
-      const addr = (c.formattedAddress || c.addressLine1 || "").toLowerCase();
-      return addr && !addr.startsWith(ourPrefix);
+  // Map to the shape the UI expects, sorted by distance
+  const results = allComps
+    .map(c => {
+      // baths comes as "1" or "1.5+" — parse to number
+      const bathsNum = c.baths ? (parseFloat(c.baths.replace("+", "")) || null) : null;
+      return {
+        address:       c.address       ?? "Unknown address",
+        city:          property.city   ?? "",
+        state:         property.state  ?? "",
+        zip_code:      property.zip    ?? "",
+        price:         c.price         ?? null,
+        bedrooms:      c.bedrooms      ?? null,
+        bathrooms:     bathsNum,
+        sqft:          c.sqft          ?? null,
+        property_type: c.property_type ?? null,
+        distance:      c.distance      ?? null,
+        similarity:    null,
+        last_seen:     c.last_seen     ?? null,
+      };
     })
-    .map(c => ({
-      address:       c.formattedAddress || c.addressLine1 || "Unknown address",
-      city:          c.city     ?? property.city  ?? "",
-      state:         c.state    ?? property.state ?? "",
-      zip_code:      c.zipCode  ?? property.zip   ?? "",
-      price:         c.price    ?? null,
-      bedrooms:      c.bedrooms      ?? null,
-      bathrooms:     c.bathrooms     ?? null,
-      sqft:          c.squareFootage ?? null,
-      property_type: c.propertyType  ?? null,
-      distance:      c.distance      ?? null,
-      similarity:    c.similarity != null ? Math.round(c.similarity * 10) / 10 : null,
-      last_seen:     c.lastSeenDate  ?? c.listedDate ?? null,
-    }));
+    .sort((a, b) => (a.distance ?? 99) - (b.distance ?? 99));
 
   return NextResponse.json({
     property_name: property.name,
-    search_label:  searchLabel,
-    count: results.length,
+    search_label:  `${searchBedrooms.join("BR, ")}BR comps · Rentometer`,
+    count:         results.length,
     results,
   });
 }
