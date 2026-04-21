@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { getOperatorEmail } from "@/lib/demo-auth";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { SectionLabel } from "@/components/ui/SectionLabel";
@@ -1256,66 +1257,41 @@ function MarketPositionSection({ property, units }: { property: Property; units:
   );
 }
 
-// ─── Competitor Monitoring Section ───────────────────────────────────────────
+// ─── Competitor Intelligence Section (real Rentcast data) ────────────────────
 
-interface Competitor {
-  name: string;
-  distance: string;
-  unit_types: string[];
-  est_rent_range: string;
-  occupancy_estimate: string;
-  key_amenities: string[];
-  threat_level: "high" | "medium" | "low";
-  threat_reason: string;
+interface NearbyComp {
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  price: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  sqft: number | null;
+  property_type: string | null;
+  distance: number | null;
+  similarity: number | null;
+  last_seen: string | null;
 }
 
-interface CompetitorData {
-  competitors: Competitor[];
-  market_pressure: string;
-  competitive_summary: string;
-  your_advantages: string[];
-  vulnerabilities: string[];
-  recommended_counters: string[];
-}
-
-function CompetitorSection({ property, units }: { property: Property; units: Unit[] }) {
-  const [data, setData]       = useState<CompetitorData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
-  const [ran, setRan]         = useState(false);
-
-  const unitTypes = React.useMemo(() => {
-    const map: Record<string, number[]> = {};
-    for (const u of units) {
-      const t = u.unit_type ?? "unknown";
-      if (!map[t]) map[t] = [];
-      if (u.monthly_rent) map[t].push(u.monthly_rent);
-    }
-    const avgRents: Record<string, number> = {};
-    for (const [t, rents] of Object.entries(map)) {
-      if (rents.length > 0) avgRents[t] = Math.round(rents.reduce((s, r) => s + r, 0) / rents.length);
-    }
-    return { unitTypes: Object.keys(map), avgRents };
-  }, [units]);
+function CompetitorSection({ property, email }: { property: Property; email: string }) {
+  const [comps, setComps]         = useState<NearbyComp[]>([]);
+  const [searchLabel, setSearchLabel] = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState<string | null>(null);
+  const [ran, setRan]             = useState(false);
 
   async function run() {
     setLoading(true); setError(null); setRan(true);
     try {
-      const res = await fetch("/api/properties/market-competitors", {
+      const res = await fetch("/api/competitors/discover", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          property_name: property.name,
-          city:          property.city,
-          state:         property.state,
-          neighborhood:  property.neighborhood,
-          unit_types:    unitTypes.unitTypes,
-          avg_rents:     unitTypes.avgRents,
-        }),
+        body: JSON.stringify({ email, property_id: property.id }),
       });
       const json = await res.json();
-      if (json.ok) setData(json);
-      else setError(json.error ?? "Analysis failed");
+      if (json.error) { setError(json.error); }
+      else { setComps(json.results ?? []); setSearchLabel(json.search_label ?? ""); }
     } catch {
       setError("Network error. Try again.");
     } finally {
@@ -1323,38 +1299,22 @@ function CompetitorSection({ property, units }: { property: Property; units: Uni
     }
   }
 
-  const PRESSURE_STYLE: Record<string, string> = {
-    low:      "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400",
-    moderate: "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
-    high:     "bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400",
-    intense:  "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400",
-  };
-
-  const THREAT_STYLE = {
-    high:   "border-red-200 dark:border-red-900/30 bg-red-50/30 dark:bg-red-900/10",
-    medium: "border-amber-200 dark:border-amber-900/30 bg-amber-50/30 dark:bg-amber-900/10",
-    low:    "border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E]",
-  };
-
-  const THREAT_BADGE = {
-    high:   "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400",
-    medium: "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
-    low:    "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400",
-  };
-
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
         <SectionLabel>Competitor Intelligence</SectionLabel>
-        <button
-          onClick={run}
-          disabled={loading}
-          className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:opacity-50 transition-colors"
-        >
-          {loading ? (
-            <><span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white dark:border-gray-400 dark:border-t-gray-900" /> Scanning market…</>
-          ) : ran ? "Refresh Intelligence" : "Scan Competitors"}
-        </button>
+        <div className="flex items-center gap-2">
+          {searchLabel && <span className="text-[10px] text-gray-400">{searchLabel} · Rentcast</span>}
+          <button
+            onClick={run}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 disabled:opacity-50 transition-colors"
+          >
+            {loading
+              ? <><span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white dark:border-gray-400 dark:border-t-gray-900" /> Scanning…</>
+              : ran ? "Refresh" : "Scan Nearby"}
+          </button>
+        </div>
       </div>
 
       {!ran && !loading && (
@@ -1364,101 +1324,59 @@ function CompetitorSection({ property, units }: { property: Property; units: Uni
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
             </svg>
           </div>
-          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">Know your competition before they take your leads</p>
-          <p className="mt-1 text-xs text-gray-400">AI identifies nearby competitors, their pricing, and how to beat them</p>
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">See real nearby rentals</p>
+          <p className="mt-1 text-xs text-gray-400">Pulls live Rentcast AVM comparables for this address</p>
         </div>
       )}
 
       {loading && (
-        <div className="space-y-3">
-          {[1,2,3].map(i => <div key={i} className="h-20 animate-pulse rounded-xl bg-gray-100 dark:bg-white/5" />)}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[1,2,3,4,5,6].map(i => <div key={i} className="h-28 animate-pulse rounded-xl bg-gray-100 dark:bg-white/5" />)}
         </div>
       )}
 
-      {error && (
+      {error && !loading && (
         <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/20 dark:bg-red-900/10 dark:text-red-400">
           {error}
         </div>
       )}
 
-      {data && !loading && (
-        <div className="space-y-4">
-          {/* Summary row */}
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Market Pressure</p>
-              <span className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${PRESSURE_STYLE[data.market_pressure] ?? PRESSURE_STYLE.moderate}`}>
-                {data.market_pressure}
-              </span>
-              <p className="mt-3 text-xs leading-relaxed text-gray-600 dark:text-gray-400">{data.competitive_summary}</p>
-            </div>
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Your Advantages</p>
-              <ul className="space-y-1.5">
-                {data.your_advantages.map((a, i) => (
-                  <li key={i} className="flex gap-2 text-xs text-gray-700 dark:text-gray-300">
-                    <span className="mt-0.5 text-green-500 shrink-0">✓</span>{a}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Counter Moves</p>
-              <ul className="space-y-1.5">
-                {data.recommended_counters.map((c, i) => (
-                  <li key={i} className="flex gap-2 text-xs text-gray-700 dark:text-gray-300">
-                    <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#C8102E] text-[9px] font-bold text-white">{i + 1}</span>
-                    {c}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+      {comps.length > 0 && !loading && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {comps.map((c, i) => (
+            <div key={i} className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-4">
+              <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 leading-snug mb-2">{c.address}</p>
 
-          {/* Vulnerabilities */}
-          {data.vulnerabilities.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/30 dark:bg-amber-900/10">
-              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">Watch Your Blind Spots</p>
-              <ul className="space-y-1">
-                {data.vulnerabilities.map((v, i) => (
-                  <li key={i} className="flex gap-2 text-xs text-amber-800 dark:text-amber-300">
-                    <span className="shrink-0">⚠</span>{v}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Competitor cards */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {data.competitors.map((c, i) => (
-              <div key={i} className={`flex flex-col gap-3 rounded-xl border p-4 shadow-sm ${THREAT_STYLE[c.threat_level]}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{c.name}</p>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${THREAT_BADGE[c.threat_level]}`}>
-                    {c.threat_level} threat
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  {c.price ? (
+                    <p className="text-xl font-black text-gray-800 dark:text-gray-100">${c.price.toLocaleString()}<span className="text-xs font-normal text-gray-400">/mo</span></p>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">No price listed</p>
+                  )}
+                </div>
+                {c.similarity != null && (
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${c.similarity >= 80 ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400" : "bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400"}`}>
+                    {c.similarity}% match
                   </span>
-                </div>
-                <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gray-400">📍</span> {c.distance} away
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gray-400">💵</span> {c.est_rent_range}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-gray-400">🏠</span> {c.occupancy_estimate}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {c.key_amenities.map((a) => (
-                    <span key={a} className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600 dark:bg-white/10 dark:text-gray-400">{a}</span>
-                  ))}
-                </div>
-                <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 pt-2">{c.threat_reason}</p>
+                )}
               </div>
-            ))}
-          </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {c.bedrooms != null && <span className="rounded-full bg-gray-100 dark:bg-white/5 px-2 py-0.5 text-[10px] text-gray-500">{c.bedrooms}BR</span>}
+                {c.bathrooms != null && <span className="rounded-full bg-gray-100 dark:bg-white/5 px-2 py-0.5 text-[10px] text-gray-500">{c.bathrooms}BA</span>}
+                {c.sqft != null && <span className="rounded-full bg-gray-100 dark:bg-white/5 px-2 py-0.5 text-[10px] text-gray-500">{c.sqft.toLocaleString()} sqft</span>}
+                {c.property_type && <span className="rounded-full bg-gray-100 dark:bg-white/5 px-2 py-0.5 text-[10px] text-gray-500">{c.property_type}</span>}
+                {c.distance != null && <span className="rounded-full bg-gray-100 dark:bg-white/5 px-2 py-0.5 text-[10px] text-gray-500">{c.distance.toFixed(2)} mi</span>}
+              </div>
+
+              {c.last_seen && (
+                <p className="mt-2 text-[10px] text-gray-400">
+                  Last seen {new Date(c.last_seen).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -1863,10 +1781,13 @@ export default function PropertyDetailPage() {
   const [leads, setLeads]       = useState<Lead[]>([]);
   const [units, setUnits]       = useState<Unit[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [email, setEmail]       = useState("");
 
   useEffect(() => {
     async function load() {
       setLoading(true);
+      const em = await getOperatorEmail();
+      if (em) setEmail(em);
       const [propRes, leadsRes, unitsRes] = await Promise.all([
         fetch(`/api/properties/${propertyId}/details`),
         fetch(`/api/leads?propertyId=${propertyId}`),
@@ -2159,7 +2080,7 @@ export default function PropertyDetailPage() {
       <MarketPositionSection property={property} units={units} />
 
       {/* ── Competitor Intelligence ─────────────────────────────────────── */}
-      <CompetitorSection property={property} units={units} />
+      <CompetitorSection property={property} email={email} />
 
       {/* ── Offer Scoring ───────────────────────────────────────────────── */}
       <OfferScoringSection property={property} units={units} leads={leads} />
