@@ -32,17 +32,6 @@ interface InsightsData {
   properties:       PropertyData[];
 }
 
-interface PortfolioReport {
-  headline:           string;
-  performance_rating: string;
-  highlights:         string[];
-  risks:              string[];
-  ai_impact:          string;
-  recommendations:    string[];
-  outlook:            string;
-  kpi_callout:        string;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(n: number) {
@@ -138,90 +127,11 @@ function ConversionFunnel({ funnel }: { funnel: FunnelStage[] }) {
   );
 }
 
-// ─── Portfolio Report Card ────────────────────────────────────────────────────
-
-const RATING_STYLE: Record<string, string> = {
-  "Excellent":       "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800",
-  "Strong":          "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800",
-  "Steady":          "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800",
-  "Needs Attention": "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800",
-};
-
-function PortfolioReportCard({ report }: { report: PortfolioReport }) {
-  return (
-    <div className="space-y-5 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex-1">
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">AI Portfolio Report</p>
-          <h2 className="text-lg font-bold leading-snug text-gray-900 dark:text-gray-100">{report.headline}</h2>
-        </div>
-        <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${RATING_STYLE[report.performance_rating] ?? RATING_STYLE["Steady"]}`}>
-          {report.performance_rating}
-        </span>
-      </div>
-
-      <div className="rounded-xl border border-[#C8102E]/15 bg-[#C8102E]/5 px-4 py-3">
-        <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest text-[#C8102E]">Key Number</p>
-        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{report.kpi_callout}</p>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Wins This Period</p>
-          <ul className="space-y-1.5">
-            {report.highlights.map((h, i) => (
-              <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-100 text-[9px] font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">✓</span>
-                {h}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Watch Out For</p>
-          <ul className="space-y-1.5">
-            {report.risks.map((r, i) => (
-              <li key={i} className="flex gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-100 text-[9px] font-bold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">!</span>
-                {r}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 dark:border-violet-900/20 dark:bg-violet-900/10">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">LUB AI This Month</p>
-        <p className="text-sm leading-relaxed text-violet-800 dark:text-violet-300">{report.ai_impact}</p>
-      </div>
-
-      <div>
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Next 30 Days — Action Plan</p>
-        <div className="space-y-2">
-          {report.recommendations.map((rec, i) => (
-            <div key={i} className="flex gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 dark:border-white/5 dark:bg-white/5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#C8102E] text-[10px] font-bold text-white">{i + 1}</span>
-              <p className="text-sm text-gray-700 dark:text-gray-300">{rec}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t border-gray-100 pt-4 dark:border-white/5">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Outlook</p>
-        <p className="text-sm italic text-gray-600 dark:text-gray-400">{report.outlook}</p>
-      </div>
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function InsightsPage() {
   const [data, setData]       = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [report, setReport]   = useState<PortfolioReport | null>(null);
-  const [genning, setGenning] = useState(false);
   const [email, setEmail]     = useState("");
 
   const load = useCallback(async () => {
@@ -240,24 +150,6 @@ export default function InsightsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function generateReport() {
-    if (!data || !email) return;
-    setGenning(true);
-    try {
-      const setupRes  = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
-      const setupJson = await setupRes.json();
-      const operatorName = setupJson.operator?.name ?? "Property Manager";
-      const res  = await fetch("/api/ai/portfolio-report", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, operator_name: operatorName }),
-      });
-      const json = await res.json();
-      if (json.ok) setReport(json.report);
-    } finally {
-      setGenning(false);
-    }
-  }
-
   return (
     <div className="space-y-6 p-4 lg:p-6">
 
@@ -267,22 +159,12 @@ export default function InsightsPage() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Portfolio Insights</h1>
           <p className="mt-0.5 text-sm text-gray-400 dark:text-gray-500">Analytics and performance across all properties</p>
         </div>
-        <button
-          onClick={generateReport}
-          disabled={genning || loading || !data}
-          className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 transition-colors"
-          style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
-        >
-          {genning ? (
-            <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Generating…</>
-          ) : (
-            <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> Generate AI Report</>
-          )}
-        </button>
+        <Link href="/reports"
+          className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          Owner Reports →
+        </Link>
       </div>
-
-      {/* AI Report */}
-      {report && <PortfolioReportCard report={report} />}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

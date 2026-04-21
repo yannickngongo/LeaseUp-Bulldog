@@ -20,7 +20,7 @@ interface ReportData {
 
 interface AIReport {
   executive_summary: string;
-  performance_rating: "Excellent" | "Strong" | "Needs Attention" | "Critical";
+  performance_rating: string;
   highlights: string[];
   risks: string[];
   recommendations: string[];
@@ -34,9 +34,10 @@ const MONTH_OPTIONS = [
   { value: "2026-01", label: "January 2026" },
 ];
 
-function ratingColor(r: AIReport["performance_rating"]) {
+function ratingColor(r: string) {
   if (r === "Excellent")       return "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-900/40";
   if (r === "Strong")          return "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-900/40";
+  if (r === "Steady")          return "text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-900/40";
   if (r === "Needs Attention") return "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-900/40";
   return "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/40";
 }
@@ -51,13 +52,15 @@ function DeltaBadge({ val, suffix = "" }: { val: number; suffix?: string }) {
 }
 
 export default function ReportsPage() {
-  const [month, setMonth]         = useState("2026-04");
-  const [data, setData]           = useState<ReportData | null>(null);
-  const [aiReport, setAiReport]   = useState<AIReport | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [operatorId, setOperatorId] = useState("");
+  const [month, setMonth]             = useState("2026-04");
+  const [data, setData]               = useState<ReportData | null>(null);
+  const [aiReport, setAiReport]       = useState<AIReport | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [generating, setGenerating]   = useState(false);
+  const [genError, setGenError]       = useState<string | null>(null);
+  const [operatorId, setOperatorId]   = useState("");
   const [operatorName, setOperatorName] = useState("");
+  const [rawProperties, setRawProperties] = useState<{ name: string; city: string; state: string; total_units: number; occupied_units: number }[]>([]);
 
   useEffect(() => {
     getOperatorEmail().then(email => {
@@ -77,7 +80,7 @@ export default function ReportsPage() {
           const props = await propsRes.json();
           const leads = await leadsRes.json();
 
-          const properties: { total_units?: number; occupied_units?: number; name: string; avg_rent?: number }[] = props.properties ?? [];
+          const properties: { total_units?: number; occupied_units?: number; name: string; city?: string; state?: string; avg_rent?: number }[] = props.properties ?? [];
           const allLeads: { status?: string; created_at?: string }[] = leads.leads ?? [];
 
           const total    = properties.reduce((s: number, p) => s + (p.total_units ?? 0), 0);
@@ -88,23 +91,29 @@ export default function ReportsPage() {
 
           const report: ReportData = {
             month,
-            property_count:      properties.length,
-            total_units:         total,
-            occupied_units:      occupied,
-            occupancy_pct:       occ,
-            prev_occupancy_pct:  Math.max(0, occ - 3),
-            leads_qualified:     allLeads.length,
-            leases_attributed:   won,
-            revenue_impact:      won * avgRent,
-            ai_messages_sent:    allLeads.length * 4,
+            property_count:        properties.length,
+            total_units:           total,
+            occupied_units:        occupied,
+            occupancy_pct:         occ,
+            prev_occupancy_pct:    Math.max(0, occ - 3),
+            leads_qualified:       allLeads.length,
+            leases_attributed:     won,
+            revenue_impact:        won * avgRent,
+            ai_messages_sent:      allLeads.length * 4,
             avg_response_time_min: 1.2,
-            top_properties:      properties.slice(0, 3).map(p => ({
+            top_properties:        properties.slice(0, 3).map(p => ({
               name:   p.name,
               occ:    p.total_units ? Math.round(((p.occupied_units ?? 0) / p.total_units) * 100) : 0,
-              leases: Math.max(1, Math.floor(Math.random() * 4)),
+              leases: won > 0 ? Math.ceil(won / Math.max(properties.length, 1)) : 0,
             })),
           };
           setData(report);
+
+          // Store raw properties for portfolio-report endpoint
+          setRawProperties((props.properties ?? []).map((p: { name: string; city?: string; state?: string; total_units?: number; occupied_units?: number }) => ({
+            name: p.name, city: p.city ?? "", state: p.state ?? "",
+            total_units: p.total_units ?? 0, occupied_units: p.occupied_units ?? 0,
+          })));
         })
         .catch(() => {})
         .finally(() => setLoading(false));
@@ -198,59 +207,52 @@ export default function ReportsPage() {
   }, [data, aiReport, month, operatorName]);
 
   const generateReport = useCallback(async () => {
-    if (!data || !operatorId) return;
+    if (!data) return;
     setGenerating(true);
     setAiReport(null);
+    setGenError(null);
     try {
-      const prompt = `You are a multifamily portfolio analyst writing a monthly performance summary for a property owner.
-
-OPERATOR: ${operatorName}
-MONTH: ${MONTH_OPTIONS.find(m => m.value === month)?.label ?? month}
-PROPERTIES: ${data.property_count}
-TOTAL UNITS: ${data.total_units}
-OCCUPANCY: ${data.occupancy_pct}% (was ${data.prev_occupancy_pct}% last month)
-LEADS QUALIFIED BY AI: ${data.leads_qualified}
-LEASES ATTRIBUTED: ${data.leases_attributed}
-REVENUE IMPACT: $${data.revenue_impact.toLocaleString()}
-AI MESSAGES SENT: ${data.ai_messages_sent}
-AVG RESPONSE TIME: ${data.avg_response_time_min} minutes
-
-Write a concise owner-ready report. Return ONLY this JSON:
-{
-  "executive_summary": "<2-3 sentence summary an asset owner can read in 30 seconds>",
-  "performance_rating": "<Excellent|Strong|Needs Attention|Critical>",
-  "highlights": ["<3 specific wins this month>"],
-  "risks": ["<2 specific risks or concerns>"],
-  "recommendations": ["<3 concrete actions for next month>"],
-  "owner_note": "<1 sentence: the single most important thing the owner should know>"
-}`;
-
-      const res = await fetch("/api/ai/copilot", {
+      const res = await fetch("/api/ai/portfolio-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: prompt, operator_id: operatorId }),
+        body: JSON.stringify({
+          operator_name:    operatorName,
+          properties:       rawProperties,
+          totalLeads:       data.leads_qualified,
+          wonLeads:         data.leases_attributed,
+          activeLeads:      data.leads_qualified - data.leases_attributed,
+          aiReplies:        data.ai_messages_sent,
+          estimatedRevenue: data.revenue_impact,
+          portfolioOccPct:  data.occupancy_pct,
+          totalUnits:       data.total_units,
+          occupiedCount:    data.occupied_units,
+          sources:          [],
+          period:           MONTH_OPTIONS.find(m => m.value === month)?.label ?? month,
+        }),
       });
       const json = await res.json();
-      const text = (json.answer ?? "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
-      try {
-        const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? "{}");
-        setAiReport(parsed);
-      } catch {
+      if (!res.ok) { setGenError(json.error ?? "Report generation failed. Try again."); return; }
+      if (json.ok && json.report) {
+        // Map portfolio-report shape to AIReport shape
+        const r = json.report;
         setAiReport({
-          executive_summary:  json.answer ?? "Report generated.",
-          performance_rating: "Strong",
-          highlights:         ["Occupancy holding steady", "AI response time under 2 minutes", "Leads pipeline growing"],
-          risks:              ["Monitor renewal pipeline", "Watch competitor pricing"],
-          recommendations:    ["Launch renewal campaign for 90-day window", "Add Facebook Lead Ads integration", "Review offer strategy"],
-          owner_note:         "Platform is delivering consistent lead qualification with strong response times.",
+          executive_summary:  r.headline ?? r.executive_summary ?? "",
+          performance_rating: r.performance_rating as AIReport["performance_rating"],
+          highlights:         r.highlights ?? [],
+          risks:              r.risks ?? [],
+          recommendations:    r.recommendations ?? [],
+          owner_note:         r.kpi_callout ?? r.owner_note ?? r.outlook ?? "",
         });
+      } else {
+        setGenError("No report data returned. Please try again.");
       }
-    } catch {
-      console.error("Report generation failed");
+    } catch (e) {
+      setGenError("Network error — check your connection and try again.");
+      console.error("Report generation error:", e);
     } finally {
       setGenerating(false);
     }
-  }, [data, operatorId, operatorName, month]);
+  }, [data, operatorName, rawProperties, month]);
 
   const occDelta = data ? data.occupancy_pct - data.prev_occupancy_pct : 0;
 
@@ -363,7 +365,17 @@ Write a concise owner-ready report. Return ONLY this JSON:
                 <div className="flex justify-center mb-3">
                   <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#C8102E]/20 border-t-[#C8102E]" />
                 </div>
-                <p className="text-sm text-gray-500">AI is analyzing your portfolio data…</p>
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Generating report…</p>
+                <p className="mt-1 text-xs text-gray-400">AI is analyzing your portfolio — this takes 10–20 seconds</p>
+              </div>
+            )}
+
+            {genError && !generating && (
+              <div className="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/10 px-5 py-4">
+                <p className="text-sm font-semibold text-red-700 dark:text-red-400">{genError}</p>
+                <button onClick={generateReport} className="mt-2 text-xs font-bold text-red-600 dark:text-red-400 underline hover:no-underline">
+                  Try again
+                </button>
               </div>
             )}
 
