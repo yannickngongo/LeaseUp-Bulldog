@@ -13,9 +13,12 @@ interface Suggestion {
   state: string;
   their_low: number;
   their_high: number;
+  listed_price: number;
+  bedrooms: number | null;
+  bathrooms: number | null;
   threat_level: "high" | "medium" | "low";
   key_amenities: string[];
-  reason: string;
+  property_type: string;
 }
 
 function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, onAdded }: {
@@ -122,42 +125,61 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
               {remaining.length === 0 && suggestions.length > 0 && (
                 <div className="text-center py-8">
                   <p className="text-2xl mb-2">✓</p>
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">All done</p>
-                  <p className="text-xs text-gray-400 mt-1">You&apos;ve reviewed all suggested competitors.</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">All reviewed</p>
+                  <p className="text-xs text-gray-400 mt-1">You&apos;ve gone through all nearby listings.</p>
                 </div>
               )}
 
               {suggestions.length === 0 && (
                 <div className="text-center py-8">
                   <p className="text-2xl mb-2">🔍</p>
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No competitors found</p>
-                  <p className="text-xs text-gray-400 mt-1">No nearby apartments matched your property&apos;s price tier. Try adding manually.</p>
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">No listings found</p>
+                  <p className="text-xs text-gray-400 mt-1">Rentcast has no active listings for this area right now. Add competitors manually.</p>
                 </div>
+              )}
+
+              {suggestions.length > 0 && remaining.length > 0 && (
+                <p className="text-xs text-gray-400 mb-3">{remaining.length} listing{remaining.length !== 1 ? "s" : ""} found nearby — add the ones that are real competitors</p>
               )}
 
               <div className="space-y-3">
                 {suggestions.map((s, i) => {
                   if (dismissed.has(i) || added.has(i)) return null;
                   const isAdding = adding.has(i);
+                  const diff = ourAvgRent ? s.listed_price - ourAvgRent : null;
                   return (
                     <div key={i} className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-4">
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{s.name}</p>
-                          <p className="text-[11px] text-gray-400">{s.address} · ZIP {s.zip_code}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-sm text-gray-900 dark:text-gray-100 break-words">{s.name}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">ZIP {s.zip_code}{s.property_type ? ` · ${s.property_type}` : ""}</p>
                         </div>
                         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold capitalize ${tc(s.threat_level)}`}>
                           {s.threat_level} threat
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-3 mb-2 text-xs">
-                        <span className="text-gray-500">Their range:</span>
-                        <span className="font-bold text-gray-800 dark:text-gray-100">${s.their_low.toLocaleString()}–${s.their_high.toLocaleString()}/mo</span>
-                        <span className="text-gray-400">vs. your ${ourAvgRent.toLocaleString()}</span>
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div className="rounded-lg bg-white dark:bg-white/5 p-2 text-center">
+                          <p className="text-sm font-black text-gray-800 dark:text-gray-100">${s.listed_price.toLocaleString()}</p>
+                          <p className="text-[9px] text-gray-400">Listed/mo</p>
+                        </div>
+                        <div className="rounded-lg bg-white dark:bg-white/5 p-2 text-center">
+                          <p className="text-sm font-black text-gray-800 dark:text-gray-100">
+                            {s.bedrooms !== null ? `${s.bedrooms}BR` : "—"}
+                            {s.bathrooms !== null ? `/${s.bathrooms}BA` : ""}
+                          </p>
+                          <p className="text-[9px] text-gray-400">Unit</p>
+                        </div>
+                        <div className="rounded-lg bg-white dark:bg-white/5 p-2 text-center">
+                          {diff !== null ? (
+                            <p className={`text-sm font-black ${diff > 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                              {diff > 0 ? `+$${diff}` : `-$${Math.abs(diff)}`}
+                            </p>
+                          ) : <p className="text-sm font-black text-gray-400">—</p>}
+                          <p className="text-[9px] text-gray-400">vs. ours</p>
+                        </div>
                       </div>
-
-                      <p className="text-[11px] text-gray-500 italic mb-3">&ldquo;{s.reason}&rdquo;</p>
 
                       {s.key_amenities.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-3">
@@ -172,7 +194,7 @@ function DiscoverModal({ propertyId, propertyName, ourAvgRent, email, onClose, o
                           onClick={() => setDismissed(prev => new Set(prev).add(i))}
                           className="flex-1 rounded-lg border border-gray-200 dark:border-white/10 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors"
                         >
-                          Not a Competitor
+                          Skip
                         </button>
                         <button
                           onClick={() => handleAdd(i, s)}
