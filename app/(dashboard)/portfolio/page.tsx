@@ -14,7 +14,6 @@ interface PortfolioProperty {
   active_leads: number;
   upcoming_renewals: number;
   monthly_revenue: number;
-  campaign_active: boolean;
   risk: "critical" | "warning" | "healthy";
 }
 
@@ -31,8 +30,8 @@ function riskColor(risk: PortfolioProperty["risk"]) {
 
 function computeRisk(p: { total_units: number; occupied_units: number; upcoming_renewals: number }): PortfolioProperty["risk"] {
   const occ = p.total_units ? (p.occupied_units / p.total_units) * 100 : 100;
-  if (occ < 80 || p.upcoming_renewals > 5) return "critical";
-  if (occ < 90 || p.upcoming_renewals > 2) return "warning";
+  if (occ < 80 || p.upcoming_renewals >= 5) return "critical";
+  if (occ < 90 || p.upcoming_renewals >= 2) return "warning";
   return "healthy";
 }
 
@@ -57,7 +56,6 @@ function PropertyCard({ p, view }: { p: PortfolioProperty; view: "grid" | "list"
           <div className="flex items-center gap-2 mb-0.5">
             <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{p.name}</p>
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${rc.badge}`}>{p.risk}</span>
-            {p.campaign_active && <span className="shrink-0 rounded-full bg-[#C8102E]/10 text-[#C8102E] px-2 py-0.5 text-[9px] font-bold">CAMPAIGN ON</span>}
           </div>
           <p className="text-xs text-gray-400">{p.city}, {p.state}</p>
         </div>
@@ -106,12 +104,6 @@ function PropertyCard({ p, view }: { p: PortfolioProperty; view: "grid" | "list"
         ))}
       </div>
 
-      {p.campaign_active && (
-        <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-[#C8102E]/5 px-2.5 py-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#C8102E] animate-pulse" />
-          <span className="text-[10px] font-semibold text-[#C8102E]">Ad campaign running</span>
-        </div>
-      )}
     </Link>
   );
 }
@@ -124,48 +116,67 @@ export default function PortfolioPage() {
   const [filter, setFilter]         = useState<"all" | "critical" | "warning" | "healthy">("all");
 
   useEffect(() => {
-    getOperatorEmail().then(email => {
+    getOperatorEmail().then(async email => {
       if (!email) { setLoading(false); return; }
-      fetch(`/api/setup?email=${encodeURIComponent(email)}`)
-        .then(r => r.json())
-        .then(async d => {
-          const opId = d.operator?.id;
-          if (!opId) { setLoading(false); return; }
+      try {
+        const enc = encodeURIComponent(email);
+        const [propsRes, unitsRes, renewalsRes] = await Promise.all([
+          fetch(`/api/properties?email=${enc}`),
+          fetch(`/api/units?email=${enc}`),
+          fetch(`/api/renewals?email=${enc}`),
+        ]);
+        const propsData    = await propsRes.json();
+        const unitsData    = await unitsRes.json();
+        const renewalsData = await renewalsRes.json();
 
-          const [propsRes, leadsRes] = await Promise.all([
-            fetch(`/api/properties?operator_id=${opId}`),
-            fetch(`/api/leads?operator_id=${opId}&limit=500`),
-          ]);
-          const propsData = await propsRes.json();
-          const leadsData = await leadsRes.json();
+        const avgRentByProperty: Record<string, number> = unitsData.avgRentByProperty ?? {};
 
-          const leads: { property_id?: string; status?: string }[] = leadsData.leads ?? [];
+        // Count renewals per property from real lease data
+        const renewalsByProperty: Record<string, number> = {};
+        for (const r of (renewalsData.renewals ?? [])) {
+          const pid = r.property_id as string;
+          renewalsByProperty[pid] = (renewalsByProperty[pid] ?? 0) + 1;
+        }
 
-          const mapped: PortfolioProperty[] = (propsData.properties ?? []).map((p: {
-            id: string; name: string; city: string; state: string;
-            total_units?: number; occupied_units?: number; avg_rent?: number;
-          }) => {
-            const total    = p.total_units    ?? 0;
-            const occupied = p.occupied_units ?? 0;
-            const propLeads = leads.filter(l => l.property_id === p.id);
-            const active    = propLeads.filter(l => !["won","lost"].includes(l.status ?? "")).length;
-            const monthlyRev = occupied * (p.avg_rent ?? 1200);
-            const renewals  = Math.max(0, Math.floor((total - occupied) * 0.3));
-            const risk      = computeRisk({ total_units: total, occupied_units: occupied, upcoming_renewals: renewals });
+        // Fetch active leads per property in parallel (scoped by property_id)
+        const props: { id: string; name: string; city: string; state: string; total_units?: number; occupied_units?: number }[] =
+          propsData.properties ?? [];
 
-            return {
-              id: p.id, name: p.name, city: p.city ?? "", state: p.state ?? "",
-              total_units: total, occupied_units: occupied,
-              active_leads: active, upcoming_renewals: renewals,
-              monthly_revenue: monthlyRev, campaign_active: active > 5,
-              risk,
-            } satisfies PortfolioProperty;
-          });
+        const leadCounts = await Promise.all(
+          props.map(p =>
+            fetch(`/api/leads?propertyId=${p.id}`)
+              .then(r => r.json())
+              .then(d => {
+                const leads: { status?: string }[] = d.leads ?? [];
+                return leads.filter(l => !["won", "lost"].includes(l.status ?? "")).length;
+              })
+              .catch(() => 0)
+          )
+        );
 
-          setProperties(mapped);
-        })
-        .catch(() => {})
-        .finally(() => setLoading(false));
+        const mapped: PortfolioProperty[] = props.map((p, i) => {
+          const total    = p.total_units    ?? 0;
+          const occupied = p.occupied_units ?? 0;
+          const avgRent  = avgRentByProperty[p.id] ?? null;
+          const renewals = renewalsByProperty[p.id] ?? 0;
+          const risk     = computeRisk({ total_units: total, occupied_units: occupied, upcoming_renewals: renewals });
+
+          return {
+            id: p.id, name: p.name, city: p.city ?? "", state: p.state ?? "",
+            total_units: total, occupied_units: occupied,
+            active_leads: leadCounts[i],
+            upcoming_renewals: renewals,
+            monthly_revenue: avgRent !== null ? occupied * avgRent : 0,
+            risk,
+          } satisfies PortfolioProperty;
+        });
+
+        setProperties(mapped);
+      } catch {
+        // leave empty
+      } finally {
+        setLoading(false);
+      }
     });
   }, []);
 
