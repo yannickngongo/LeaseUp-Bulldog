@@ -2,16 +2,16 @@
 import Link from "next/link";
 
 const PLAN_OPTIONS = [
-  { id: "core", label: "Core Platform", price: "$1,000/mo", desc: "AI qualification + full dashboard", popular: true },
-  { id: "marketing", label: "Core + Marketing", price: "$3,000/mo", desc: "Platform + AI ad campaigns" },
-  { id: "portfolio", label: "Portfolio", price: "Custom", desc: "Multi-property enterprise" },
+  { id: "starter",   label: "Starter",   price: "$500/mo + $150/lease",   desc: "1–3 properties" },
+  { id: "pro",       label: "Pro",       price: "$1,500/mo + $200/lease", desc: "4–20 properties", popular: true },
+  { id: "portfolio", label: "Portfolio", price: "$3,000/mo + $250/lease", desc: "20+ properties" },
 ];
 
 const PERKS = [
-  "14-day pilot — only pay the $1,000 setup fee",
+  "14-day pilot — no setup fee, no platform fee",
   "First AI conversation live in under 10 minutes",
-  "$200 per lease signed — only when we deliver",
-  "Cancel anytime, no platform fee during the trial",
+  "Per-lease fee only when we deliver a signed lease",
+  "Cancel anytime — 30-day results guarantee",
 ];
 
 export default function FreeTrialPage() {
@@ -113,7 +113,7 @@ export default function FreeTrialPage() {
               </form>
 
               <p className="mt-4 text-center text-xs text-gray-600">
-                $1,000 setup to get started. No monthly fee during the 14-day trial.
+                No setup fee. Platform fee starts after your 14-day pilot ends.
               </p>
             </div>
           </div>

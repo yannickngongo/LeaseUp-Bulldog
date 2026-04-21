@@ -82,6 +82,57 @@ function IconRenewals() {
   );
 }
 
+function IconTenants() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <circle cx="6.5" cy="5.5" r="2.5" />
+      <circle cx="13" cy="5.5" r="2" />
+      <path d="M1 16c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <path d="M13 11c2 0 3.5 1.3 3.5 3.5" />
+    </svg>
+  );
+}
+
+function IconPortfolio() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <rect x="1.5" y="7" width="5" height="9.5" rx="1" />
+      <rect x="6.5" y="3.5" width="5" height="13" rx="1" />
+      <rect x="11.5" y="1.5" width="5" height="15" rx="1" />
+    </svg>
+  );
+}
+
+function IconIntegrations() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <circle cx="4" cy="9" r="2.5" />
+      <circle cx="14" cy="4" r="2" />
+      <circle cx="14" cy="14" r="2" />
+      <path d="M6.5 9h3M11.5 4.8l-2 2.5M11.5 13.2l-2-2.5" />
+    </svg>
+  );
+}
+
+function IconReports() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <path d="M3 1.5h8.5L15 5v11.5H3z" />
+      <path d="M11 1.5V5h4" />
+      <path d="M6 8h6M6 11h4" />
+    </svg>
+  );
+}
+
+function IconCompetitors() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <circle cx="9" cy="9" r="7" />
+      <path d="M9 2v7l4 2.5" />
+    </svg>
+  );
+}
+
 function IconSettings() {
   return (
     <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
@@ -101,16 +152,21 @@ interface NavItem {
 }
 
 const NAV_PRIMARY: NavItem[] = [
-  { href: "/dashboard",    label: "Dashboard",    icon: <IconDashboard /> },
-  { href: "/leads",        label: "Leads",        icon: <IconLeads /> },
-  { href: "/properties",   label: "Properties",   icon: <IconProperties /> },
+  { href: "/dashboard",  label: "Dashboard",  icon: <IconDashboard /> },
+  { href: "/portfolio",  label: "Portfolio",  icon: <IconPortfolio /> },
+  { href: "/leads",      label: "Leads",      icon: <IconLeads /> },
+  { href: "/properties", label: "Properties", icon: <IconProperties /> },
 ];
 
 const NAV_SECONDARY: NavItem[] = [
-  { href: "/calendar",     label: "Calendar",     icon: <IconCalendar /> },
+  { href: "/tenants",      label: "Tenants",      icon: <IconTenants /> },
   { href: "/renewals",     label: "Renewals",     icon: <IconRenewals /> },
-  { href: "/automations",  label: "Automations",  icon: <IconAutomations /> },
+  { href: "/calendar",     label: "Calendar",     icon: <IconCalendar /> },
   { href: "/marketing",    label: "Marketing",    icon: <IconMarketing /> },
+  { href: "/competitors",  label: "Competitors",  icon: <IconCompetitors /> },
+  { href: "/automations",  label: "Automations",  icon: <IconAutomations /> },
+  { href: "/integrations", label: "Integrations", icon: <IconIntegrations /> },
+  { href: "/reports",      label: "Reports",      icon: <IconReports /> },
   { href: "/insights",     label: "Insights",     icon: <IconInsights /> },
 ];
 
