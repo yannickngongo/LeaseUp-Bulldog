@@ -707,10 +707,10 @@ function OfferMetricRow({ label, yours, rec, format }: { label: string; yours: n
     <div className="space-y-1">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
       <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-right text-xs font-bold text-gray-500">{format(yours)}</span>
+        <span className="w-16 shrink-0 text-right text-xs font-bold text-blue-500">{format(yours)}</span>
         <div className="flex-1 space-y-1">
           <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-white/5">
-            <div className={`h-full rounded-full ${yoursWins ? "bg-blue-400" : "bg-gray-300 dark:bg-white/20"}`} style={{ width: `${Math.round((yours/maxV)*100)}%` }} />
+            <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.round((yours/maxV)*100)}%` }} />
           </div>
           <div className="h-2 w-full rounded-full bg-gray-100 dark:bg-white/5">
             <div className="h-full rounded-full bg-[#C8102E]" style={{ width: `${Math.round((rec/maxV)*100)}%` }} />
