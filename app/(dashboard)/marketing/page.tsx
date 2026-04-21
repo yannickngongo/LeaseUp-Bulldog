@@ -410,6 +410,49 @@ function LaunchModal({
   const [launching, setLaunching]     = useState(false);
   const [launched, setLaunched]       = useState(false);
 
+  // Offer scoring state
+  const [offerText, setOfferText]           = useState("");
+  const [offerResult, setOfferResult]       = useState<null | {
+    your_offer: { label: string; score: number; grade: string; rationale: string; weaknesses?: string[]; metrics: { expected_leases_90d: number; cost_per_lease: number; occupancy_gain_90d: number } };
+    recommended_offer: { label: string; description?: string; score: number; grade: string; rationale: string; strengths: string[]; why_better_than_yours?: string; metrics: { expected_leases_90d: number; cost_per_lease: number; occupancy_gain_90d: number } };
+    budget_verdict: string;
+    recommended_channels: string[];
+  }>(null);
+  const [offerLoading, setOfferLoading]     = useState(false);
+  const [offerError, setOfferError]         = useState<string | null>(null);
+
+  async function scoreOffer() {
+    if (!offerText.trim() || !property) return;
+    setOfferLoading(true);
+    setOfferError(null);
+    setOfferResult(null);
+    try {
+      const res = await fetch("/api/properties/offer-score", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          property_name:         campaign.property,
+          city:                  property.city,
+          state:                 property.state,
+          current_occupancy_pct: currentOccPct,
+          total_units:           property.total_units,
+          occupied_units:        property.occupied_units,
+          unit_types:            [],
+          avg_rents:             {},
+          your_offer:            offerText.trim(),
+          monthly_budget:        budget,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) setOfferResult(json);
+      else setOfferError(json.error ?? "Scoring failed");
+    } catch {
+      setOfferError("Network error. Please try again.");
+    } finally {
+      setOfferLoading(false);
+    }
+  }
+
   useEffect(() => {
     fetch(`/api/properties/${campaign.property_id}/details`)
       .then(r => r.json())
@@ -534,9 +577,83 @@ function LaunchModal({
 
             </div>
 
-            {/* AI Forecast — between setup and payment */}
+            {/* Step 2: Offer Scoring */}
             <div className="border-t border-gray-100 dark:border-white/5 pt-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">2. AI Impact Forecast</p>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">2. Score Your Offer</p>
+              <p className="text-xs text-gray-400 mb-3">Tell LUB what offer you plan to run. AI will score it against the {property?.city ?? ""} market and suggest what would actually convert better.</p>
+
+              <textarea
+                value={offerText}
+                onChange={e => setOfferText(e.target.value)}
+                placeholder='e.g. "1 month free on a 12-month lease" or "$500 gift card at move-in"'
+                rows={2}
+                className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2.5 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-[#C8102E] resize-none mb-2"
+              />
+              <button
+                onClick={scoreOffer}
+                disabled={!offerText.trim() || offerLoading || !property}
+                className="flex items-center gap-2 rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors"
+              >
+                {offerLoading ? <><span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />Scoring…</> : "Score My Offer"}
+              </button>
+
+              {offerError && <p className="mt-2 text-xs text-red-500">{offerError}</p>}
+
+              {offerResult && (
+                <div className="mt-4 space-y-3">
+                  {/* Side-by-side grades */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Your offer */}
+                    <div className="rounded-xl border border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3">
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400 mb-1">Your Offer</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 leading-snug pr-2">{offerResult.your_offer.label}</p>
+                        <span className={`shrink-0 text-xl font-black ${offerResult.your_offer.grade.startsWith("A") ? "text-green-600" : offerResult.your_offer.grade.startsWith("B") ? "text-blue-600" : "text-amber-600"}`}>
+                          {offerResult.your_offer.grade}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 text-center">
+                        <div><p className="text-sm font-black text-gray-600 dark:text-gray-300">{offerResult.your_offer.metrics.expected_leases_90d}</p><p className="text-[9px] text-gray-400">leases/90d</p></div>
+                        <div><p className="text-sm font-black text-gray-600 dark:text-gray-300">+{offerResult.your_offer.metrics.occupancy_gain_90d}%</p><p className="text-[9px] text-gray-400">occ gain</p></div>
+                        <div><p className="text-sm font-black text-gray-600 dark:text-gray-300">${offerResult.your_offer.metrics.cost_per_lease.toLocaleString()}</p><p className="text-[9px] text-gray-400">cost/lease</p></div>
+                      </div>
+                    </div>
+
+                    {/* Recommended offer */}
+                    <div className="rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/5 dark:bg-[#C8102E]/10 p-3 relative">
+                      <span className="absolute top-2 right-2 rounded-full bg-[#C8102E] px-1.5 py-0.5 text-[8px] font-bold text-white">AI PICK</span>
+                      <p className="text-[9px] font-bold uppercase tracking-wider text-[#C8102E] mb-1">LUB Recommends</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-200 leading-snug pr-2">{offerResult.recommended_offer.label}</p>
+                        <span className="shrink-0 text-xl font-black text-green-600">{offerResult.recommended_offer.grade}</span>
+                      </div>
+                      {offerResult.recommended_offer.description && (
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 mb-2 leading-snug">{offerResult.recommended_offer.description}</p>
+                      )}
+                      <div className="grid grid-cols-3 gap-1 text-center">
+                        <div><p className="text-sm font-black text-[#C8102E]">{offerResult.recommended_offer.metrics.expected_leases_90d}</p><p className="text-[9px] text-gray-400">leases/90d</p></div>
+                        <div><p className="text-sm font-black text-[#C8102E]">+{offerResult.recommended_offer.metrics.occupancy_gain_90d}%</p><p className="text-[9px] text-gray-400">occ gain</p></div>
+                        <div><p className="text-sm font-black text-[#C8102E]">${offerResult.recommended_offer.metrics.cost_per_lease.toLocaleString()}</p><p className="text-[9px] text-gray-400">cost/lease</p></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Why it wins */}
+                  {offerResult.recommended_offer.why_better_than_yours && (
+                    <div className="rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/20 px-3 py-2.5">
+                      <p className="text-xs text-amber-700 dark:text-amber-400"><strong>Why it wins:</strong> {offerResult.recommended_offer.why_better_than_yours}</p>
+                    </div>
+                  )}
+
+                  {/* Budget verdict */}
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 leading-relaxed">{offerResult.budget_verdict}</p>
+                </div>
+              )}
+            </div>
+
+            {/* AI Forecast — between offer scoring and payment */}
+            <div className="border-t border-gray-100 dark:border-white/5 pt-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">3. AI Impact Forecast</p>
               {!property ? (
                 <div className="flex items-center gap-3 rounded-xl bg-gray-50 dark:bg-white/5 px-4 py-4">
                   <div className="h-4 w-4 rounded-full border-2 border-[#C8102E]/20 border-t-[#C8102E] animate-spin shrink-0" />
@@ -561,7 +678,7 @@ function LaunchModal({
             {/* Step 3: Payment */}
             <div className="border-t border-gray-100 dark:border-white/5 pt-5">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">3. Payment</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">4. Payment</p>
                 <div className="flex items-center gap-1.5">
                   <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />

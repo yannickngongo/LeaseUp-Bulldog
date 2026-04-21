@@ -1461,6 +1461,334 @@ function CompetitorSection({ property, units }: { property: Property; units: Uni
   );
 }
 
+// ─── Offer Scoring Section ────────────────────────────────────────────────────
+
+interface OfferMetrics {
+  expected_inquiries_90d: number;
+  expected_leases_90d: number;
+  cost_per_lease: number;
+  occupancy_gain_90d: number;
+  monthly_revenue_impact: number;
+}
+interface ScoredOffer {
+  label: string;
+  description?: string;
+  score: number;
+  grade: string;
+  rationale: string;
+  strengths: string[];
+  weaknesses?: string[];
+  why_better_than_yours?: string;
+  metrics: OfferMetrics;
+}
+interface OfferScoreResult {
+  your_offer: ScoredOffer;
+  recommended_offer: ScoredOffer;
+  market_context: string;
+  budget_verdict: string;
+  recommended_channels: string[];
+}
+
+function gradeColor(grade: string) {
+  if (grade.startsWith("A")) return { text: "text-green-600",  bg: "bg-green-50  dark:bg-green-900/20",  ring: "ring-green-300  dark:ring-green-700"  };
+  if (grade.startsWith("B")) return { text: "text-blue-600",   bg: "bg-blue-50   dark:bg-blue-900/20",   ring: "ring-blue-300   dark:ring-blue-700"   };
+  if (grade.startsWith("C")) return { text: "text-amber-600",  bg: "bg-amber-50  dark:bg-amber-900/20",  ring: "ring-amber-300  dark:ring-amber-700"  };
+  return                             { text: "text-red-600",    bg: "bg-red-50    dark:bg-red-900/20",    ring: "ring-red-300    dark:ring-red-700"    };
+}
+
+function MetricBar({ label, yours, recommended, format }: {
+  label: string;
+  yours: number;
+  recommended: number;
+  format: (n: number) => string;
+}) {
+  const maxVal = Math.max(yours, recommended, 1);
+  const yoursW  = Math.round((yours / maxVal) * 100);
+  const recW    = Math.round((recommended / maxVal) * 100);
+  const yoursWins = yours >= recommended;
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
+      <div className="flex items-center gap-2">
+        <span className="w-20 shrink-0 text-right text-xs font-bold text-gray-500">{format(yours)}</span>
+        <div className="flex-1 space-y-1">
+          <div className="h-2.5 w-full rounded-full bg-gray-100 dark:bg-white/5">
+            <div className={cn("h-full rounded-full transition-all", yoursWins ? "bg-blue-400" : "bg-gray-300 dark:bg-white/20")} style={{ width: `${yoursW}%` }} />
+          </div>
+          <div className="h-2.5 w-full rounded-full bg-gray-100 dark:bg-white/5">
+            <div className="h-full rounded-full bg-[#C8102E] transition-all" style={{ width: `${recW}%` }} />
+          </div>
+        </div>
+        <span className="w-20 shrink-0 text-xs font-bold text-[#C8102E]">{format(recommended)}</span>
+      </div>
+    </div>
+  );
+}
+
+function OfferScoringSection({ property, units, leads }: {
+  property: Property;
+  units: Unit[];
+  leads: Lead[];
+}) {
+  const [offerText, setOfferText]     = useState("");
+  const [budget, setBudget]           = useState(1000);
+  const [result, setResult]           = useState<OfferScoreResult | null>(null);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+
+  const totalUnits    = property.total_units ?? units.length;
+  const occupiedUnits = property.occupied_units ?? units.filter(u => u.status === "occupied").length;
+  const occPct        = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
+  const unitTypes = [...new Set(units.map(u => u.unit_type).filter(Boolean))] as string[];
+  const avgRents: Record<string, number> = {};
+  unitTypes.forEach(t => {
+    const rents = units.filter(u => u.unit_type === t && u.monthly_rent).map(u => u.monthly_rent as number);
+    if (rents.length) avgRents[t] = Math.round(rents.reduce((a, b) => a + b, 0) / rents.length);
+  });
+
+  async function score() {
+    if (!offerText.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/properties/offer-score", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          property_name:         property.name,
+          city:                  property.city,
+          state:                 property.state,
+          neighborhood:          property.neighborhood,
+          current_occupancy_pct: occPct,
+          total_units:           totalUnits,
+          occupied_units:        occupiedUnits,
+          unit_types:            unitTypes,
+          avg_rents:             avgRents,
+          your_offer:            offerText.trim(),
+          monthly_budget:        budget,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) setResult(json);
+      else setError(json.error ?? "Scoring failed");
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const fmt = {
+    num:  (n: number) => n.toLocaleString(),
+    usd:  (n: number) => `$${n.toLocaleString()}`,
+    pct:  (n: number) => `+${n}%`,
+  };
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <SectionLabel>Offer Scoring</SectionLabel>
+        <span className="rounded-full bg-[#C8102E]/10 px-2.5 py-1 text-[10px] font-bold text-[#C8102E]">AI-Powered</span>
+      </div>
+
+      {/* Input card */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+        <p className="mb-1 text-sm font-semibold text-gray-800 dark:text-gray-100">What offer are you thinking of running?</p>
+        <p className="mb-4 text-xs text-gray-400">AI will score it against the {property.city} market and your competitors, then show you what would actually perform better.</p>
+
+        <textarea
+          value={offerText}
+          onChange={e => setOfferText(e.target.value)}
+          placeholder='e.g. "1 month free rent on a 12-month lease" or "No security deposit + $200 gift card at move-in"'
+          rows={3}
+          className="w-full rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:border-[#C8102E] resize-none"
+        />
+
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 px-3 py-2">
+            <span className="text-xs text-gray-400">Monthly ad budget:</span>
+            <span className="text-xs font-bold text-gray-700 dark:text-gray-200">$</span>
+            <input
+              type="number"
+              min={100}
+              step={100}
+              value={budget}
+              onChange={e => setBudget(Math.max(100, parseInt(e.target.value) || 100))}
+              className="w-20 bg-transparent text-xs font-bold text-gray-800 dark:text-gray-100 focus:outline-none"
+            />
+            <span className="text-xs text-gray-400">/mo</span>
+          </div>
+          <button
+            onClick={score}
+            disabled={!offerText.trim() || loading}
+            className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors"
+          >
+            {loading ? (
+              <>
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border border-white/30 border-t-white" />
+                Scoring…
+              </>
+            ) : "Score My Offer"}
+          </button>
+        </div>
+
+        {error && (
+          <p className="mt-3 rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-2.5 text-xs text-red-600 dark:text-red-400">{error}</p>
+        )}
+      </div>
+
+      {/* Results */}
+      {result && (
+        <div className="mt-4 space-y-4">
+
+          {/* Market context banner */}
+          <div className="rounded-2xl border border-blue-100 dark:border-blue-900/30 bg-blue-50 dark:bg-blue-900/10 px-5 py-3.5">
+            <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-1">Market Context — {property.city}, {property.state}</p>
+            <p className="text-xs text-blue-600 dark:text-blue-300 leading-relaxed">{result.market_context}</p>
+          </div>
+
+          {/* Head-to-head offer cards */}
+          <div className="grid gap-4 lg:grid-cols-2">
+
+            {/* Your offer */}
+            {(() => {
+              const o = result.your_offer;
+              const gc = gradeColor(o.grade);
+              return (
+                <div className={cn("rounded-2xl border bg-white dark:bg-[#1C1F2E] p-5 shadow-sm dark:border-white/5 ring-2", gc.ring)}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Your Offer</p>
+                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug">{o.label}</p>
+                    </div>
+                    <div className={cn("shrink-0 flex flex-col items-center rounded-2xl px-3 py-2", gc.bg)}>
+                      <span className={cn("text-3xl font-black leading-none", gc.text)}>{o.grade}</span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">{o.score}/10</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-3">{o.rationale}</p>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 text-center">
+                      <p className="text-lg font-black text-gray-700 dark:text-gray-200">{o.metrics.expected_leases_90d}</p>
+                      <p className="text-[10px] text-gray-400">leases in 90d</p>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 text-center">
+                      <p className="text-lg font-black text-gray-700 dark:text-gray-200">${o.metrics.cost_per_lease.toLocaleString()}</p>
+                      <p className="text-[10px] text-gray-400">cost/lease</p>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 text-center">
+                      <p className="text-lg font-black text-gray-700 dark:text-gray-200">+{o.metrics.occupancy_gain_90d}%</p>
+                      <p className="text-[10px] text-gray-400">occ. gain</p>
+                    </div>
+                    <div className="rounded-xl bg-gray-50 dark:bg-white/5 p-3 text-center">
+                      <p className="text-lg font-black text-gray-700 dark:text-gray-200">{o.metrics.expected_inquiries_90d}</p>
+                      <p className="text-[10px] text-gray-400">inquiries</p>
+                    </div>
+                  </div>
+                  {o.weaknesses && o.weaknesses.length > 0 && (
+                    <div className="space-y-1">
+                      {o.weaknesses.map((w, i) => (
+                        <p key={i} className="flex items-start gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                          <span className="text-red-400 shrink-0 mt-0.5">✕</span>{w}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Recommended offer */}
+            {(() => {
+              const o = result.recommended_offer;
+              const gc = gradeColor(o.grade);
+              return (
+                <div className={cn("rounded-2xl border bg-white dark:bg-[#1C1F2E] p-5 shadow-sm dark:border-white/5 ring-2", gc.ring, "relative overflow-hidden")}>
+                  <div className="absolute top-3 right-14 rounded-full bg-[#C8102E] px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider">AI Pick</div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">LUB Recommends</p>
+                      <p className="text-sm font-bold text-gray-800 dark:text-gray-100 leading-snug">{o.label}</p>
+                      {o.description && <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-snug">{o.description}</p>}
+                    </div>
+                    <div className={cn("shrink-0 flex flex-col items-center rounded-2xl px-3 py-2", gc.bg)}>
+                      <span className={cn("text-3xl font-black leading-none", gc.text)}>{o.grade}</span>
+                      <span className="text-[10px] text-gray-400 mt-0.5">{o.score}/10</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mb-3">{o.rationale}</p>
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="rounded-xl bg-[#C8102E]/8 dark:bg-[#C8102E]/10 p-3 text-center">
+                      <p className="text-lg font-black text-[#C8102E]">{o.metrics.expected_leases_90d}</p>
+                      <p className="text-[10px] text-gray-400">leases in 90d</p>
+                    </div>
+                    <div className="rounded-xl bg-[#C8102E]/8 dark:bg-[#C8102E]/10 p-3 text-center">
+                      <p className="text-lg font-black text-[#C8102E]">${o.metrics.cost_per_lease.toLocaleString()}</p>
+                      <p className="text-[10px] text-gray-400">cost/lease</p>
+                    </div>
+                    <div className="rounded-xl bg-[#C8102E]/8 dark:bg-[#C8102E]/10 p-3 text-center">
+                      <p className="text-lg font-black text-[#C8102E]">+{o.metrics.occupancy_gain_90d}%</p>
+                      <p className="text-[10px] text-gray-400">occ. gain</p>
+                    </div>
+                    <div className="rounded-xl bg-[#C8102E]/8 dark:bg-[#C8102E]/10 p-3 text-center">
+                      <p className="text-lg font-black text-[#C8102E]">{o.metrics.expected_inquiries_90d}</p>
+                      <p className="text-[10px] text-gray-400">inquiries</p>
+                    </div>
+                  </div>
+                  {o.strengths.map((s, i) => (
+                    <p key={i} className="flex items-start gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                      <span className="text-green-500 shrink-0 mt-0.5">✓</span>{s}
+                    </p>
+                  ))}
+                  {o.why_better_than_yours && (
+                    <div className="mt-3 rounded-xl bg-[#C8102E]/8 dark:bg-[#C8102E]/10 px-3 py-2">
+                      <p className="text-[11px] font-semibold text-[#C8102E]">Why it wins: {o.why_better_than_yours}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Performance comparison bars */}
+          <div className="rounded-2xl border border-gray-100 bg-white dark:border-white/5 dark:bg-[#1C1F2E] p-5 shadow-sm">
+            <p className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-100">Performance Comparison</p>
+            <div className="mb-3 flex gap-4 text-[10px] text-gray-400">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-blue-400" />Your offer</span>
+              <span className="flex items-center gap-1.5"><span className="h-2 w-4 rounded bg-[#C8102E]" />LUB recommended</span>
+            </div>
+            <div className="space-y-4">
+              <MetricBar label="Leases in 90 days" yours={result.your_offer.metrics.expected_leases_90d} recommended={result.recommended_offer.metrics.expected_leases_90d} format={fmt.num} />
+              <MetricBar label="Total inquiries" yours={result.your_offer.metrics.expected_inquiries_90d} recommended={result.recommended_offer.metrics.expected_inquiries_90d} format={fmt.num} />
+              <MetricBar label="Occupancy gain" yours={result.your_offer.metrics.occupancy_gain_90d} recommended={result.recommended_offer.metrics.occupancy_gain_90d} format={fmt.pct} />
+              <MetricBar label="Monthly revenue impact" yours={result.your_offer.metrics.monthly_revenue_impact} recommended={result.recommended_offer.metrics.monthly_revenue_impact} format={fmt.usd} />
+            </div>
+          </div>
+
+          {/* Budget verdict + channels */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-gray-100 bg-white dark:border-white/5 dark:bg-[#1C1F2E] p-4 shadow-sm">
+              <p className="mb-1.5 text-xs font-bold text-gray-700 dark:text-gray-200">Budget Verdict</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{result.budget_verdict}</p>
+            </div>
+            <div className="rounded-2xl border border-gray-100 bg-white dark:border-white/5 dark:bg-[#1C1F2E] p-4 shadow-sm">
+              <p className="mb-2 text-xs font-bold text-gray-700 dark:text-gray-200">Best Channels for This Offer</p>
+              <div className="flex flex-wrap gap-1.5">
+                {result.recommended_channels.map((ch, i) => (
+                  <span key={i} className="rounded-full bg-gray-100 dark:bg-white/10 px-2.5 py-1 text-[11px] font-semibold text-gray-600 dark:text-gray-300">{ch}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Rent Roll Stale Banner ───────────────────────────────────────────────────
 
 function RentRollStaleBanner({
@@ -1828,6 +2156,9 @@ export default function PropertyDetailPage() {
 
       {/* ── Competitor Intelligence ─────────────────────────────────────── */}
       <CompetitorSection property={property} units={units} />
+
+      {/* ── Offer Scoring ───────────────────────────────────────────────── */}
+      <OfferScoringSection property={property} units={units} leads={leads} />
 
       {/* ── Rent Roll & Occupancy ───────────────────────────────────────── */}
       <div id="rent-roll-section">
