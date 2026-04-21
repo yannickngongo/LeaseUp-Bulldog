@@ -257,7 +257,10 @@ export type FollowUpTrigger =
   | "follow_up_1"
   | "follow_up_2"
   | "follow_up_3"
-  | "follow_up_final";
+  | "follow_up_4"
+  | "monthly_touch";
+
+export type FollowUpPhase = "burst" | "nurture";
 
 export type CancelReason =
   | "opted_out"

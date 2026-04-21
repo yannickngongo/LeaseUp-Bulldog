@@ -15,6 +15,7 @@ interface Lead {
   name: string;
   status: LeadStatus;
   property_name?: string;
+  property_id?: string;
   created_at: string;
   last_contacted_at?: string;
   follow_up_at?: string;
@@ -318,6 +319,89 @@ export default function DashboardPage() {
                     </span>
                   )}
                 </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Occupancy Gap & Pipeline Coverage */}
+      {!loading && properties.some(p => (p.total_units ?? 0) > 0) && (
+        <div>
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Occupancy Gap & Pipeline Coverage</h2>
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Active leads that could fill vacancies</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {properties.filter(p => (p.total_units ?? 0) > 0).map(p => {
+              const vacancies  = (p.total_units ?? 0) - (p.occupied_units ?? 0);
+              const occ        = p.total_units ? Math.round(((p.occupied_units ?? 0) / p.total_units) * 100) : null;
+              const propLeads  = leads.filter(l => l.property_id === p.id && ["new","contacted","engaged","tour_scheduled","applied"].includes(l.status));
+              const hotLeads   = leads.filter(l => l.property_id === p.id && ["tour_scheduled","applied"].includes(l.status));
+              const coverage   = vacancies > 0 ? Math.min(Math.round((propLeads.length / vacancies) * 100), 200) : null;
+              const isFullyCovered = propLeads.length >= vacancies && vacancies > 0;
+              const isGood     = occ !== null && occ >= 90;
+
+              return (
+                <div key={p.id} className="rounded-2xl bg-white p-4 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate max-w-[140px]">{p.name}</p>
+                      <p className="text-[10px] text-gray-400">{occ !== null ? `${occ}% occupied` : "No unit data"}</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      vacancies === 0 ? "bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400" :
+                      vacancies <= 2  ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400" :
+                                        "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
+                    }`}>
+                      {vacancies === 0 ? "Full" : `${vacancies} vacant`}
+                    </span>
+                  </div>
+
+                  {vacancies > 0 ? (
+                    <>
+                      {/* Coverage bar */}
+                      <div className="mb-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] text-gray-400">Pipeline coverage</span>
+                          <span className={`text-[10px] font-bold ${isFullyCovered ? "text-emerald-600" : "text-amber-600"}`}>
+                            {propLeads.length} lead{propLeads.length !== 1 ? "s" : ""} / {vacancies} vacancy{vacancies !== 1 ? "ies" : ""}
+                          </span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
+                          <div className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${Math.min(coverage ?? 0, 100)}%`,
+                              background: isFullyCovered ? "#10B981" : (coverage ?? 0) >= 50 ? "#F59E0B" : "#EF4444",
+                            }} />
+                        </div>
+                      </div>
+                      {/* Hot leads */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          <span className="text-[10px] text-gray-400">{hotLeads.length} tour/applied</span>
+                        </div>
+                        {isFullyCovered && (
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
+                            Pipeline full
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-green-50 dark:bg-green-900/20">
+                        <svg viewBox="0 0 16 16" fill="none" stroke="#10B981" strokeWidth={2} className="h-3.5 w-3.5">
+                          <path d="M2 8l5 5 7-8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Fully occupied — great work!</p>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

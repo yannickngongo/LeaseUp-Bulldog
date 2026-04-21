@@ -687,6 +687,253 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
 // Right — Lead detail (like image 2's profile card)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Schedule Tour Modal
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ScheduleTourModal({ lead, onClose, onScheduled }: {
+  lead: Lead;
+  onClose: () => void;
+  onScheduled: (updatedStatus: LeadStatus) => void;
+}) {
+  const [date, setDate]       = useState("");
+  const [time, setTime]       = useState("10:00");
+  const [notes, setNotes]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const [done, setDone]       = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!date) { setError("Please select a date."); return; }
+    setError(null); setLoading(true);
+    try {
+      const scheduled_at = new Date(`${date}T${time}:00`).toISOString();
+      const res = await fetch("/api/tours", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_id: lead.id, property_id: lead.property_id, scheduled_at, notes }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error ?? "Failed to schedule tour"); return; }
+      setDone(true);
+    } catch { setError("Network error"); }
+    finally { setLoading(false); }
+  }
+
+  const inputCls = "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:border-[#C8102E]/50 focus:outline-none focus:ring-2 focus:ring-[#C8102E]/10 transition-all";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl">
+        {done ? (
+          <div className="p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth={2} className="h-8 w-8">
+                <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <h3 className="mb-1 text-xl font-bold text-gray-900">Tour Scheduled!</h3>
+            <p className="mb-2 text-sm text-gray-500">SMS confirmation sent to {lead.name.split(" ")[0]}</p>
+            <p className="mb-6 text-xs text-gray-400">Lead status updated to <strong className="text-amber-600">Tour Booked</strong></p>
+            <button onClick={() => { onScheduled("tour_scheduled"); onClose(); }}
+              className="w-full rounded-2xl bg-[#C8102E] py-3 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
+              style={{ boxShadow: "0 8px 24px rgba(200,16,46,0.25)" }}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Schedule a Tour</h2>
+                <p className="text-xs text-gray-400 mt-0.5">SMS confirmation sent automatically</p>
+              </div>
+              <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:bg-gray-50">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-amber-600">
+                    <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">{lead.name}</p>
+                  <p className="text-xs text-amber-600">{lead.property_name} · {lead.phone}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</label>
+                  <input type="date" required value={date} onChange={(e) => setDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    className={inputCls} />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</label>
+                  <select value={time} onChange={(e) => setTime(e.target.value)} className={inputCls}>
+                    {["08:00","08:30","09:00","09:30","10:00","10:30","11:00","11:30","12:00","12:30","13:00","13:30","14:00","14:30","15:00","15:30","16:00","16:30","17:00","17:30","18:00"].map(t => (
+                      <option key={t} value={t}>{new Date(`2000-01-01T${t}:00`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes <span className="normal-case font-normal text-gray-400">(optional)</span></label>
+                <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="e.g. Unit 2B, meet at leasing office"
+                  className={`${inputCls} resize-none`} />
+              </div>
+              {error && <p className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</p>}
+              <button type="submit" disabled={loading}
+                className="w-full rounded-2xl bg-[#C8102E] py-3 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors disabled:opacity-60"
+                style={{ boxShadow: "0 8px 24px rgba(200,16,46,0.25)" }}>
+                {loading ? "Scheduling…" : "Schedule Tour & Send SMS"}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pipeline Kanban View
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PIPELINE_COLS: { status: LeadStatus; label: string; color: string; bg: string; next?: LeadStatus }[] = [
+  { status: "new",            label: "New",         color: "#6366F1", bg: "#EEF2FF", next: "contacted" },
+  { status: "contacted",      label: "Contacted",   color: "#0891B2", bg: "#ECFEFF", next: "engaged" },
+  { status: "engaged",        label: "Engaged",     color: "#7C3AED", bg: "#F5F3FF", next: "tour_scheduled" },
+  { status: "tour_scheduled", label: "Tour Booked", color: "#B45309", bg: "#FFFBEB", next: "applied" },
+  { status: "applied",        label: "Applied",     color: "#C2410C", bg: "#FFF7ED", next: "won" },
+  { status: "won",            label: "Won",         color: "#065F46", bg: "#ECFDF5" },
+  { status: "lost",           label: "Lost",        color: "#6B7280", bg: "#F9FAFB" },
+];
+
+function KanbanCard({ lead, col, onSelect, onAdvance }: {
+  lead: Lead;
+  col: (typeof PIPELINE_COLS)[0];
+  onSelect: (id: string) => void;
+  onAdvance: (id: string, status: LeadStatus) => void;
+}) {
+  const av = avatarFor(lead.id);
+  const daysAgo = Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86400000);
+
+  return (
+    <div className="mb-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => onSelect(lead.id)}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold"
+          style={{ background: av.bg, color: av.text }}>
+          {initials(lead.name)}
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-gray-900">{lead.name}</p>
+          <p className="truncate text-[10px] text-gray-400">{lead.property_name}</p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-gray-400">{daysAgo === 0 ? "Today" : `${daysAgo}d ago`}</span>
+        {lead.ai_score != null && (
+          <span className={cn("text-[10px] font-bold", lead.ai_score >= 7 ? "text-emerald-600" : lead.ai_score >= 4 ? "text-amber-600" : "text-red-500")}>
+            {lead.ai_score}/10
+          </span>
+        )}
+      </div>
+      {col.next && (
+        <button onClick={(e) => { e.stopPropagation(); onAdvance(lead.id, col.next!); }}
+          className="mt-2 w-full rounded-lg py-1 text-[10px] font-bold transition-colors"
+          style={{ background: col.bg, color: col.color }}>
+          Advance →
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PipelineView({ leads, onSelectLead, onAdvanceLead, onSwitchToInbox }: {
+  leads: Lead[];
+  onSelectLead: (id: string) => void;
+  onAdvanceLead: (id: string, status: LeadStatus) => void;
+  onSwitchToInbox: (id: string) => void;
+}) {
+  const total    = leads.filter(l => l.status !== "lost").length;
+  const wonCount = leads.filter(l => l.status === "won").length;
+  const convRate = total > 0 ? Math.round((wonCount / total) * 100) : 0;
+
+  return (
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Funnel summary */}
+      <div className="shrink-0 border-b border-gray-100 bg-white px-6 py-3">
+        <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide">
+          {PIPELINE_COLS.filter(c => c.status !== "lost").map((col, i) => {
+            const count = leads.filter(l => l.status === col.status).length;
+            const prev  = i > 0 ? leads.filter(l => l.status === PIPELINE_COLS[i - 1].status).length : null;
+            const rate  = prev != null && prev > 0 ? Math.round((count / prev) * 100) : null;
+            return (
+              <div key={col.status} className="flex shrink-0 items-center gap-2">
+                {i > 0 && <span className="text-gray-200">›</span>}
+                <div className="text-center">
+                  <p className="text-lg font-black tabular-nums" style={{ color: col.color }}>{count}</p>
+                  <p className="text-[10px] text-gray-400">{col.label}</p>
+                  {rate != null && <p className="text-[9px] font-semibold text-gray-300">{rate}%</p>}
+                </div>
+              </div>
+            );
+          })}
+          <div className="ml-auto shrink-0 text-right">
+            <p className="text-sm font-black text-emerald-600">{convRate}%</p>
+            <p className="text-[10px] text-gray-400">close rate</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Kanban columns */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="flex h-full gap-3 p-4 min-w-max">
+          {PIPELINE_COLS.map(col => {
+            const colLeads = leads.filter(l => l.status === col.status);
+            return (
+              <div key={col.status} className="flex w-[210px] shrink-0 flex-col">
+                {/* Column header */}
+                <div className="mb-2 flex items-center justify-between rounded-xl px-3 py-2"
+                  style={{ background: col.bg }}>
+                  <span className="text-xs font-bold" style={{ color: col.color }}>{col.label}</span>
+                  <span className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                    style={{ background: col.color + "22", color: col.color }}>
+                    {colLeads.length}
+                  </span>
+                </div>
+
+                {/* Cards */}
+                <div className="flex-1 overflow-y-auto rounded-2xl bg-gray-50/50 p-2">
+                  {colLeads.length === 0 ? (
+                    <div className="flex h-20 items-center justify-center">
+                      <p className="text-[10px] text-gray-300">Empty</p>
+                    </div>
+                  ) : (
+                    colLeads.map(lead => (
+                      <KanbanCard key={lead.id} lead={lead} col={col}
+                        onSelect={(id) => { onSwitchToInbox(id); }}
+                        onAdvance={onAdvanceLead} />
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
@@ -696,7 +943,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   );
 }
 
-function DetailPanel({ lead }: { lead: Lead }) {
+function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void }) {
   const av = avatarFor(lead.id);
   const sc = STATUS[lead.status];
   const theme = cardThemeFor(lead.id);
@@ -730,9 +977,9 @@ function DetailPanel({ lead }: { lead: Lead }) {
             {[
               { icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z", label: "Email" },
               { icon: "M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z", label: "Call" },
-              { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", label: "Schedule" },
-            ].map(({ icon, label }) => (
-              <button key={label} title={label}
+              { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", label: "Schedule", action: onSchedule },
+            ].map(({ icon, label, action }) => (
+              <button key={label} title={label} onClick={action}
                 className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 transition-colors shadow-sm">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
                   <path d={icon} strokeLinecap="round" strokeLinejoin="round" />
@@ -823,7 +1070,9 @@ export default function LeadsPage() {
   const [msgLoading, setMsgLoading]     = useState(false);
   const [replyText, setReplyText]       = useState("");
   const [sending, setSending]           = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddModal, setShowAddModal]       = useState(false);
+  const [view, setView]                       = useState<"inbox" | "pipeline">("inbox");
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const loadLeads = useCallback(async (props: Property[]) => {
     const allLeads: Lead[] = [];
@@ -883,6 +1132,25 @@ export default function LeadsPage() {
     if (all.length && !selectedId) setSelectedId(all[0].id);
   }, [properties, selectedId, loadLeads]);
 
+  const handleAdvanceLead = useCallback(async (id: string, newStatus: LeadStatus) => {
+    await fetch(`/api/leads/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
+  }, []);
+
+  const handleScheduled = useCallback((newStatus: LeadStatus) => {
+    if (selectedId) setLeads(prev => prev.map(l => l.id === selectedId ? { ...l, status: newStatus } : l));
+  }, [selectedId]);
+
+  function switchToInbox(id: string) {
+    setSelectedId(id);
+    setView("inbox");
+    setMobileView("conversation");
+  }
+
   const [mobileView, setMobileView] = useState<"list" | "conversation">("list");
 
   const selectedLead = leads.find((l) => l.id === selectedId);
@@ -904,6 +1172,13 @@ export default function LeadsPage() {
       style={{ background: "linear-gradient(135deg, #f8f7ff 0%, #f0f4ff 40%, #fdf8ff 100%)" }}>
 
       {showAddModal && <AddLeadModal onClose={() => setShowAddModal(false)} onAdded={handleAdded} />}
+      {showScheduleModal && selectedLead && (
+        <ScheduleTourModal
+          lead={selectedLead}
+          onClose={() => setShowScheduleModal(false)}
+          onScheduled={handleScheduled}
+        />
+      )}
 
       {/* Stats bar — scrollable on mobile */}
       <div className="shrink-0 border-b border-white/80 bg-white/70 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-3.5">
@@ -917,15 +1192,30 @@ export default function LeadsPage() {
             <div className="h-6 w-px shrink-0 bg-gray-100 sm:h-8" />
             <StatChip label="Won" value={wonCount.toString()} color="#10B981" />
           </div>
-          <button onClick={() => setShowAddModal(true)}
-            className="shrink-0 flex items-center gap-1.5 rounded-2xl bg-[#C8102E] px-3 py-2 text-xs font-bold text-white hover:bg-[#A50D25] transition-colors sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
-            style={{ boxShadow: "0 6px 20px rgba(200,16,46,0.3)" }}>
-            <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4">
-              <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
-            </svg>
-            <span className="hidden sm:inline">Add Lead</span>
-            <span className="sm:hidden">Add</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {/* View toggle */}
+            <div className="hidden sm:flex items-center gap-0.5 rounded-xl border border-gray-200 bg-gray-50 p-0.5">
+              <button onClick={() => setView("inbox")}
+                className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  view === "inbox" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600")}>
+                Inbox
+              </button>
+              <button onClick={() => setView("pipeline")}
+                className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  view === "pipeline" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600")}>
+                Pipeline
+              </button>
+            </div>
+            <button onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1.5 rounded-2xl bg-[#C8102E] px-3 py-2 text-xs font-bold text-white hover:bg-[#A50D25] transition-colors sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
+              style={{ boxShadow: "0 6px 20px rgba(200,16,46,0.3)" }}>
+              <svg viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5 sm:h-4 sm:w-4">
+                <path d="M8 2a.75.75 0 01.75.75v4.5h4.5a.75.75 0 010 1.5h-4.5v4.5a.75.75 0 01-1.5 0v-4.5h-4.5a.75.75 0 010-1.5h4.5v-4.5A.75.75 0 018 2z" />
+              </svg>
+              <span className="hidden sm:inline">Add Lead</span>
+              <span className="sm:hidden">Add</span>
+            </button>
+          </div>
         </div>
 
         {hotLeads.length > 0 && (
@@ -937,8 +1227,18 @@ export default function LeadsPage() {
         )}
       </div>
 
+      {/* Pipeline kanban view */}
+      {view === "pipeline" && (
+        <PipelineView
+          leads={leads}
+          onSelectLead={setSelectedId}
+          onAdvanceLead={handleAdvanceLead}
+          onSwitchToInbox={switchToInbox}
+        />
+      )}
+
       {/* Mobile: list or conversation view */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className={cn("flex flex-1 overflow-hidden", view === "pipeline" ? "hidden" : "")}>
 
         {/* Left panel — full width on mobile when showing list */}
         <div className={cn(
@@ -978,7 +1278,7 @@ export default function LeadsPage() {
                 onReplyChange={setReplyText} onSend={handleSend}
               />
               <div className="hidden xl:flex">
-                <DetailPanel lead={selectedLead} />
+                <DetailPanel lead={selectedLead} onSchedule={() => setShowScheduleModal(true)} />
               </div>
             </div>
           </div>

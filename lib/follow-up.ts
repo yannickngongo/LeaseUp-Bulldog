@@ -1,39 +1,57 @@
 // Persistent follow-up system.
 // Manages scheduled outbound messages until a stop condition fires.
 // Execution is triggered by Vercel Cron → POST /api/follow-up/execute (every 15 min).
+//
+// Cadence:
+//   Burst phase  — first_contact (0h), follow_up_1 (24h), follow_up_2 (72h),
+//                  follow_up_3 (7d), follow_up_4 (14d)
+//   Nurture phase — monthly_touch every 30 days indefinitely
+//
+// The sequence only stops when a real stop condition fires (opt-out, lease signed,
+// lead lost, human takeover, manual pause). It never self-terminates.
+//
+// Re-engagement: when a lead replies at any point, pending scheduled tasks are
+// cancelled and a new monthly_touch is queued 7 days out. If they reply again
+// before that fires, the clock resets. This means the AI always comes back.
 
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateLeadReply } from "@/lib/anthropic";
 import { sendSms } from "@/lib/twilio";
 import { getPropertyAIContext, formatPropertyAIContext } from "@/lib/property-ai-context";
 import { setFirstContactDate } from "@/lib/billing";
-import type { FollowUpTrigger, CancelReason } from "@/lib/types";
+import type { FollowUpTrigger, FollowUpPhase, CancelReason } from "@/lib/types";
 
 // ─── Cadence ──────────────────────────────────────────────────────────────────
-// delayHours is measured from when the lead was created / last activity.
 
-const CADENCE: Array<{ trigger: FollowUpTrigger; delayHours: number }> = [
-  { trigger: "first_contact",   delayHours: 0   },
-  { trigger: "follow_up_1",     delayHours: 24  },
-  { trigger: "follow_up_2",     delayHours: 72  },
-  { trigger: "follow_up_3",     delayHours: 168 },
-  { trigger: "follow_up_final", delayHours: 336 },
+const BURST_CADENCE: Array<{ trigger: FollowUpTrigger; delayHours: number }> = [
+  { trigger: "first_contact", delayHours: 0   },
+  { trigger: "follow_up_1",   delayHours: 24  },
+  { trigger: "follow_up_2",   delayHours: 72  },
+  { trigger: "follow_up_3",   delayHours: 168 },
+  { trigger: "follow_up_4",   delayHours: 336 },
 ];
 
-const MAX_UNANSWERED = 5; // stop after this many consecutive outbound-only messages
+const NURTURE_INTERVAL_HOURS = 720;    // 30 days between nurture touches
+const RE_ENGAGE_AFTER_REPLY_HOURS = 168; // 7 days — re-engage if lead goes cold after replying
+
+// ─── Phase ────────────────────────────────────────────────────────────────────
+
+export function getFollowUpPhase(attemptNumber: number): FollowUpPhase {
+  return attemptNumber <= BURST_CADENCE.length ? "burst" : "nurture";
+}
 
 // ─── Opt-out keywords ─────────────────────────────────────────────────────────
-// TCPA-required. Checked in inbound route before any AI processing.
 
 export const OPT_OUT_KEYWORDS = ["stop", "unsubscribe", "quit", "cancel", "end", "optout", "opt out", "opt-out"];
 
 export function isOptOut(message: string): boolean {
   const normalized = message.trim().toLowerCase();
-  return OPT_OUT_KEYWORDS.some(kw => normalized === kw || normalized.startsWith(kw + " ") || normalized.endsWith(" " + kw));
+  return OPT_OUT_KEYWORDS.some(
+    kw => normalized === kw || normalized.startsWith(kw + " ") || normalized.endsWith(" " + kw)
+  );
 }
 
 // ─── Stop condition check ─────────────────────────────────────────────────────
-// Returns the cancel reason if the lead should no longer receive follow-ups, else null.
 
 async function getStopReason(leadId: string): Promise<CancelReason | null> {
   const db = getSupabaseAdmin();
@@ -44,33 +62,27 @@ async function getStopReason(leadId: string): Promise<CancelReason | null> {
     .single();
 
   if (!lead) return "lead_lost";
-  if (lead.opt_out) return "opted_out";
-  if (lead.human_takeover) return "human_takeover";
-  if (lead.ai_paused) return "manual_pause";
-  if (lead.status === "won") return "lease_signed";
+  if (lead.opt_out)         return "opted_out";
+  if (lead.human_takeover)  return "human_takeover";
+  if (lead.ai_paused)       return "manual_pause";
+  if (lead.status === "won")  return "lease_signed";
   if (lead.status === "lost") return "lead_lost";
   return null;
 }
 
-// ─── Count unanswered outbound messages ───────────────────────────────────────
+// ─── Next attempt number ──────────────────────────────────────────────────────
+// Counts completed + executing tasks to derive the next attempt number.
 
-async function countUnansweredOutbound(leadId: string): Promise<number> {
+async function getNextAttemptNumber(leadId: string): Promise<number> {
   const db = getSupabaseAdmin();
-  const { data: messages } = await db
-    .from("conversations")
-    .select("direction")
+  const { data } = await db
+    .from("follow_up_tasks")
+    .select("attempt_number")
     .eq("lead_id", leadId)
-    .order("created_at", { ascending: false })
-    .limit(20);
-
-  if (!messages?.length) return 0;
-
-  let count = 0;
-  for (const msg of messages) {
-    if (msg.direction === "inbound") break;
-    count++;
-  }
-  return count;
+    .in("status", ["completed", "executing"])
+    .order("attempt_number", { ascending: false })
+    .limit(1);
+  return (data?.[0]?.attempt_number ?? 0) + 1;
 }
 
 // ─── queueFollowUp ────────────────────────────────────────────────────────────
@@ -85,11 +97,9 @@ export async function queueFollowUp(
 ): Promise<string | null> {
   const db = getSupabaseAdmin();
 
-  // Don't queue if stop condition is already active
   const stopReason = await getStopReason(leadId);
   if (stopReason) return null;
 
-  // Don't queue if an identical pending task already exists
   const { data: existing } = await db
     .from("follow_up_tasks")
     .select("id")
@@ -122,7 +132,6 @@ export async function queueFollowUp(
 }
 
 // ─── cancelFollowUps ──────────────────────────────────────────────────────────
-// Cancels ALL pending follow-up tasks for a lead. Called on any stop condition.
 
 export async function cancelFollowUps(leadId: string, reason: CancelReason): Promise<void> {
   const db = getSupabaseAdmin();
@@ -138,8 +147,15 @@ export async function cancelFollowUps(leadId: string, reason: CancelReason): Pro
 }
 
 // ─── evaluateNextAction ───────────────────────────────────────────────────────
-// After a task executes (or an inbound message arrives), determines what to queue next.
-// Returns the trigger that was queued, or null if the sequence is done.
+// Determines what to queue after a task executes or an inbound message arrives.
+//
+// inbound_reply: cancels any pending scheduled tasks (the lead is active), then
+// queues a re-engagement monthly_touch 7 days out in case they go cold again.
+//
+// burst trigger: advances to the next burst step, or graduates to the first
+// nurture touch after the final burst step.
+//
+// monthly_touch: re-schedules itself 30 days out — infinitely.
 
 export async function evaluateNextAction(
   leadId: string,
@@ -152,27 +168,44 @@ export async function evaluateNextAction(
     return null;
   }
 
-  // If the lead replied, we don't need scheduled follow-ups — AI will reply inline
   if (completedTrigger === "inbound_reply") {
+    // Lead is actively engaged — cancel any stale scheduled outreach
     await cancelFollowUps(leadId, "replied");
-    return null;
+    // Re-arm: if they go cold again, check back in 7 days
+    const nextAttempt = await getNextAttemptNumber(leadId);
+    const reEngageAt = new Date();
+    reEngageAt.setHours(reEngageAt.getHours() + RE_ENGAGE_AFTER_REPLY_HOURS);
+    await queueFollowUp(leadId, propertyId, "monthly_touch", reEngageAt, nextAttempt);
+    return "monthly_touch";
   }
 
-  const unanswered = await countUnansweredOutbound(leadId);
-  if (unanswered >= MAX_UNANSWERED) {
-    await cancelFollowUps(leadId, "manual_pause");
-    return null;
+  if (completedTrigger === "monthly_touch") {
+    // Infinite nurture — re-schedule 30 days out
+    const nextAttempt = await getNextAttemptNumber(leadId);
+    const nextAt = new Date();
+    nextAt.setHours(nextAt.getHours() + NURTURE_INTERVAL_HOURS);
+    await queueFollowUp(leadId, propertyId, "monthly_touch", nextAt, nextAttempt);
+    return "monthly_touch";
   }
 
-  const currentIndex = CADENCE.findIndex(c => c.trigger === completedTrigger);
-  const nextStep = CADENCE[currentIndex + 1];
-  if (!nextStep) return null;
+  // Burst phase: advance to next step or graduate to nurture
+  const currentIndex = BURST_CADENCE.findIndex(c => c.trigger === completedTrigger);
+  const nextBurstStep = BURST_CADENCE[currentIndex + 1];
 
-  const scheduledFor = new Date();
-  scheduledFor.setHours(scheduledFor.getHours() + nextStep.delayHours);
+  if (nextBurstStep) {
+    const nextAttempt = currentIndex + 2;
+    const nextAt = new Date();
+    nextAt.setHours(nextAt.getHours() + nextBurstStep.delayHours);
+    await queueFollowUp(leadId, propertyId, nextBurstStep.trigger, nextAt, nextAttempt);
+    return nextBurstStep.trigger;
+  }
 
-  await queueFollowUp(leadId, propertyId, nextStep.trigger, scheduledFor, currentIndex + 2);
-  return nextStep.trigger;
+  // End of burst — graduate to nurture phase
+  const nextAttempt = BURST_CADENCE.length + 1;
+  const nurtureAt = new Date();
+  nurtureAt.setHours(nurtureAt.getHours() + NURTURE_INTERVAL_HOURS);
+  await queueFollowUp(leadId, propertyId, "monthly_touch", nurtureAt, nextAttempt);
+  return "monthly_touch";
 }
 
 // ─── executeFollowUp ──────────────────────────────────────────────────────────
@@ -182,18 +215,17 @@ export async function evaluateNextAction(
 export async function executeFollowUp(taskId: string): Promise<void> {
   const db = getSupabaseAdmin();
 
-  // Claim the task atomically — prevents duplicate execution if cron overlaps
+  // Claim atomically — prevents duplicate execution if cron overlaps
   const { data: task, error: claimErr } = await db
     .from("follow_up_tasks")
     .update({ status: "executing" })
     .eq("id", taskId)
-    .eq("status", "pending") // only claim if still pending
+    .eq("status", "pending")
     .select()
     .single();
 
-  if (claimErr || !task) return; // already claimed by another worker
+  if (claimErr || !task) return;
 
-  // Re-check stop conditions after claiming
   const stopReason = await getStopReason(task.lead_id);
   if (stopReason) {
     await db.from("follow_up_tasks").update({
@@ -205,7 +237,6 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     return;
   }
 
-  // Load lead + property
   const [leadResult, propertyResult] = await Promise.all([
     db.from("leads").select("*").eq("id", task.lead_id).single(),
     db.from("properties").select("*").eq("id", task.property_id).single(),
@@ -222,7 +253,6 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     return;
   }
 
-  // Load conversation history (last 10, oldest first)
   const { data: history } = await db
     .from("conversations")
     .select("direction, body")
@@ -235,11 +265,12 @@ export async function executeFollowUp(taskId: string): Promise<void> {
       `${m.direction === "inbound" ? lead.name : "Leasing Team"}: ${m.body}`)
     .join("\n");
 
-  // Load property AI context
   const aiConfig = await getPropertyAIContext(task.property_id);
   const propertyContext = aiConfig ? formatPropertyAIContext(aiConfig) : undefined;
 
-  // Generate AI reply
+  const attemptNumber = task.attempt_number as number;
+  const followUpPhase = getFollowUpPhase(attemptNumber);
+
   let aiMessage: string;
   try {
     const result = await generateLeadReply({
@@ -253,6 +284,8 @@ export async function executeFollowUp(taskId: string): Promise<void> {
       trigger:             "follow_up",
       conversationHistory,
       propertyContext,
+      attemptNumber,
+      followUpPhase,
     });
     aiMessage = result.message;
   } catch (err) {
@@ -263,7 +296,6 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     return;
   }
 
-  // Send SMS
   let twilioSid: string | undefined;
   try {
     const smsResult = await sendSms({
@@ -282,7 +314,6 @@ export async function executeFollowUp(taskId: string): Promise<void> {
 
   const now = new Date().toISOString();
 
-  // Log outbound message
   await db.from("conversations").insert({
     lead_id:      task.lead_id,
     property_id:  task.property_id,
@@ -293,13 +324,11 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     ai_generated: true,
   });
 
-  // Set first_contact_date if this is the first outbound
   if (task.trigger_reason === "first_contact") {
     await setFirstContactDate(task.lead_id);
     await db.from("leads").update({ status: "contacted" }).eq("id", task.lead_id);
   }
 
-  // Mark task complete
   await db.from("follow_up_tasks").update({
     status:         "completed",
     executed_at:    now,
@@ -307,16 +336,19 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     twilio_sid:     twilioSid ?? null,
   }).eq("id", taskId);
 
-  // Log activity
   await db.from("activity_logs").insert({
     lead_id:     task.lead_id,
     property_id: task.property_id,
     action:      `follow_up_sent:${task.trigger_reason}`,
     actor:       "ai",
-    metadata:    { task_id: taskId, preview: aiMessage.slice(0, 100) },
+    metadata:    {
+      task_id:       taskId,
+      attempt:       attemptNumber,
+      phase:         followUpPhase,
+      preview:       aiMessage.slice(0, 100),
+    },
   });
 
-  // Evaluate and queue next step
   await evaluateNextAction(
     task.lead_id,
     task.property_id,

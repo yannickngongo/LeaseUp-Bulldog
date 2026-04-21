@@ -23,6 +23,8 @@ export interface GenerateLeadReplyInput {
   trigger: "new_lead" | "inbound_sms" | "follow_up";
   conversationHistory: string; // pre-formatted prior messages, oldest first
   propertyContext?: string;    // formatted output of formatPropertyAIContext()
+  attemptNumber?: number;      // total outbound attempts so far (1 = first contact)
+  followUpPhase?: "burst" | "nurture"; // burst = active qualification, nurture = long-term check-ins
 }
 
 export interface GenerateLeadReplyOutput {
@@ -82,8 +84,13 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
     ? `Tour booking link: ${input.tourBookingUrl} — share this link when offering a tour so the lead can self-schedule.\n`
     : `Tour booking: No self-service link available — ask the lead to reply to arrange a tour time.\n`;
 
+  const phaseBlock =
+    input.followUpPhase && input.attemptNumber !== undefined
+      ? `Follow-up phase: ${input.followUpPhase} (attempt ${input.attemptNumber})\n`
+      : "";
+
   return `
-${contextBlock}${tourLine}
+${contextBlock}${tourLine}${phaseBlock}
 Property: ${input.propertyName}
 Lead name: ${input.leadName}
 Trigger: ${input.trigger}

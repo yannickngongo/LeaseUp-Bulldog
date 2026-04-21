@@ -496,6 +496,7 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
   const [searchLabel, setSearchLabel] = useState("");
   const [added, setAdded]             = useState<Set<number>>(new Set());
   const [adding, setAdding]           = useState<Set<number>>(new Set());
+  const [addErrors, setAddErrors]     = useState<Record<number, string>>({});
 
   useEffect(() => {
     fetch("/api/competitors/discover", {
@@ -515,6 +516,8 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
 
   async function handleAdd(i: number, r: DiscoverResult) {
     setAdding(prev => new Set(prev).add(i));
+    setAddErrors(prev => { const n = { ...prev }; delete n[i]; return n; });
+
     const res = await fetch("/api/competitors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -523,17 +526,20 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
         property_id:  propertyId,
         name:         r.address,
         address:      r.address,
-        zip_code:     r.zip_code,
-        city:         r.city,
-        state:        r.state,
         their_low:    r.price ?? 0,
         their_high:   r.price ?? 0,
         threat_level: "medium",
       }),
     });
     const json = await res.json();
-    if (res.ok && json.competitor) onAdded(json.competitor);
-    setAdded(prev => new Set(prev).add(i));
+
+    if (res.ok && json.competitor) {
+      onAdded(json.competitor);
+      setAdded(prev => new Set(prev).add(i));
+    } else {
+      setAddErrors(prev => ({ ...prev, [i]: json.error ?? "Failed to add — try again" }));
+    }
+
     setAdding(prev => { const n = new Set(prev); n.delete(i); return n; });
   }
 
@@ -635,12 +641,17 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
                         {isAdded ? (
                           <p className="text-xs font-semibold text-green-600 dark:text-green-400">✓ Added to tracker</p>
                         ) : (
-                          <button
-                            onClick={() => handleAdd(i, r)}
-                            disabled={isAdding}
-                            className="w-full rounded-lg bg-[#C8102E] py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
-                            {isAdding ? "Adding…" : "Add to Tracker"}
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleAdd(i, r)}
+                              disabled={isAdding}
+                              className="w-full rounded-lg bg-[#C8102E] py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
+                              {isAdding ? "Adding…" : "Add to Tracker"}
+                            </button>
+                            {addErrors[i] && (
+                              <p className="mt-1.5 text-[10px] text-red-500">{addErrors[i]}</p>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
