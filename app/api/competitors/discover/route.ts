@@ -1,8 +1,7 @@
 // POST /api/competitors/discover
-// Two-step Rentcast approach that matches what Rentcast's own website shows:
-// Step 1: Call /avm/rent/long-term to get lat/lng for the subject property.
-// Step 2: Call /listings/rental/long-term with lat/lng + radius to get actual comps.
-// Calls once per unique bedroom count in the property's units (max 3).
+// Two-step Rentcast approach:
+// Step 1: Call /avm/rent/long-term to get lat/lng for radius search.
+// Step 2: Call /listings/rental/long-term with lat/lng+radius OR zipCode/city+state fallback.
 // Body: { email, property_id }
 
 import { NextRequest, NextResponse } from "next/server";
@@ -11,14 +10,7 @@ import { resolveCallerContext } from "@/lib/auth";
 
 const RENTCAST_BASE = "https://api.rentcast.io/v1";
 
-interface AvmGeoResponse {
-  latitude?:  number;
-  longitude?: number;
-  rent?:      number;
-}
-
 interface RentcastListing {
-  id?:               string;
   formattedAddress?: string;
   addressLine1?:     string;
   city?:             string;
@@ -58,46 +50,77 @@ async function getLatLng(
       headers: { "X-Api-Key": apiKey },
       next:    { revalidate: 0 },
     });
-    if (!res.ok) {
-      console.error(`AVM geo ${res.status}:`, await res.text().catch(() => ""));
-      return null;
-    }
-    const data: AvmGeoResponse = await res.json();
-    if (data.latitude == null || data.longitude == null) return null;
-    return { lat: data.latitude, lng: data.longitude };
-  } catch (e) {
-    console.error("getLatLng error:", e);
+    if (!res.ok) return null;
+    const data = await res.json();
+    console.log("AVM keys:", Object.keys(data).join(", "));
+    if (data.latitude != null && data.longitude != null)
+      return { lat: data.latitude, lng: data.longitude };
+    return null;
+  } catch {
     return null;
   }
 }
 
-async function fetchListings(
+async function fetchListingsByLatLng(
   lat: number,
   lng: number,
   bedrooms: number,
-  apiKey: string,
-  radius = 2
+  apiKey: string
 ): Promise<RentcastListing[]> {
   const params = new URLSearchParams({
     latitude:  lat.toString(),
     longitude: lng.toString(),
-    radius:    radius.toString(),
+    radius:    "2",
     bedrooms:  bedrooms.toString(),
     limit:     "50",
     status:    "Active",
   });
+  return fetchListingsRaw(`${RENTCAST_BASE}/listings/rental/long-term?${params}`, apiKey);
+}
+
+async function fetchListingsByZip(
+  zip: string,
+  bedrooms: number,
+  apiKey: string
+): Promise<RentcastListing[]> {
+  const params = new URLSearchParams({
+    zipCode:  zip,
+    bedrooms: bedrooms.toString(),
+    limit:    "50",
+    status:   "Active",
+  });
+  return fetchListingsRaw(`${RENTCAST_BASE}/listings/rental/long-term?${params}`, apiKey);
+}
+
+async function fetchListingsByCity(
+  city: string,
+  state: string,
+  bedrooms: number,
+  apiKey: string
+): Promise<RentcastListing[]> {
+  const params = new URLSearchParams({
+    city,
+    state,
+    bedrooms: bedrooms.toString(),
+    limit:    "50",
+    status:   "Active",
+  });
+  return fetchListingsRaw(`${RENTCAST_BASE}/listings/rental/long-term?${params}`, apiKey);
+}
+
+async function fetchListingsRaw(url: string, apiKey: string): Promise<RentcastListing[]> {
   try {
-    const res = await fetch(`${RENTCAST_BASE}/listings/rental/long-term?${params}`, {
+    const res = await fetch(url, {
       headers: { "X-Api-Key": apiKey },
       next:    { revalidate: 0 },
     });
     if (!res.ok) {
-      console.error(`Listings ${res.status}:`, await res.text().catch(() => ""));
+      console.error(`Listings ${res.status} for ${url}:`, await res.text().catch(() => ""));
       return [];
     }
     const data = await res.json();
     const listings = Array.isArray(data) ? data : (data.listings ?? []);
-    console.log(`Listings for ${lat},${lng} ${bedrooms}BR → ${listings.length} results`);
+    console.log(`Listings → ${listings.length} results`);
     return listings;
   } catch (e) {
     console.error("fetchListings error:", e);
@@ -154,23 +177,33 @@ export async function POST(req: NextRequest) {
     .filter(Boolean)
     .join(", ");
 
-  // Step 1: get lat/lng from the first successful AVM call
+  // Step 1: try to get lat/lng from AVM for radius search
   let geo: { lat: number; lng: number } | null = null;
   for (const br of searchBedrooms) {
     geo = await getLatLng(fullAddress, br, rentcastKey);
     if (geo) break;
   }
 
-  if (!geo) {
+  // Step 2: fetch listings — use lat/lng radius if available, else zip, else city/state
+  let listingArrays: RentcastListing[][];
+
+  if (geo) {
+    listingArrays = await Promise.all(
+      searchBedrooms.map(br => fetchListingsByLatLng(geo!.lat, geo!.lng, br, rentcastKey))
+    );
+  } else if (property.zip) {
+    listingArrays = await Promise.all(
+      searchBedrooms.map(br => fetchListingsByZip(property.zip, br, rentcastKey))
+    );
+  } else if (property.city && property.state) {
+    listingArrays = await Promise.all(
+      searchBedrooms.map(br => fetchListingsByCity(property.city, property.state, br, rentcastKey))
+    );
+  } else {
     return NextResponse.json({
-      error: `Could not geocode ${property.address}. Make sure the address is complete (street, city, state, zip).`,
+      error: `${property.name} needs at least a zip code or city/state to search for comps.`,
     }, { status: 400 });
   }
-
-  // Step 2: fetch listings for each bedroom count in parallel
-  const listingArrays = await Promise.all(
-    searchBedrooms.map(br => fetchListings(geo!.lat, geo!.lng, br, rentcastKey))
-  );
 
   // Merge, deduplicate by address, skip our own property
   const seen     = new Set<string>();
@@ -186,15 +219,15 @@ export async function POST(req: NextRequest) {
 
   if (allListings.length === 0) {
     return NextResponse.json({
-      error: `No active rental listings found within 2 miles of ${property.address}, ${property.city}. Try adding competitors manually.`,
+      error: `No active rental listings found near ${property.address}, ${property.city}. Try adding competitors manually.`,
     }, { status: 404 });
   }
 
   const results = allListings
     .map(l => {
       const distKm =
-        l.latitude != null && l.longitude != null
-          ? haversineKm(geo!.lat, geo!.lng, l.latitude, l.longitude)
+        geo && l.latitude != null && l.longitude != null
+          ? haversineKm(geo.lat, geo.lng, l.latitude, l.longitude)
           : null;
       return {
         address:       l.formattedAddress ?? l.addressLine1 ?? "Unknown address",
