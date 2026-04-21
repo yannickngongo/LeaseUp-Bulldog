@@ -203,7 +203,7 @@ export default function HowItWorksPage() {
         </div>
         <div className="relative mx-auto max-w-xl">
           <h2 className="mb-5 text-4xl font-black">See it in action.</h2>
-          <p className="mb-8 text-gray-400">Start your 14-day free trial and have your first AI conversation live in under 10 minutes.</p>
+          <p className="mb-8 text-gray-400">Start your 14-day pilot for $1,000 setup and have your first AI conversation live in under 10 minutes.</p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/free-trial"

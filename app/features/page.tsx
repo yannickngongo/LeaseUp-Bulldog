@@ -161,7 +161,7 @@ export default function FeaturesPage() {
           <h2 className="mb-6 text-4xl font-black tracking-tight">
             Ready to put it all to work?
           </h2>
-          <p className="mb-8 text-gray-400">Start your 14-day free trial — no credit card required.</p>
+          <p className="mb-8 text-gray-400">Start your 14-day pilot — $1,000 setup, no platform fee during trial. $200/lease only when we deliver.</p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/free-trial"

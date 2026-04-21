@@ -25,7 +25,7 @@ export default function CheckoutSuccessPage() {
 
             <h1 className="mb-3 text-4xl font-black">You&apos;re in. Let&apos;s go.</h1>
             <p className="mb-8 text-gray-400 leading-relaxed">
-              Your 14-day free trial is active. Your account is ready — let&apos;s set up your first property and get your AI agent live in minutes.
+              Your 14-day pilot is active. Your account is ready — let&apos;s set up your first property and get your AI agent live in minutes.
             </p>
 
             {/* Steps */}
@@ -64,7 +64,7 @@ export default function CheckoutSuccessPage() {
             </div>
 
             <p className="mt-8 text-xs text-gray-600">
-              Confirmation sent to your email · Trial ends in 14 days · No charge until then
+              Confirmation sent to your email · Pilot ends in 14 days · Platform fee of $1,000/mo begins after trial
             </p>
           </div>
         </div>

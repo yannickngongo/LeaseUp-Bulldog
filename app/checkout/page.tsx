@@ -21,7 +21,7 @@ export default function CheckoutPage() {
           {/* Left — payment form */}
           <div>
             <h1 className="mb-2 text-3xl font-black">Complete your order</h1>
-            <p className="mb-8 text-sm text-gray-500">14-day free trial · Charged after trial ends · Cancel anytime</p>
+            <p className="mb-8 text-sm text-gray-500">14-day pilot · $1,000 setup due today · No platform fee during trial</p>
 
             <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
               {/* Contact */}
@@ -41,8 +41,9 @@ export default function CheckoutPage() {
                 <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-gray-500">Plan</h2>
                 <div className="space-y-2">
                   {[
-                    { id: "starter", label: "Starter", price: "$199/mo", desc: "1 property · Unlimited leads · AI SMS" },
-                    { id: "growth", label: "Growth", price: "$399/mo", desc: "Up to 10 properties · Full features", popular: true },
+                    { id: "core", label: "Core Platform", price: "$1,000/mo", desc: "AI qualification · Full dashboard · Unlimited leads", popular: true },
+                    { id: "marketing", label: "Core + Marketing", price: "$3,000/mo", desc: "Platform + AI ad campaigns (Facebook & Google)" },
+                    { id: "portfolio", label: "Portfolio / Enterprise", price: "Custom", desc: "Multi-property · Dedicated support" },
                   ].map((plan) => (
                     <label key={plan.id} className="flex cursor-pointer items-center gap-4 rounded-xl border border-[#1E1E2E] bg-[#10101A] px-5 py-4 hover:border-[#C8102E]/40 transition-colors">
                       <input type="radio" name="plan" value={plan.id} defaultChecked={plan.popular} className="accent-[#C8102E]" />
@@ -57,11 +58,12 @@ export default function CheckoutPage() {
                     </label>
                   ))}
                 </div>
+                <p className="mt-2 text-xs text-gray-600">+ $200 per lease signed through LUB (performance fee — only when we deliver)</p>
               </div>
 
               {/* Card */}
               <div>
-                <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-gray-500">Payment (charged after 14-day trial)</h2>
+                <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-gray-500">Payment — $1,000 setup fee due today</h2>
                 <div className="space-y-3 rounded-xl border border-[#1E1E2E] bg-[#10101A] p-5">
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-gray-400">Card Number</label>
@@ -88,12 +90,12 @@ export default function CheckoutPage() {
                 href="/checkout/success"
                 className="block w-full rounded-xl bg-[#C8102E] py-4 text-center text-sm font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25"
               >
-                Start Free Trial — Due Today: $0.00 →
+                Start 14-Day Pilot — Pay $1,000 Setup →
               </Link>
             </form>
 
             <p className="mt-4 text-center text-xs text-gray-600">
-              By continuing you agree to our <a href="#" className="hover:underline">Terms</a>. Your card won&apos;t be charged until day 14.
+              By continuing you agree to our <a href="#" className="hover:underline">Terms</a>. Platform fee of $1,000/mo begins after your 14-day pilot.
             </p>
           </div>
 
@@ -102,23 +104,35 @@ export default function CheckoutPage() {
             <h2 className="mb-5 font-semibold text-white">Order Summary</h2>
 
             <div className="mb-5 rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/5 p-4">
-              <p className="font-bold text-white">Growth Plan</p>
-              <p className="text-xs text-gray-400 mt-0.5">Up to 10 properties · All features</p>
-              <p className="mt-3 text-2xl font-black text-white">$399<span className="text-sm font-normal text-gray-500">/mo per property</span></p>
+              <p className="font-bold text-white">Core Platform</p>
+              <p className="text-xs text-gray-400 mt-0.5">AI qualification · Full dashboard · Unlimited leads</p>
+              <p className="mt-3 text-2xl font-black text-white">$1,000<span className="text-sm font-normal text-gray-500">/mo after trial</span></p>
             </div>
 
             <div className="space-y-3 text-sm">
+              <div className="flex justify-between text-gray-400">
+                <span>One-time setup</span>
+                <span className="text-white font-bold">$1,000</span>
+              </div>
               <div className="flex justify-between text-gray-400">
                 <span>Trial period</span>
                 <span className="text-white font-medium">14 days</span>
               </div>
               <div className="flex justify-between text-gray-400">
-                <span>Due today</span>
-                <span className="text-green-400 font-bold">$0.00</span>
+                <span>Platform fee during trial</span>
+                <span className="text-green-400 font-bold">$0</span>
               </div>
               <div className="flex justify-between text-gray-400">
                 <span>After trial</span>
-                <span className="text-white">$399/mo per property</span>
+                <span className="text-white">$1,000/mo</span>
+              </div>
+              <div className="flex justify-between text-gray-400">
+                <span>Performance fee</span>
+                <span className="text-white">$200/lease signed</span>
+              </div>
+              <div className="border-t border-[#1E1E2E] pt-3 flex justify-between">
+                <span className="font-semibold text-white">Due today</span>
+                <span className="font-black text-white">$1,000</span>
               </div>
             </div>
 
@@ -126,11 +140,12 @@ export default function CheckoutPage() {
 
             <ul className="space-y-2">
               {[
-                "14-day free trial",
-                "Cancel anytime",
+                "14-day pilot included",
+                "No platform fee during trial",
                 "Unlimited leads",
                 "AI responses 24/7",
-                "Priority support",
+                "$200/lease — only when we deliver",
+                "Cancel anytime after trial",
               ].map((perk) => (
                 <li key={perk} className="flex items-center gap-2 text-xs text-gray-400">
                   <span className="text-[#C8102E]">✓</span>

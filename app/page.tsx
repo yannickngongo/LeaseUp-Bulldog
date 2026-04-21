@@ -439,7 +439,7 @@ export default function LandingPage() {
             <span className="text-[#C8102E]">Start closing deals.</span>
           </h2>
           <p className="mb-10 text-lg text-gray-400">
-            Join operators who never miss a lead. Start your 14-day free trial — no credit card required.
+            Join operators who never miss a lead. Start your 14-day pilot — $1,000 setup, no platform fee during trial.
           </p>
           <Link
             href="/free-trial"
