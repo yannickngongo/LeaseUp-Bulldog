@@ -729,6 +729,7 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState<string | null>(null);
   const [property, setProperty]     = useState<{ city: string; state: string; total_units: number; occupied_units: number } | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<"yours" | "recommended" | null>(null);
 
   useEffect(() => {
     fetch(`/api/properties/${campaign.property_id}/details`)
@@ -742,6 +743,7 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setSelectedOffer(null);
     try {
       const res = await fetch("/api/properties/offer-score", {
         method: "POST",
@@ -902,6 +904,69 @@ function OfferLabPanel({ campaign }: { campaign: Campaign }) {
               <OfferMetricRow label="Occupancy gain"        yours={result.your_offer.metrics.occupancy_gain_90d}       rec={result.recommended_offer.metrics.occupancy_gain_90d}       format={fmt.pct} />
               <OfferMetricRow label="Monthly revenue impact" yours={result.your_offer.metrics.monthly_revenue_impact}  rec={result.recommended_offer.metrics.monthly_revenue_impact}  format={fmt.usd} />
             </div>
+          </div>
+
+          {/* Choose your offer */}
+          <div className="px-5 py-5 border-t border-gray-100 dark:border-white/5">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-3">Which offer do you want to run?</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setSelectedOffer("yours")}
+                className={`rounded-xl border-2 px-4 py-3 text-left transition-all ${
+                  selectedOffer === "yours"
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                    : "border-gray-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-700"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500">My Offer</p>
+                  {selectedOffer === "yours" && <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[8px] font-bold text-white">SELECTED</span>}
+                </div>
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{result.your_offer.label}</p>
+                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{result.your_offer.grade} · {result.your_offer.score}/10</p>
+              </button>
+
+              <button
+                onClick={() => setSelectedOffer("recommended")}
+                className={`rounded-xl border-2 px-4 py-3 text-left transition-all ${
+                  selectedOffer === "recommended"
+                    ? "border-[#C8102E] bg-[#C8102E]/5 dark:bg-[#C8102E]/10"
+                    : "border-gray-200 dark:border-white/10 hover:border-[#C8102E]/50"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#C8102E]">LUB Recommends</p>
+                  {selectedOffer === "recommended" && <span className="rounded-full bg-[#C8102E] px-2 py-0.5 text-[8px] font-bold text-white">SELECTED</span>}
+                </div>
+                <p className="text-xs font-semibold text-gray-800 dark:text-gray-100 leading-snug">{result.recommended_offer.label}</p>
+                <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{result.recommended_offer.grade} · {result.recommended_offer.score}/10</p>
+              </button>
+            </div>
+
+            {selectedOffer && (
+              <div className={`mt-3 rounded-xl px-4 py-3 flex items-center justify-between ${
+                selectedOffer === "yours"
+                  ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                  : "bg-[#C8102E]/5 dark:bg-[#C8102E]/10 border border-[#C8102E]/20"
+              }`}>
+                <div>
+                  <p className={`text-xs font-bold ${selectedOffer === "yours" ? "text-blue-600 dark:text-blue-400" : "text-[#C8102E]"}`}>
+                    Running: {selectedOffer === "yours" ? result.your_offer.label : result.recommended_offer.label}
+                  </p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                    {selectedOffer === "yours"
+                      ? `${result.your_offer.metrics.expected_leases_90d} leases · +${result.your_offer.metrics.occupancy_gain_90d}% occupancy in 90 days`
+                      : `${result.recommended_offer.metrics.expected_leases_90d} leases · +${result.recommended_offer.metrics.occupancy_gain_90d}% occupancy in 90 days`
+                    }
+                  </p>
+                </div>
+                <button className={`rounded-lg px-4 py-2 text-xs font-bold text-white transition-colors ${
+                  selectedOffer === "yours" ? "bg-blue-500 hover:bg-blue-600" : "bg-[#C8102E] hover:bg-[#A50D25]"
+                }`}>
+                  Use This Offer →
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Budget verdict + channels */}
