@@ -465,6 +465,185 @@ function CompetitorModal({ properties, defaultPropertyId, email, editing, onClos
   );
 }
 
+// ─── Discover Modal ───────────────────────────────────────────────────────────
+
+interface DiscoverResult {
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  price: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  sqft: number | null;
+  property_type: string | null;
+  amenities: string[];
+}
+
+function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
+  propertyId: string;
+  propertyName: string;
+  email: string;
+  onClose: () => void;
+  onAdded: (comp: Competitor) => void;
+}) {
+  const [status, setStatus]       = useState<"loading" | "results" | "error">("loading");
+  const [errorMsg, setErrorMsg]   = useState("");
+  const [results, setResults]     = useState<DiscoverResult[]>([]);
+  const [added, setAdded]         = useState<Set<number>>(new Set());
+  const [adding, setAdding]       = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/competitors/discover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, property_id: propertyId }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) { setErrorMsg(d.error); setStatus("error"); return; }
+        setResults(d.results ?? []);
+        setStatus("results");
+      })
+      .catch(() => { setErrorMsg("Network error — please try again."); setStatus("error"); });
+  }, [email, propertyId]);
+
+  async function handleAdd(i: number, r: DiscoverResult) {
+    setAdding(prev => new Set(prev).add(i));
+    const res = await fetch("/api/competitors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        property_id:    propertyId,
+        name:           r.address,
+        address:        r.address,
+        zip_code:       r.zip_code,
+        city:           r.city,
+        state:          r.state,
+        their_low:      r.price ?? 0,
+        their_high:     r.price ?? 0,
+        threat_level:   "medium",
+        key_amenities:  r.amenities,
+      }),
+    });
+    const json = await res.json();
+    if (res.ok && json.competitor) onAdded(json.competitor);
+    setAdded(prev => new Set(prev).add(i));
+    setAdding(prev => { const n = new Set(prev); n.delete(i); return n; });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-0 sm:px-4">
+      <div className="w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl bg-white dark:bg-[#1C1F2E] border border-gray-100 dark:border-white/10 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[85vh]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 px-5 py-4 shrink-0">
+          <div>
+            <p className="font-bold text-gray-900 dark:text-gray-100">Nearby Properties</p>
+            <p className="text-xs text-gray-400 mt-0.5">{propertyName} · 1.5-mile radius · Rentcast data</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 p-5">
+          {status === "loading" && (
+            <div className="flex flex-col items-center py-16 gap-4">
+              <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-[#C8102E]" />
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Searching your market…</p>
+                <p className="text-xs text-gray-400 mt-1">Geocoding address → Rentcast radius search</p>
+              </div>
+            </div>
+          )}
+
+          {status === "error" && (
+            <div className="rounded-xl border border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 p-5 text-center">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">Search failed</p>
+              <p className="text-xs text-red-500">{errorMsg}</p>
+            </div>
+          )}
+
+          {status === "results" && (
+            <>
+              <p className="text-xs text-gray-400 mb-4">
+                {results.length} propert{results.length !== 1 ? "ies" : "y"} found — add the ones that compete with you
+              </p>
+              <div className="space-y-3">
+                {results.map((r, i) => {
+                  const isAdded = added.has(i);
+                  const isAdding = adding.has(i);
+                  return (
+                    <div key={i} className={`rounded-xl border p-4 transition-colors ${isAdded ? "border-green-200 dark:border-green-800/30 bg-green-50 dark:bg-green-900/10" : "border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5"}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 break-words leading-snug">{r.address}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            {[r.city, r.state, r.zip_code].filter(Boolean).join(", ")}
+                            {r.property_type ? ` · ${r.property_type}` : ""}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {r.price ? (
+                            <>
+                              <p className="text-base font-black text-gray-800 dark:text-gray-100">${r.price.toLocaleString()}</p>
+                              <p className="text-[10px] text-gray-400">/mo</p>
+                            </>
+                          ) : (
+                            <p className="text-xs text-gray-400 italic">No price</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Details row */}
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {r.bedrooms != null && (
+                          <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.bedrooms}BR</span>
+                        )}
+                        {r.bathrooms != null && (
+                          <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.bathrooms}BA</span>
+                        )}
+                        {r.sqft != null && (
+                          <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.sqft.toLocaleString()} sqft</span>
+                        )}
+                        {r.amenities.slice(0, 3).map(a => (
+                          <span key={a} className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{a}</span>
+                        ))}
+                      </div>
+
+                      <div className="mt-3">
+                        {isAdded ? (
+                          <p className="text-xs font-semibold text-green-600 dark:text-green-400">✓ Added to tracker</p>
+                        ) : (
+                          <button
+                            onClick={() => handleAdd(i, r)}
+                            disabled={isAdding}
+                            className="w-full rounded-lg bg-[#C8102E] py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
+                            {isAdding ? "Adding…" : "Add to Tracker"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-gray-100 dark:border-white/5 px-5 py-3 shrink-0">
+          <button onClick={onClose}
+            className="w-full rounded-lg border border-gray-200 dark:border-white/10 py-2.5 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CompetitorsPage() {
@@ -476,6 +655,7 @@ export default function CompetitorsPage() {
   const [compLoading, setCompLoading]       = useState(false);
   const [email, setEmail]                   = useState("");
   const [showModal, setShowModal]           = useState(false);
+  const [showDiscover, setShowDiscover]     = useState(false);
   const [editing, setEditing]               = useState<Competitor | null>(null);
 
   const loadCompetitors = useCallback(async (propId: string, em: string) => {
@@ -561,12 +741,20 @@ export default function CompetitorsPage() {
             <h1 className="text-2xl font-black text-gray-900 dark:text-gray-100">Competitor Intel</h1>
             <p className="text-sm text-gray-500 mt-0.5">Track price position, concessions, and vacancy pressure — per property</p>
           </div>
-          <button
-            onClick={() => { setEditing(null); setShowModal(true); }}
-            disabled={properties.length === 0}
-            className="shrink-0 rounded-xl bg-[#C8102E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
-            + Add Competitor
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setShowDiscover(true)}
+              disabled={!selectedId}
+              className="rounded-xl border border-[#C8102E] bg-[#C8102E]/10 px-4 py-2.5 text-sm font-bold text-[#C8102E] hover:bg-[#C8102E]/20 disabled:opacity-40 transition-colors">
+              ✦ Discover
+            </button>
+            <button
+              onClick={() => { setEditing(null); setShowModal(true); }}
+              disabled={properties.length === 0}
+              className="rounded-xl bg-[#C8102E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
+              + Add
+            </button>
+          </div>
         </div>
 
         {/* Property Tabs */}
@@ -603,12 +791,18 @@ export default function CompetitorsPage() {
             <p className="text-4xl mb-3">🏢</p>
             <p className="font-bold text-gray-700 dark:text-gray-300 mb-1">No competitors tracked for {selectedProperty?.name}</p>
             <p className="text-sm text-gray-400 mb-6 max-w-xs mx-auto">
-              Add competitors you know about — their rent range, any specials they&apos;re running, and how many units they have open.
+              Discover nearby properties automatically from Rentcast, or add one manually.
             </p>
-            <button onClick={() => { setEditing(null); setShowModal(true); }}
-              className="rounded-xl bg-[#C8102E] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors">
-              + Add First Competitor
-            </button>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <button onClick={() => setShowDiscover(true)}
+                className="rounded-xl border border-[#C8102E] bg-[#C8102E]/10 px-6 py-2.5 text-sm font-bold text-[#C8102E] hover:bg-[#C8102E]/20 transition-colors">
+                ✦ Discover Nearby
+              </button>
+              <button onClick={() => { setEditing(null); setShowModal(true); }}
+                className="rounded-xl border border-gray-200 dark:border-white/10 px-6 py-2.5 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+                + Add Manually
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-5">
@@ -679,6 +873,16 @@ export default function CompetitorsPage() {
           </div>
         )}
       </div>
+
+      {showDiscover && selectedId && (
+        <DiscoverModal
+          propertyId={selectedId}
+          propertyName={selectedProperty?.name ?? ""}
+          email={email}
+          onClose={() => setShowDiscover(false)}
+          onAdded={comp => setCompetitors(prev => [...prev, comp])}
+        />
+      )}
 
       {showModal && (
         <CompetitorModal
