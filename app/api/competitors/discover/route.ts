@@ -41,10 +41,17 @@ async function fetchComps(
       headers: { "X-Api-Key": apiKey },
       next:    { revalidate: 0 },
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`Rentcast AVM ${res.status}:`, await res.text().catch(() => ""));
+      return [];
+    }
     const data = await res.json();
-    return Array.isArray(data.comparables) ? data.comparables : [];
-  } catch {
+    // Rentcast uses "listings" in AVM response (not "comparables")
+    const comps = data.listings ?? data.comparables ?? data.rentComparables ?? [];
+    console.log(`Rentcast AVM for ${address} ${bedrooms}BR → keys: ${Object.keys(data).join(", ")} | comps: ${comps.length}`);
+    return Array.isArray(comps) ? comps : [];
+  } catch (e) {
+    console.error("fetchComps error:", e);
     return [];
   }
 }
