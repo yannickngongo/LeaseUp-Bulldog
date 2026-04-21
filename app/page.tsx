@@ -357,6 +357,29 @@ export default function LandingPage() {
             </div>
           </div>
 
+          {/* Marketing Add-On */}
+          <div className="mb-4 rounded-2xl border border-amber-800/40 bg-amber-950/20 p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-sm font-bold text-amber-400">Marketing Add-On</p>
+                <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Optional</span>
+              </div>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-2xl font-black text-white">$500</span>
+                <span className="text-sm text-gray-400">/mo</span>
+                <span className="text-sm text-gray-500">+</span>
+                <span className="text-2xl font-black text-white">5%</span>
+                <span className="text-sm text-gray-400">of ad spend</span>
+              </div>
+              <p className="text-sm text-gray-400">AI ad strategy, creative, and copy for Facebook & Google. You approve before anything goes live.</p>
+            </div>
+            <div className="shrink-0 rounded-xl border border-amber-800/30 bg-amber-900/20 p-4 text-center min-w-[140px]">
+              <p className="text-xs text-amber-400 font-semibold mb-1">Example: $5K spend</p>
+              <p className="text-xl font-black text-white">$750/mo</p>
+              <p className="text-xs text-gray-500">$500 + $250 (5%)</p>
+            </div>
+          </div>
+
           {/* Performance fee + guarantee row */}
           <div className="mb-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-amber-800/40 bg-amber-950/20 p-6">

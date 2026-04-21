@@ -152,6 +152,60 @@ export default function FeaturesPage() {
         </div>
       </section>
 
+      {/* Pricing */}
+      <section className="bg-[#10101A] border-y border-[#1E1E2E] px-6 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center mb-12">
+            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#C8102E]">Pricing</p>
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Simple. Performance-based.</h2>
+            <p className="mt-3 text-gray-500">Start at $500/mo. Pay per lease only when we deliver.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3 mb-4">
+            {[
+              { name: "Starter", price: "$500", lease: "$150", range: "1–3 properties", popular: false },
+              { name: "Pro",     price: "$1,500", lease: "$200", range: "4–20 properties", popular: true },
+              { name: "Portfolio", price: "$3,000", lease: "$250", range: "20+ properties", popular: false },
+            ].map((plan) => (
+              <div key={plan.name} className={`rounded-2xl border p-6 flex flex-col ${plan.popular ? "border-[#C8102E] bg-[#C8102E]/5 relative" : "border-[#1E1E2E] bg-[#16161F]"}`}>
+                {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#C8102E] px-3 py-1 text-[10px] font-black text-white tracking-widest uppercase">Most Popular</span>}
+                <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${plan.popular ? "text-[#C8102E]" : "text-gray-500"}`}>{plan.name}</p>
+                <div className="flex items-end gap-1 mb-0.5">
+                  <span className="text-3xl font-black text-white">{plan.price}</span>
+                  <span className="mb-1 text-sm text-gray-400">/mo</span>
+                </div>
+                <p className="text-xs text-gray-500 mb-1">+ {plan.lease}/lease signed</p>
+                <p className="text-sm text-gray-400 mb-4">{plan.range}</p>
+                <Link href="/free-trial" className={`mt-auto block w-full rounded-xl py-2.5 text-center text-sm font-bold transition-colors ${plan.popular ? "bg-[#C8102E] text-white hover:bg-[#A50D25] shadow-lg shadow-[#C8102E]/25" : "border border-[#1E1E2E] text-white hover:bg-white/5"}`}>
+                  Start Pilot →
+                </Link>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-2xl border border-amber-800/40 bg-amber-950/20 p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-sm font-bold text-amber-400">Marketing Add-On</p>
+                <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Optional</span>
+              </div>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-2xl font-black text-white">$500</span>
+                <span className="text-sm text-gray-400">/mo</span>
+                <span className="text-sm text-gray-500">+</span>
+                <span className="text-2xl font-black text-white">5%</span>
+                <span className="text-sm text-gray-400">of ad spend</span>
+              </div>
+              <p className="text-sm text-gray-400">AI ad strategy, creative, and copy for Facebook & Google.</p>
+            </div>
+            <div className="shrink-0 rounded-xl border border-amber-800/30 bg-amber-900/20 p-4 text-center min-w-[140px]">
+              <p className="text-xs text-amber-400 font-semibold mb-1">Example: $5K spend</p>
+              <p className="text-xl font-black text-white">$750/mo</p>
+              <p className="text-xs text-gray-500">$500 + $250 (5%)</p>
+            </div>
+          </div>
+          <p className="text-center text-xs text-gray-600">No setup fee · 14-day pilot · 30-day results guarantee · <Link href="/pricing" className="text-[#C8102E] hover:underline">Full pricing details →</Link></p>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="relative overflow-hidden px-6 py-20 text-center">
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

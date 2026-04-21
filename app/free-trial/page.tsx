@@ -104,6 +104,11 @@ export default function FreeTrialPage() {
                   </div>
                 </div>
 
+                <div className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-4 py-3">
+                  <p className="text-xs font-semibold text-amber-400 mb-0.5">Marketing Add-On <span className="font-normal text-amber-600">— Optional</span></p>
+                  <p className="text-xs text-gray-400">$500/mo + 5% of ad spend. AI ad creative for Facebook & Google. Add after signup.</p>
+                </div>
+
                 <Link
                   href="/checkout"
                   className="block w-full rounded-xl bg-[#C8102E] py-3.5 text-center text-sm font-bold text-white hover:bg-[#A50D25] transition-colors mt-2 shadow-lg shadow-[#C8102E]/25"
