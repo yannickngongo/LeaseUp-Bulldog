@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 import { getSupabaseAdmin } from "@/lib/supabase";
-
-function makeSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-}
+import { sendWelcomeEmail } from "@/lib/email";
 
 async function ensureOperatorAndAcceptInvite(
   email: string,
@@ -55,7 +49,26 @@ export async function GET(req: NextRequest) {
   const type        = searchParams.get("type");
   const inviteToken = searchParams.get("invite_token") ?? "";
 
-  const supabase = makeSupabase();
+  // Build a response we can attach cookies to (default — may be overridden below)
+  let res = NextResponse.redirect(`${origin}/dashboard`);
+  let isNewOperator = false;
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
 
   // ── Email verification (magic link / email confirm) ───────────────────────
   if (token_hash && type) {
@@ -68,6 +81,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${origin}/login?error=verification_failed`);
     }
 
+    // Password recovery — send to reset page, not dashboard
+    if (type === "recovery") {
+      res = NextResponse.redirect(`${origin}/reset-password`);
+      return res;
+    }
+
     if (inviteToken && data.user?.email) {
       await ensureOperatorAndAcceptInvite(
         data.user.email,
@@ -75,19 +94,25 @@ export async function GET(req: NextRequest) {
         inviteToken
       );
     } else if (data.user?.email) {
-      // Regular email verification — ensure operators row exists
       const db = getSupabaseAdmin();
       const { data: existingOp } = await db.from("operators").select("id").eq("email", data.user.email).single();
       if (!existingOp) {
+        const fullName = data.user.user_metadata?.full_name as string | undefined;
         await db.from("operators").insert({
-          name:  data.user.user_metadata?.full_name ?? data.user.email.split("@")[0],
+          name:  fullName ?? data.user.email.split("@")[0],
           email: data.user.email,
           plan:  "starter",
         });
+        const firstName = fullName?.split(" ")[0] ?? data.user.email.split("@")[0];
+        sendWelcomeEmail({ to: data.user.email, firstName }).catch(() => {});
+        isNewOperator = true;
       }
     }
 
-    return NextResponse.redirect(`${origin}/dashboard`);
+    if (isNewOperator) {
+      res = NextResponse.redirect(`${origin}/onboarding`);
+    }
+    return res;
   }
 
   // ── OAuth code exchange (Google, etc.) ────────────────────────────────────
@@ -100,8 +125,26 @@ export async function GET(req: NextRequest) {
         data.session.user.user_metadata?.full_name,
         inviteToken
       );
+    } else if (data.session?.user?.email) {
+      const db = getSupabaseAdmin();
+      const email = data.session.user.email;
+      const { data: existingOp } = await db.from("operators").select("id").eq("email", email).single();
+      if (!existingOp) {
+        const fullName = data.session.user.user_metadata?.full_name as string | undefined;
+        await db.from("operators").insert({
+          name:  fullName ?? email.split("@")[0],
+          email,
+          plan:  "starter",
+        });
+        const firstName = fullName?.split(" ")[0] ?? email.split("@")[0];
+        sendWelcomeEmail({ to: email, firstName }).catch(() => {});
+        isNewOperator = true;
+      }
     }
   }
 
-  return NextResponse.redirect(`${origin}/dashboard`);
+  if (isNewOperator && !inviteToken) {
+    res = NextResponse.redirect(`${origin}/onboarding`);
+  }
+  return res;
 }

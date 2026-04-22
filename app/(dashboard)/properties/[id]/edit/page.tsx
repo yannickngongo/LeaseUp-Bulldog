@@ -278,7 +278,7 @@ export default function EditPropertyPage() {
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", zip: "",
     neighborhood: "", phone_number: "", active_special: "",
-    website_url: "", total_units: "", tour_booking_url: "",
+    website_url: "", total_units: "", tour_booking_url: "", notify_email: "",
   });
 
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
@@ -303,6 +303,7 @@ export default function EditPropertyPage() {
             website_url:      p.website_url ?? "",
             total_units:      p.total_units != null ? String(p.total_units) : "",
             tour_booking_url: p.tour_booking_url ?? "",
+            notify_email:     p.notify_email ?? "",
           });
         }
       })
@@ -331,6 +332,7 @@ export default function EditPropertyPage() {
           website_url:      form.website_url || null,
           total_units:      form.total_units ? parseInt(form.total_units) : null,
           tour_booking_url: form.tour_booking_url || null,
+          notify_email:     form.notify_email || null,
         }),
       });
       const json = await res.json();
@@ -424,6 +426,11 @@ export default function EditPropertyPage() {
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Tour Booking URL</label>
                 <input value={form.tour_booking_url} onChange={e => set("tour_booking_url", e.target.value)} placeholder="https://calendly.com/..." className={inputCls} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Operator Notification Email</label>
+                <input type="email" value={form.notify_email} onChange={e => set("notify_email", e.target.value)} placeholder="you@company.com" className={inputCls} />
+                <p className="mt-1 text-xs text-gray-400">Alerts for hot leads, tour requests, and AI escalations sent here.</p>
               </div>
             </div>
           </div>

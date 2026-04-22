@@ -47,6 +47,50 @@ function getClient(): Twilio {
   return _client;
 }
 
+// ─── provisionPhoneNumber ─────────────────────────────────────────────────────
+
+/**
+ * Searches for an available local US number near the given area code and purchases it.
+ * Configures the SMS webhook to point at /api/twilio/inbound.
+ * Returns the provisioned E.164 number, or null if none available.
+ */
+export async function provisionPhoneNumber(
+  areaCode: string,
+  webhookBaseUrl?: string
+): Promise<string | null> {
+  const client = getClient();
+  const appUrl = webhookBaseUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const smsUrl = `${appUrl}/api/twilio/inbound`;
+
+  try {
+    // Search for an available local number with the given area code
+    const available = await client
+      .availablePhoneNumbers("US")
+      .local.list({ areaCode: parseInt(areaCode, 10), limit: 1 });
+
+    if (!available.length) {
+      // Fallback: search without area code constraint
+      const fallback = await client
+        .availablePhoneNumbers("US")
+        .local.list({ limit: 1 });
+      if (!fallback.length) return null;
+      available.push(...fallback);
+    }
+
+    const purchased = await client.incomingPhoneNumbers.create({
+      phoneNumber:     available[0].phoneNumber,
+      smsUrl,
+      smsMethod:       "POST",
+      friendlyName:    "LeaseUp Bulldog",
+    });
+
+    return purchased.phoneNumber;
+  } catch (err) {
+    console.error("[twilio] provisionPhoneNumber failed:", err);
+    return null;
+  }
+}
+
 // ─── sendSms ─────────────────────────────────────────────────────────────────
 
 export async function sendSms({ to, body, from }: SendSmsParams): Promise<SmsResult> {

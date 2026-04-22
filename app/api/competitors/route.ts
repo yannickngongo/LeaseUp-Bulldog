@@ -30,7 +30,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { email, property_id, name, address, their_low, their_high, concession, units_available, threat_level, notes } = body;
+  const {
+    email, property_id, name, address, their_low, their_high,
+    concession, units_available, threat_level, notes,
+    distance_miles, website_url, property_name,
+  } = body;
   if (!email || !property_id || !name || their_low == null || their_high == null)
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
 
@@ -52,6 +56,9 @@ export async function POST(req: NextRequest) {
       threat_level:     threat_level ?? "medium",
       notes:            notes?.trim() || null,
       last_updated:     new Date().toISOString(),
+      distance_miles:   distance_miles ?? null,
+      website_url:      website_url ?? null,
+      property_name:    property_name?.trim() || null,
     })
     .select()
     .single();
@@ -68,7 +75,7 @@ export async function PATCH(req: NextRequest) {
   const ctx = await resolveCallerContext(email);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const allowed = ["name", "address", "their_low", "their_high", "concession", "units_available", "threat_level", "notes"];
+  const allowed = ["name", "address", "their_low", "their_high", "concession", "units_available", "threat_level", "notes", "property_name", "website_url", "distance_miles"];
   const updates: Record<string, unknown> = { last_updated: new Date().toISOString() };
   for (const key of allowed) {
     if (key in fields) updates[key] = fields[key] === "" ? null : fields[key];

@@ -42,6 +42,18 @@ interface Invitation {
   expires_at: string;
 }
 
+function TwilioCopyBtn({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="shrink-0 rounded px-2 py-0.5 text-[10px] font-bold text-[#C8102E] hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+    >
+      {copied ? "Copied!" : "Copy"}
+    </button>
+  );
+}
+
 function Skeleton({ className }: { className?: string }) {
   return <div className={`animate-pulse rounded bg-gray-100 dark:bg-white/5 ${className ?? ""}`} />;
 }
@@ -526,6 +538,32 @@ export default function SettingsPage() {
           <div className="mt-4 rounded-lg border border-gray-100 px-4 py-3 dark:border-white/5">
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Billing managed by LeaseUp Bulldog team</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Contact your account manager for invoices, receipts, or billing changes.</p>
+          </div>
+        </div>
+
+        {/* ── SMS Connection ────────────────────────────────────────────── */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+          <h2 className="mb-1 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Twilio SMS Setup</h2>
+          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">Configure this URL in Twilio so inbound SMS replies trigger the AI response loop.</p>
+          <div className="space-y-3">
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400">Inbound Webhook URL</p>
+              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
+                <code className="flex-1 truncate font-mono text-xs text-gray-700 dark:text-gray-300">
+                  {(process.env.NEXT_PUBLIC_APP_URL ?? "https://lease-up-bulldog.vercel.app") + "/api/twilio/inbound"}
+                </code>
+                <TwilioCopyBtn url={(process.env.NEXT_PUBLIC_APP_URL ?? "https://lease-up-bulldog.vercel.app") + "/api/twilio/inbound"} />
+              </div>
+              <p className="mt-1.5 text-[11px] text-gray-400">
+                In Twilio console → Phone Numbers → your number → &quot;A message comes in&quot; → set to <strong>HTTP POST</strong> and paste the URL above.
+              </p>
+            </div>
+            <div className="rounded-lg border border-blue-100 bg-blue-50/50 px-4 py-3 dark:border-blue-900/20 dark:bg-blue-900/10">
+              <p className="text-xs font-bold text-blue-700 dark:text-blue-400 mb-1">What this does</p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
+                When a lead replies to your AI SMS, Twilio sends the message to this URL. LUB processes it, builds conversation history, and sends an AI reply — all within 5 seconds.
+              </p>
+            </div>
           </div>
         </div>
 

@@ -1,12 +1,10 @@
 // lib/demo-auth.ts
-// Client-side helper for resolving the operator email.
-// For demo/testing: no login required — email is stored in localStorage after setup.
-// For production: Supabase auth session takes precedence.
+// Client-side helpers for auth state and authenticated API calls.
 
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 function getSupabase() {
-  return createClient(
+  return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
   );
@@ -14,25 +12,18 @@ function getSupabase() {
 
 const STORAGE_KEY = "lub_operator_email";
 
-/** Save email to localStorage after setup (demo mode). */
 export function saveOperatorEmail(email: string) {
   if (typeof window !== "undefined") {
     localStorage.setItem(STORAGE_KEY, email);
   }
 }
 
-/** Clear saved email (on logout). */
 export function clearOperatorEmail() {
   if (typeof window !== "undefined") {
     localStorage.removeItem(STORAGE_KEY);
   }
 }
 
-/**
- * Get the operator email.
- * 1. Tries Supabase auth session first.
- * 2. Falls back to localStorage (demo / no-login mode).
- */
 export async function getOperatorEmail(): Promise<string | null> {
   try {
     const { data } = await getSupabase().auth.getUser();
@@ -43,4 +34,40 @@ export async function getOperatorEmail(): Promise<string | null> {
     return localStorage.getItem(STORAGE_KEY);
   }
   return null;
+}
+
+/** Returns the current Supabase access token, or null if not signed in. */
+export async function getAccessToken(): Promise<string | null> {
+  try {
+    const { data } = await getSupabase().auth.getSession();
+    return data.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Authenticated fetch wrapper.
+ * Automatically injects `Authorization: Bearer <token>` when signed in.
+ * Falls back to email-in-body pattern for backwards compatibility.
+ */
+export async function authFetch(
+  url: string,
+  init: RequestInit & { body?: BodyInit | Record<string, unknown> | null } = {}
+): Promise<Response> {
+  const token = await getAccessToken();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(init.headers as Record<string, string>),
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const body =
+    init.body && typeof init.body === "object" && !(init.body instanceof FormData)
+      ? JSON.stringify(init.body)
+      : (init.body as BodyInit | null | undefined);
+
+  return fetch(url, { ...init, headers, body });
 }

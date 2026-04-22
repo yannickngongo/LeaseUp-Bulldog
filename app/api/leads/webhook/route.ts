@@ -51,6 +51,21 @@ function normalizePayload(body: Record<string, unknown>) {
   return { firstName, lastName, phone, email, unitType, moveDate, source };
 }
 
+// ─── Rate limiting ────────────────────────────────────────────────────────────
+
+const RATE_LIMIT = 20;  // max leads per minute per property
+const RATE_WINDOW_MS = 60_000;
+
+async function isRateLimited(db: ReturnType<typeof import("@/lib/supabase").getSupabaseAdmin>, propertyId: string): Promise<boolean> {
+  const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
+  const { count } = await db
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("property_id", propertyId)
+    .gte("created_at", since);
+  return (count ?? 0) >= RATE_LIMIT;
+}
+
 // ─── Handler ─────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -61,6 +76,7 @@ export async function POST(req: NextRequest) {
 
   // Auth: check X-Webhook-Secret or api_key param
   const providedSecret = req.headers.get("x-webhook-secret") ?? req.nextUrl.searchParams.get("api_key") ?? "";
+  const callerIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
 
   const db = getSupabaseAdmin();
 
@@ -78,6 +94,12 @@ export async function POST(req: NextRequest) {
   const webhookSecret = (property as Record<string, unknown>).webhook_secret as string | undefined;
   if (webhookSecret && providedSecret !== webhookSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Rate limiting
+  if (await isRateLimited(db, propertyId)) {
+    console.warn("[leads/webhook] rate limit exceeded for property:", propertyId);
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
   let body: Record<string, unknown>;
@@ -110,17 +132,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, leadId: existing.id, duplicate: true });
   }
 
+  // TCPA consent fields — recorded at lead creation time for compliance
+  const tcpaConsentAt = new Date().toISOString();
+
   // Create lead
   const { data: lead, error: leadErr } = await db
     .from("leads")
     .insert({
-      property_id:  propertyId,
+      property_id:       propertyId,
       name,
-      phone:        phone.startsWith("+") ? phone : `+1${phone}`,
-      email:        email || null,
-      status:       "new",
+      phone:             phone.startsWith("+") ? phone : `+1${phone}`,
+      email:             email || null,
+      status:            "new",
       source,
-      move_in_date: moveDate ?? null,
+      move_in_date:      moveDate ?? null,
+      tcpa_consent_at:   tcpaConsentAt,
+      tcpa_consent_ip:   callerIp,
+      tcpa_consent_source: source,
     })
     .select("id, name, phone, status")
     .single();

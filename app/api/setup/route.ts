@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { provisionPhoneNumber } from "@/lib/twilio";
 
 export async function GET(req: NextRequest) {
   const email = req.nextUrl.searchParams.get("email");
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { operatorName, email, propertyName, address, city, state, zip, neighborhood, phoneNumber, activeSpecial, websiteUrl, totalUnits, tourBookingUrl } = body;
 
-  if (!operatorName || !email || !propertyName || !address || !city || !state || !zip || !phoneNumber) {
+  if (!operatorName || !email || !propertyName || !address || !city || !state || !zip) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -60,6 +61,19 @@ export async function POST(req: NextRequest) {
     operatorId = created.id;
   }
 
+  // Auto-provision a Twilio number if none supplied
+  let resolvedPhone = phoneNumber || null;
+  if (!resolvedPhone) {
+    const areaCode = zip?.slice(0, 3) ?? "800";
+    resolvedPhone = await provisionPhoneNumber(areaCode);
+    if (!resolvedPhone) {
+      return NextResponse.json(
+        { error: "Could not provision a phone number. Please try again or contact support." },
+        { status: 503 }
+      );
+    }
+  }
+
   // Create property
   const { data: property, error: propError } = await db
     .from("properties")
@@ -71,7 +85,7 @@ export async function POST(req: NextRequest) {
       state,
       zip,
       neighborhood:      neighborhood || null,
-      phone_number:      phoneNumber,
+      phone_number:      resolvedPhone,
       active_special:    activeSpecial || null,
       website_url:       websiteUrl || null,
       total_units:       totalUnits ? parseInt(totalUnits, 10) : null,

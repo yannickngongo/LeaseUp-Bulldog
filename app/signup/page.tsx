@@ -2,10 +2,10 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 function getSupabase() {
-  return createClient(
+  return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
   );
@@ -66,7 +66,7 @@ function SignupForm() {
           body:    JSON.stringify({ token: inviteToken }),
         });
       }
-      router.push("/dashboard");
+      router.push(isInvite ? "/dashboard" : "/onboarding");
       return;
     }
 
@@ -194,8 +194,8 @@ function SignupForm() {
 
             <p className="mt-6 text-center text-xs text-gray-600">
               By creating an account you agree to our{" "}
-              <a href="#" className="text-gray-500 hover:underline">Terms</a> and{" "}
-              <a href="#" className="text-gray-500 hover:underline">Privacy Policy</a>.
+              <Link href="/terms" className="text-gray-500 hover:underline">Terms</Link> and{" "}
+              <Link href="/privacy" className="text-gray-500 hover:underline">Privacy Policy</Link>.
             </p>
           </div>
         </div>

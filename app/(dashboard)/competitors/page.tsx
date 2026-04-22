@@ -8,6 +8,7 @@ import { getOperatorEmail } from "@/lib/demo-auth";
 interface Competitor {
   id: string;
   name: string;
+  property_name: string | null;
   address: string | null;
   their_low: number;
   their_high: number;
@@ -16,6 +17,8 @@ interface Competitor {
   threat_level: "high" | "medium" | "low";
   notes: string | null;
   last_updated: string;
+  distance_miles: number | null;
+  website_url: string | null;
 }
 
 interface Property {
@@ -203,11 +206,12 @@ function VacancySignal({ competitors }: { competitors: Competitor[] }) {
 
 // ─── Competitor Card ──────────────────────────────────────────────────────────
 
-function CompetitorCard({ comp, ourRent, onEdit, onDelete }: {
+function CompetitorCard({ comp, ourRent, onEdit, onDelete, onEnrich }: {
   comp: Competitor;
   ourRent: number;
   onEdit: (c: Competitor) => void;
   onDelete: (id: string) => void;
+  onEnrich: (id: string) => void;
 }) {
   const compMid  = mid(comp);
   const diff     = compMid - ourRent;
@@ -221,12 +225,30 @@ function CompetitorCard({ comp, ourRent, onEdit, onDelete }: {
       <div className="flex items-start justify-between gap-2 mb-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-bold text-sm text-gray-900 dark:text-gray-100">{comp.name}</p>
+            <p className="font-bold text-sm text-gray-900 dark:text-gray-100">
+              {comp.property_name ?? comp.name}
+            </p>
             <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${tc.bg} ${tc.text}`}>
               {comp.threat_level}
             </span>
+            {!comp.property_name && (
+              <button
+                onClick={() => onEnrich(comp.id)}
+                className="rounded-full border border-dashed border-gray-300 dark:border-white/20 px-2 py-0.5 text-[9px] font-semibold text-gray-400 hover:border-[#C8102E] hover:text-[#C8102E] transition-colors">
+                Find name
+              </button>
+            )}
           </div>
-          {comp.address && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{comp.address}</p>}
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+            {comp.address && (
+              <p className="text-[11px] text-gray-400 truncate">{comp.address}</p>
+            )}
+            {comp.distance_miles != null && (
+              <span className="shrink-0 rounded-full bg-gray-100 dark:bg-white/10 px-2 py-0.5 text-[9px] font-semibold text-gray-500 dark:text-gray-400">
+                {comp.distance_miles} mi away
+              </span>
+            )}
+          </div>
         </div>
         <div className="shrink-0 text-right">
           <p className={`text-xl font-black ${diff > 0 ? "text-green-600 dark:text-green-400" : diff < 0 ? "text-red-600 dark:text-red-400" : "text-gray-500"}`}>
@@ -498,6 +520,11 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
   const [adding, setAdding]           = useState<Set<number>>(new Set());
   const [addErrors, setAddErrors]     = useState<Record<number, string>>({});
 
+  // Enrichment: property_name + concession looked up from website
+  type Enrichment = { property_name: string | null; concession: string | null; website_url: string | null };
+  const [enriched, setEnriched]       = useState<Record<number, Enrichment>>({});
+  const [enriching, setEnriching]     = useState<Set<number>>(new Set());
+
   useEffect(() => {
     fetch("/api/competitors/discover", {
       method: "POST",
@@ -514,21 +541,52 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
       .catch(() => { setErrorMsg("Network error — please try again."); setStatus("error"); });
   }, [email, propertyId]);
 
+  async function checkSpecials(i: number, r: DiscoverResult): Promise<Enrichment> {
+    if (enriched[i]) return enriched[i];
+    setEnriching(prev => new Set(prev).add(i));
+    try {
+      const res = await fetch("/api/competitors/check-specials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: r.address, city: r.city, state: r.state }),
+      });
+      const json = await res.json();
+      const result: Enrichment = {
+        property_name: json.property_name ?? null,
+        concession:    json.concession    ?? null,
+        website_url:   json.website_url   ?? null,
+      };
+      setEnriched(prev => ({ ...prev, [i]: result }));
+      return result;
+    } catch {
+      return { property_name: null, concession: null, website_url: null };
+    } finally {
+      setEnriching(prev => { const n = new Set(prev); n.delete(i); return n; });
+    }
+  }
+
   async function handleAdd(i: number, r: DiscoverResult) {
     setAdding(prev => new Set(prev).add(i));
     setAddErrors(prev => { const n = { ...prev }; delete n[i]; return n; });
+
+    // Check the property website for specials before saving
+    const extra = await checkSpecials(i, r);
 
     const res = await fetch("/api/competitors", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email,
-        property_id:  propertyId,
-        name:         r.address,
-        address:      r.address,
-        their_low:    r.price ?? 0,
-        their_high:   r.price ?? 0,
-        threat_level: "medium",
+        property_id:    propertyId,
+        name:           r.address,
+        address:        r.address,
+        their_low:      r.price ?? 0,
+        their_high:     r.price ?? 0,
+        threat_level:   "medium",
+        concession:     extra.concession,
+        website_url:    extra.website_url,
+        property_name:  extra.property_name,
+        distance_miles: r.distance,
       }),
     });
     const json = await res.json();
@@ -584,15 +642,23 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
               </p>
               <div className="space-y-3">
                 {results.map((r, i) => {
-                  const isAdded = added.has(i);
-                  const isAdding = adding.has(i);
+                  const isAdded    = added.has(i);
+                  const isAdding   = adding.has(i);
+                  const isEnriching = enriching.has(i);
+                  const extra      = enriched[i];
+                  const displayName = extra?.property_name ?? null;
+
                   return (
                     <div key={i} className={`rounded-xl border p-4 transition-colors ${isAdded ? "border-green-200 dark:border-green-800/30 bg-green-50 dark:bg-green-900/10" : "border-gray-100 dark:border-white/10 bg-gray-50 dark:bg-white/5"}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 break-words leading-snug">{r.address}</p>
-                          <p className="text-[11px] text-gray-400 mt-0.5">
-                            {[r.city, r.state, r.zip_code].filter(Boolean).join(", ")}
+                          {/* Property name (marketing name if found, else street address) */}
+                          <p className="text-sm font-bold text-gray-900 dark:text-gray-100 break-words leading-snug">
+                            {displayName ?? r.address.split(",")[0]}
+                          </p>
+                          {/* Full address always shown smaller */}
+                          <p className="text-[11px] text-gray-400 mt-0.5 break-words">
+                            {r.address}
                             {r.property_type ? ` · ${r.property_type}` : ""}
                           </p>
                         </div>
@@ -608,8 +674,13 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
                         </div>
                       </div>
 
-                      {/* Details row */}
-                      <div className="flex flex-wrap gap-2 mt-2">
+                      {/* Detail badges */}
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {r.distance != null && (
+                          <span className="rounded-full bg-[#C8102E]/10 border border-[#C8102E]/20 px-2 py-0.5 text-[10px] font-bold text-[#C8102E]">
+                            {r.distance} mi away
+                          </span>
+                        )}
                         {r.bedrooms != null && (
                           <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.bedrooms}BR</span>
                         )}
@@ -619,23 +690,23 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
                         {r.sqft != null && (
                           <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.sqft.toLocaleString()} sqft</span>
                         )}
-                        {r.property_type && (
-                          <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.property_type}</span>
-                        )}
-                        {r.distance != null && (
-                          <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">{r.distance.toFixed(2)} mi</span>
-                        )}
-                        {r.similarity != null && (
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.similarity >= 80 ? "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400" : "bg-gray-100 dark:bg-white/5 text-gray-500"}`}>
-                            {r.similarity}% match
-                          </span>
-                        )}
                         {r.last_seen && (
                           <span className="rounded-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 px-2 py-0.5 text-[10px] text-gray-500">
-                            Seen {new Date(r.last_seen).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            Listed {new Date(r.last_seen).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                           </span>
                         )}
                       </div>
+
+                      {/* Concession — shown if website check found one */}
+                      {extra?.concession && (
+                        <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 px-2.5 py-1.5">
+                          <span className="text-amber-500 text-xs shrink-0">⚡</span>
+                          <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">{extra.concession}</p>
+                        </div>
+                      )}
+                      {extra && !extra.concession && (
+                        <p className="mt-2 text-[10px] text-gray-400 italic">No active specials found on their website</p>
+                      )}
 
                       <div className="mt-3">
                         {isAdded ? (
@@ -644,9 +715,9 @@ function DiscoverModal({ propertyId, propertyName, email, onClose, onAdded }: {
                           <>
                             <button
                               onClick={() => handleAdd(i, r)}
-                              disabled={isAdding}
+                              disabled={isAdding || isEnriching}
                               className="w-full rounded-lg bg-[#C8102E] py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
-                              {isAdding ? "Adding…" : "Add to Tracker"}
+                              {isEnriching ? "Checking website…" : isAdding ? "Adding…" : "Add to Tracker"}
                             </button>
                             {addErrors[i] && (
                               <p className="mt-1.5 text-[10px] text-red-500">{addErrors[i]}</p>
@@ -728,6 +799,48 @@ export default function CompetitorsPage() {
   async function handleSelectProperty(id: string) {
     setSelectedId(id);
     if (email) await loadCompetitors(id, email);
+  }
+
+  async function handleEnrich(id: string) {
+    const comp = competitors.find(c => c.id === id);
+    if (!comp || !email) return;
+
+    // Optimistically mark as loading by temporarily setting property_name to a sentinel
+    setCompetitors(prev =>
+      prev.map(c => c.id === id ? { ...c, property_name: "…" } : c)
+    );
+
+    try {
+      const checkRes = await fetch("/api/competitors/check-specials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: comp.address ?? comp.name, city: "", state: "" }),
+      });
+      const checkJson = await checkRes.json();
+
+      const property_name: string | null = checkJson.property_name ?? null;
+      const website_url:   string | null = checkJson.website_url   ?? comp.website_url ?? null;
+      const concession:    string | null = checkJson.concession    ?? comp.concession  ?? null;
+
+      await fetch("/api/competitors", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, id, property_name, website_url, concession }),
+      });
+
+      setCompetitors(prev =>
+        prev.map(c =>
+          c.id === id
+            ? { ...c, property_name: property_name ?? null, website_url, concession }
+            : c
+        )
+      );
+    } catch {
+      // Revert sentinel on error
+      setCompetitors(prev =>
+        prev.map(c => c.id === id ? { ...c, property_name: null } : c)
+      );
+    }
   }
 
   async function handleDelete(id: string) {
@@ -891,6 +1004,7 @@ export default function CompetitorsPage() {
                       ourRent={ourRent ?? 0}
                       onEdit={comp => { setEditing(comp); setShowModal(true); }}
                       onDelete={handleDelete}
+                      onEnrich={handleEnrich}
                     />
                   ))}
               </div>

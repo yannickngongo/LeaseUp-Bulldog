@@ -17,6 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { SupabaseClient } from "@supabase/supabase-js";
+import twilio from "twilio";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateLeadReply } from "@/lib/anthropic";
 import { sendSms } from "@/lib/twilio";
@@ -24,6 +25,7 @@ import { isOptOut, cancelFollowUps, evaluateNextAction } from "@/lib/follow-up";
 import { detectEscalation, createHandoffEvent } from "@/lib/human-takeover";
 import { getPropertyAIContext, formatPropertyAIContext } from "@/lib/property-ai-context";
 import { setFirstContactDate } from "@/lib/billing";
+import { sendHotLeadAlert, sendHumanTakeoverAlert, sendTourRequestedAlert } from "@/lib/email";
 
 const TWIML_OK = new NextResponse(
   `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`,
@@ -48,11 +50,33 @@ async function logActivity(
 }
 
 export async function POST(req: NextRequest) {
-  const formData = await req.formData();
-  const from      = formData.get("From") as string;
-  const to        = formData.get("To") as string;
-  const body      = formData.get("Body") as string;
-  const messageSid = formData.get("MessageSid") as string;
+  // ── 0. Twilio signature validation ────────────────────────────────────────
+  const authToken = process.env.TWILIO_AUTH_TOKEN ?? "";
+  const twilioSig = req.headers.get("x-twilio-signature") ?? "";
+  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin;
+  const webhookUrl = `${appUrl}/api/twilio/inbound`;
+
+  // Read the raw body for signature validation, then re-parse as form data
+  const rawBody = await req.text();
+  const params: Record<string, string> = {};
+  for (const [k, v] of new URLSearchParams(rawBody).entries()) {
+    params[k] = v;
+  }
+
+  if (authToken && twilioSig) {
+    const valid = twilio.validateRequest(authToken, twilioSig, webhookUrl, params);
+    if (!valid) {
+      console.warn("[twilio/inbound] invalid Twilio signature — rejected");
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+  } else if (!authToken) {
+    console.warn("[twilio/inbound] TWILIO_AUTH_TOKEN not set — skipping signature check");
+  }
+
+  const from       = params["From"] ?? "";
+  const to         = params["To"] ?? "";
+  const body       = params["Body"] ?? "";
+  const messageSid = params["MessageSid"] ?? "";
 
   if (!from || !to || !body || !messageSid) {
     console.error("[twilio/inbound] missing required fields", { from, to, body, messageSid });
@@ -170,16 +194,46 @@ export async function POST(req: NextRequest) {
     metadata:    { twilio_sid: messageSid, preview: body.slice(0, 100) },
   });
 
-  // Update lead engagement status
-  if (lead.status === "new" || lead.status === "contacted") {
+  // Update lead engagement status — alert operator on first engagement
+  const isFirstEngagement = lead.status === "new" || lead.status === "contacted";
+  if (isFirstEngagement) {
     await db.from("leads").update({
       status:            "engaged",
       last_contacted_at: new Date().toISOString(),
     }).eq("id", lead.id);
+
+    if (property.notify_email) {
+      sendHotLeadAlert({
+        to:             property.notify_email,
+        leadName:       lead.name,
+        leadPhone:      from,
+        propertyName:   property.name,
+        propertyId:     property.id,
+        leadId:         lead.id,
+        messagePreview: body.slice(0, 200),
+      }).catch((err: unknown) => console.error("[twilio/inbound] hot lead alert failed:", err));
+    }
   } else {
     await db.from("leads").update({
       last_contacted_at: new Date().toISOString(),
     }).eq("id", lead.id);
+  }
+
+  // Tour request detection — alert operator if lead mentions scheduling
+  if (
+    property.notify_email &&
+    !isFirstEngagement &&
+    /\b(tour|schedule|visit|show|appointment|come in|come by|see the)\b/i.test(body)
+  ) {
+    sendTourRequestedAlert({
+      to:             property.notify_email,
+      leadName:       lead.name,
+      leadPhone:      from,
+      propertyName:   property.name,
+      propertyId:     property.id,
+      leadId:         lead.id,
+      messagePreview: body.slice(0, 200),
+    }).catch((err: unknown) => console.error("[twilio/inbound] tour alert failed:", err));
   }
 
   // This was a reply — cancel any pending scheduled follow-ups
@@ -210,6 +264,20 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       console.error("[twilio/inbound] failed to create handoff:", err);
     }
+
+    if (property.notify_email) {
+      sendHumanTakeoverAlert({
+        to:           property.notify_email,
+        leadName:     lead.name,
+        leadPhone:    from,
+        propertyName: property.name,
+        propertyId:   property.id,
+        leadId:       lead.id,
+        reason:       escalationResult.reason,
+        lastMessage:  body.slice(0, 200),
+      }).catch((err: unknown) => console.error("[twilio/inbound] takeover alert failed:", err));
+    }
+
     return TWIML_OK; // AI does not reply — human takes over
   }
 

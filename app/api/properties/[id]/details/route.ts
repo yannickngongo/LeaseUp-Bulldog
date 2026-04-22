@@ -12,7 +12,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const { data, error } = await db
     .from("properties")
-    .select("id, name, address, city, state, zip, neighborhood, phone_number, active_special, website_url, total_units, occupied_units, tour_booking_url")
+    .select("id, name, address, city, state, zip, neighborhood, phone_number, active_special, website_url, total_units, occupied_units, tour_booking_url, notify_email")
     .eq("id", id)
     .single();
 
@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   const body = await req.json();
 
-  const allowed = ["name", "address", "city", "state", "zip", "neighborhood", "phone_number", "active_special", "website_url", "total_units", "tour_booking_url"];
+  const allowed = ["name", "address", "city", "state", "zip", "neighborhood", "phone_number", "active_special", "website_url", "total_units", "tour_booking_url", "notify_email"];
   const update: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) update[key] = body[key];

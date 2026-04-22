@@ -49,7 +49,11 @@ export async function POST(req: NextRequest) {
       .select("name")
       .eq("id", ctx.operatorId)
       .single();
-    const orgName = operatorRow?.name ?? callerEmail.split("@")[0];
+    // Use operator name, but strip it if it looks like an email address
+    const rawName = operatorRow?.name ?? "";
+    const orgName = rawName.includes("@")
+      ? rawName.split("@")[0]
+      : (rawName || callerEmail.split("@")[0]);
 
     const { data: newOrg, error: orgErr } = await db
       .from("organizations")
