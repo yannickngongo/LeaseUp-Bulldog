@@ -47,8 +47,7 @@ export async function sendInviteEmail({
       <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px">
         <p style="font-size:16px;margin-top:0">Hi there,</p>
         <p style="font-size:15px;color:#444">
-          <strong>${invitedBy}</strong> has invited you to join their team on <strong>LeaseUp Bulldog</strong>
-          ${displayName ? ` (<strong>${displayName}</strong>)` : ""} as a <strong>${roleLabel}</strong>.
+          <strong>${invitedBy}</strong> has invited you to join their team on <strong>LeaseUp Bulldog</strong> as a <strong>${roleLabel}</strong>.
         </p>
         <a href="${inviteUrl}" style="display:inline-block;margin:24px 0;background:#C8102E;color:white;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;font-weight:600">Accept Invitation →</a>
         <p style="font-size:13px;color:#888">This invitation expires in 7 days. If you didn't expect this, you can ignore this email.</p>
