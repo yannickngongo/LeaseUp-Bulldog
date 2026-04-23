@@ -223,6 +223,7 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
   const [planLabel,    setPlanLabel]    = useState<string>("");
   const [hasMarketing, setHasMarketing] = useState<boolean>(false);
   const [loggingOut,   setLoggingOut]   = useState(false);
+  const [avatarUrl,    setAvatarUrl]    = useState<string>("");
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -231,6 +232,10 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
   }
 
   useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => {
+      const url = data.user?.user_metadata?.avatar_url;
+      if (url) setAvatarUrl(url);
+    });
     getOperatorEmail().then((email) => {
       if (!email) return;
       fetch(`/api/setup?email=${encodeURIComponent(email)}`)
@@ -254,7 +259,7 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
   }
 
   return (
-    <aside className="flex w-[240px] shrink-0 flex-col border-r border-gray-100 bg-white dark:border-white/5 dark:bg-[#12141E]">
+    <aside className="flex h-full w-[240px] shrink-0 flex-col border-r border-gray-100 bg-white dark:border-white/5 dark:bg-[#12141E]">
 
       {/* Logo */}
       <div className="flex h-14 shrink-0 items-center border-b border-gray-100 px-4 dark:border-white/5">
@@ -327,8 +332,14 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
 
         {/* User */}
         <div className="mt-1 flex items-center gap-2.5 rounded-lg px-3 py-2">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[11px] font-semibold text-white dark:bg-white/10 dark:text-gray-200">
-            {userInitials}
+          <div className="h-7 w-7 shrink-0 rounded-full overflow-hidden">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gray-900 text-[11px] font-semibold text-white dark:bg-white/10 dark:text-gray-200">
+                {userInitials}
+              </div>
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-gray-700 dark:text-gray-300">{userName || "Loading…"}</p>

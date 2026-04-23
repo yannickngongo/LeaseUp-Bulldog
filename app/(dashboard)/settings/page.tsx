@@ -1,8 +1,35 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getOperatorEmail } from "@/lib/demo-auth";
+import { createBrowserClient } from "@supabase/ssr";
+
+function getSupabase() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+  );
+}
+
+function compressImage(file: File, maxPx = 200): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const size = Math.min(img.width, img.height, maxPx);
+      const canvas = document.createElement("canvas");
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext("2d")!;
+      const sx = (img.width - size) / 2, sy = (img.height - size) / 2;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
 
 interface Operator {
   id: string;
@@ -87,6 +114,9 @@ export default function SettingsPage() {
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [upgrading, setUpgrading]   = useState(false);
+  const [avatarUrl, setAvatarUrl]   = useState<string>("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // Team management state
   const [members, setMembers]             = useState<Member[]>([]);
@@ -140,6 +170,27 @@ export default function SettingsPage() {
     }
     load();
   }, [router]);
+
+  useEffect(() => {
+    getSupabase().auth.getUser().then(({ data }) => {
+      const url = data.user?.user_metadata?.avatar_url;
+      if (url) setAvatarUrl(url);
+    });
+  }, []);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const compressed = await compressImage(file, 200);
+      await getSupabase().auth.updateUser({ data: { avatar_url: compressed } });
+      setAvatarUrl(compressed);
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
 
   async function handleSave() {
     if (!email || !name.trim()) return;
@@ -273,6 +324,39 @@ export default function SettingsPage() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Avatar */}
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Profile" className="h-16 w-16 rounded-full object-cover border-2 border-gray-100 dark:border-white/10" />
+                  ) : (
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-900 text-xl font-bold text-white dark:bg-white/10">
+                      {name ? name.split(" ").map(n => n[0]).join("").slice(0,2).toUpperCase() : "?"}
+                    </div>
+                  )}
+                  {avatarUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Profile Picture</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">JPG or PNG, cropped to square</p>
+                  <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                  <button onClick={() => avatarInputRef.current?.click()} disabled={avatarUploading}
+                    className="rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors disabled:opacity-50">
+                    {avatarUploading ? "Uploading…" : avatarUrl ? "Change Photo" : "Upload Photo"}
+                  </button>
+                  {avatarUrl && (
+                    <button onClick={async () => { await getSupabase().auth.updateUser({ data: { avatar_url: null } }); setAvatarUrl(""); }}
+                      className="ml-2 text-xs text-red-400 hover:text-red-500 transition-colors">
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Display Name</label>
                 <input

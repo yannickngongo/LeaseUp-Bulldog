@@ -523,10 +523,11 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
 // Center — Conversation
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ConversationPanel({ lead, messages, messagesLoading, replyText, sending, onReplyChange, onSend }: {
+function ConversationPanel({ lead, messages, messagesLoading, replyText, sending, onReplyChange, onSend, onSchedule, onAdvance }: {
   lead: Lead; messages: Message[]; messagesLoading: boolean;
   replyText: string; sending: boolean;
   onReplyChange: (t: string) => void; onSend: () => void;
+  onSchedule: () => void; onAdvance: (id: string, status: LeadStatus) => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const av = avatarFor(lead.id);
@@ -650,12 +651,19 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
       {/* Reply */}
       <div className="shrink-0 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E]">
         <div className="flex items-center gap-2 overflow-x-auto border-b border-gray-50 dark:border-white/5 px-4 py-2 scrollbar-hide">
-          {["Schedule Tour", "Send Application", "Follow Up", "Mark Won"].map((label) => (
-            <button key={label} className="shrink-0 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-              {label}
-            </button>
-          ))}
-          <button className="ml-auto shrink-0 rounded-full border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 px-3 py-1 text-[11px] font-semibold text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
+          <button onClick={onSchedule} className="shrink-0 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            Schedule Tour
+          </button>
+          <button onClick={() => onReplyChange("Hi! Here's your rental application link: [link]")} className="shrink-0 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            Send Application
+          </button>
+          <button onClick={() => onAdvance(lead.id, "engaged")} className="shrink-0 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            Follow Up
+          </button>
+          <button onClick={() => onAdvance(lead.id, "won")} className="shrink-0 rounded-full border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/10 px-3 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors">
+            Mark Won
+          </button>
+          <button onClick={() => onAdvance(lead.id, "lost")} className="ml-auto shrink-0 rounded-full border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 px-3 py-1 text-[11px] font-semibold text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
             Mark Lost
           </button>
         </div>
@@ -943,7 +951,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   );
 }
 
-function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void }) {
+function DetailPanel({ lead, onSchedule, onDelete, onUnsubscribe }: { lead: Lead; onSchedule: () => void; onDelete: () => void; onUnsubscribe: () => void }) {
   const av = avatarFor(lead.id);
   const sc = STATUS[lead.status];
   const theme = cardThemeFor(lead.id);
@@ -1042,10 +1050,10 @@ function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void 
 
       {/* Danger */}
       <div className="border-t border-gray-100 dark:border-white/5 p-4 space-y-1.5">
-        <button className="w-full rounded-xl border border-gray-200 dark:border-white/10 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+        <button onClick={onUnsubscribe} className="w-full rounded-xl border border-gray-200 dark:border-white/10 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
           Unsubscribe Lead
         </button>
-        <button className="w-full rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 py-2 text-xs font-semibold text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
+        <button onClick={onDelete} className="w-full rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 py-2 text-xs font-semibold text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
           Delete Lead
         </button>
       </div>
@@ -1141,8 +1149,31 @@ export default function LeadsPage() {
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
   }, []);
 
+  const [mobileView, setMobileView] = useState<"list" | "conversation">("list");
+
   const handleScheduled = useCallback((newStatus: LeadStatus) => {
     if (selectedId) setLeads(prev => prev.map(l => l.id === selectedId ? { ...l, status: newStatus } : l));
+  }, [selectedId]);
+
+  const handleDeleteLead = useCallback(async () => {
+    if (!selectedId) return;
+    if (!window.confirm("Permanently delete this lead? This cannot be undone.")) return;
+    await fetch(`/api/leads/${selectedId}`, { method: "DELETE" });
+    setLeads(prev => prev.filter(l => l.id !== selectedId));
+    const remaining = leads.filter(l => l.id !== selectedId);
+    setSelectedId(remaining[0]?.id ?? "");
+    setMobileView("list");
+  }, [selectedId, leads]);
+
+  const handleUnsubscribeLead = useCallback(async () => {
+    if (!selectedId) return;
+    if (!window.confirm("Mark this lead as lost and unsubscribe them from future messages?")) return;
+    await fetch(`/api/leads/${selectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "lost" }),
+    });
+    setLeads(prev => prev.map(l => l.id === selectedId ? { ...l, status: "lost" } : l));
   }, [selectedId]);
 
   function switchToInbox(id: string) {
@@ -1150,8 +1181,6 @@ export default function LeadsPage() {
     setView("inbox");
     setMobileView("conversation");
   }
-
-  const [mobileView, setMobileView] = useState<"list" | "conversation">("list");
 
   const selectedLead = leads.find((l) => l.id === selectedId);
   const hotLeads = leads.filter((l) => (l.ai_score ?? 0) >= 7 || l.status === "tour_scheduled").slice(0, 5);
@@ -1275,9 +1304,11 @@ export default function LeadsPage() {
                 lead={selectedLead} messages={messages} messagesLoading={msgLoading}
                 replyText={replyText} sending={sending}
                 onReplyChange={setReplyText} onSend={handleSend}
+                onSchedule={() => setShowScheduleModal(true)}
+                onAdvance={handleAdvanceLead}
               />
               <div className="hidden xl:flex">
-                <DetailPanel lead={selectedLead} onSchedule={() => setShowScheduleModal(true)} />
+                <DetailPanel lead={selectedLead} onSchedule={() => setShowScheduleModal(true)} onDelete={handleDeleteLead} onUnsubscribe={handleUnsubscribeLead} />
               </div>
             </div>
           </div>

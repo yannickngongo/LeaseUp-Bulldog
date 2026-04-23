@@ -241,7 +241,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar */}
       <div className={`
-        fixed inset-y-0 left-0 z-50 lg:relative lg:flex lg:translate-x-0
+        fixed inset-y-0 left-0 z-50 overflow-hidden lg:relative lg:flex lg:translate-x-0
         transition-transform duration-200
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
       `}>
