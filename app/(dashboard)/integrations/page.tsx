@@ -8,11 +8,12 @@ interface Property {
   phone_number: string;
 }
 
-type Platform = "zillow" | "apartments_com" | "facebook" | "website" | "manual";
+type Platform = "zillow" | "apartments_com" | "appfolio" | "facebook" | "website" | "manual";
 
 const PLATFORMS: { id: Platform; name: string; logo: string }[] = [
   { id: "zillow",         name: "Zillow Rental Manager", logo: "Z"   },
   { id: "apartments_com", name: "Apartments.com",         logo: "A"   },
+  { id: "appfolio",       name: "AppFolio",               logo: "AF"  },
   { id: "facebook",       name: "Facebook Lead Ads",      logo: "f"   },
   { id: "website",        name: "Website / Form",         logo: "W"   },
   { id: "manual",         name: "Manual / CSV",           logo: "CSV" },
@@ -143,6 +144,93 @@ export default function IntegrationsPage() {
                 { platform: "email", lub: "email" },
               ]}
             />
+          )}
+
+          {activePlatform === "appfolio" && (
+            <div>
+              <h2 className="text-xl font-bold mb-2">AppFolio — Setup Guide</h2>
+              <p className="text-sm text-gray-400 mb-6">AppFolio doesn&apos;t support direct webhooks, so you&apos;ll use Zapier as the bridge. Setup takes about 10 minutes.</p>
+
+              <div className="mb-6 rounded-xl border border-amber-800/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-400">
+                <span className="font-semibold">Requirement:</span> AppFolio API access must be enabled on your plan. Contact your AppFolio rep to confirm.
+              </div>
+
+              <div className="space-y-5 mb-8">
+                {[
+                  {
+                    title: "Create a free Zapier account",
+                    desc: "Go to zapier.com and sign up. The free plan supports this integration.",
+                  },
+                  {
+                    title: "Create a new Zap",
+                    desc: 'Click "Create Zap" in the Zapier dashboard.',
+                  },
+                  {
+                    title: "Set the trigger — AppFolio",
+                    desc: 'Search for "AppFolio" as the trigger app. Select the trigger event: New Prospect. Connect your AppFolio account when prompted, then test the trigger to confirm Zapier can see your leads.',
+                  },
+                  {
+                    title: "Set the action — Webhooks by Zapier",
+                    desc: 'Search for "Webhooks by Zapier" as the action app. Select action: POST. Paste your webhook URL below.',
+                    code: webhookUrl,
+                  },
+                  {
+                    title: "Map the fields",
+                    desc: "In Zapier, match AppFolio's fields to what LUB expects (see field mapping below).",
+                  },
+                  {
+                    title: "Turn the Zap on",
+                    desc: "Click Publish. Every new AppFolio prospect from this point will automatically appear in LUB and receive an AI text within 60 seconds.",
+                  },
+                ].map((step, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/20 text-xs font-bold text-[#C8102E]">
+                      {i + 1}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-white">{step.title}</p>
+                      <p className="text-sm text-gray-400 mt-0.5">{step.desc}</p>
+                      {"code" in step && step.code && (
+                        <code className="mt-2 block rounded-lg bg-[#0a0a12] border border-[#1E1E2E] px-3 py-2 text-xs text-green-400 font-mono break-all">
+                          {step.code}
+                        </code>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">Field Mapping</p>
+              <div className="rounded-xl border border-[#1E1E2E] overflow-hidden mb-6">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#1E1E2E] bg-[#0a0a12]">
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">AppFolio field</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Map to (LUB)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { from: "First Name",    to: "first_name"    },
+                      { from: "Last Name",     to: "last_name"     },
+                      { from: "Phone",         to: "phone_number"  },
+                      { from: "Email",         to: "email_address" },
+                      { from: "Move-in Date",  to: "move_in_date"  },
+                      { from: "Bedrooms",      to: "bedrooms"      },
+                    ].map((row, i, arr) => (
+                      <tr key={i} className={i < arr.length - 1 ? "border-b border-[#1E1E2E]" : ""}>
+                        <td className="px-4 py-2.5 text-gray-400 font-mono text-xs">{row.from}</td>
+                        <td className="px-4 py-2.5 text-green-400 font-mono text-xs">{row.to}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="rounded-xl border border-blue-900/30 bg-blue-950/20 px-4 py-3 text-sm text-blue-300">
+                <span className="font-semibold">What happens after setup:</span> Every new AppFolio prospect gets an instant AI text from your property&apos;s number. You see the lead and full conversation in your LUB dashboard — no manual follow-up needed.
+              </div>
+            </div>
           )}
 
           {activePlatform === "facebook" && (
