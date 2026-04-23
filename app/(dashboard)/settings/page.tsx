@@ -67,13 +67,13 @@ function CheckIcon() {
 }
 
 const PLAN_LABELS: Record<string, { label: string; color: string; monthlyPrice: number; perfFee: number; maxProps: string }> = {
-  starter:   { label: "Starter",   color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",     monthlyPrice: 500,  perfFee: 150, maxProps: "Up to 3 properties" },
-  pro:       { label: "Pro",       color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", monthlyPrice: 1500, perfFee: 200, maxProps: "Up to 20 properties" },
-  portfolio: { label: "Portfolio", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", monthlyPrice: 3000, perfFee: 250, maxProps: "Unlimited properties" },
+  starter:   { label: "Starter",   color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",     monthlyPrice: 500,  perfFee: 200, maxProps: "Up to 3 properties" },
+  pro:       { label: "Pro",       color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", monthlyPrice: 1500, perfFee: 150, maxProps: "Up to 20 properties" },
+  portfolio: { label: "Portfolio", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", monthlyPrice: 3000, perfFee: 100, maxProps: "Unlimited properties" },
   // legacy slugs
-  growth:     { label: "Pro",       color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", monthlyPrice: 1500, perfFee: 200, maxProps: "Up to 20 properties" },
-  enterprise: { label: "Portfolio", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", monthlyPrice: 3000, perfFee: 250, maxProps: "Unlimited properties" },
-  core:       { label: "Starter",   color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",     monthlyPrice: 500,  perfFee: 150, maxProps: "Up to 3 properties" },
+  growth:     { label: "Pro",       color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", monthlyPrice: 1500, perfFee: 150, maxProps: "Up to 20 properties" },
+  enterprise: { label: "Portfolio", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", monthlyPrice: 3000, perfFee: 100, maxProps: "Unlimited properties" },
+  core:       { label: "Starter",   color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",     monthlyPrice: 500,  perfFee: 200, maxProps: "Up to 3 properties" },
 };
 
 export default function SettingsPage() {

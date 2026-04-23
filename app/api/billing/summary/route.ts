@@ -1,5 +1,6 @@
 // GET /api/billing/summary?operator_id=...&month=YYYY-MM
 // Returns monthly performance summary + billing period breakdown.
+// Requires Authorization: Bearer <CRON_SECRET> — internal/admin use only.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -8,7 +9,19 @@ import {
   generateBillingPeriod,
 } from "@/lib/billing";
 
+function requireSecret(req: NextRequest): NextResponse | null {
+  const secret = process.env.CRON_SECRET;
+  const auth   = req.headers.get("authorization") ?? "";
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return null;
+}
+
 export async function GET(req: NextRequest) {
+  const denied = requireSecret(req);
+  if (denied) return denied;
+
   const { searchParams } = new URL(req.url);
   const operatorId = searchParams.get("operator_id");
   const month = searchParams.get("month"); // 'YYYY-MM', defaults to current month
@@ -34,6 +47,9 @@ export async function GET(req: NextRequest) {
 
 // POST /api/billing/summary — generate/refresh a billing period snapshot
 export async function POST(req: NextRequest) {
+  const denied = requireSecret(req);
+  if (denied) return denied;
+
   const body = await req.json();
   const { operator_id, period_start, period_end } = body;
 

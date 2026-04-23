@@ -22,19 +22,19 @@ export const PLAN_CONFIG: Record<Plan, PlanConfig> = {
   starter: {
     label:          "Starter",
     monthlyPrice:   500,
-    performanceFee: 150,
+    performanceFee: 200,
     maxProperties:  3,
   },
   pro: {
     label:          "Pro",
     monthlyPrice:   1500,
-    performanceFee: 200,
+    performanceFee: 150,
     maxProperties:  20,
   },
   portfolio: {
     label:          "Portfolio",
     monthlyPrice:   3000,
-    performanceFee: 250,
+    performanceFee: 100,
     maxProperties:  null,
   },
 };

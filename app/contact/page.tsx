@@ -129,9 +129,9 @@ export default function ContactPage() {
           <p className="text-center text-xs font-bold uppercase tracking-widest text-[#C8102E] mb-6">Pricing at a Glance</p>
           <div className="grid gap-3 sm:grid-cols-3 mb-4">
             {[
-              { name: "Starter",   price: "$500/mo",   perf: "+ $150/lease", range: "1–3 properties" },
-              { name: "Pro",       price: "$1,500/mo", perf: "+ $200/lease", range: "4–20 properties" },
-              { name: "Portfolio", price: "$3,000/mo", perf: "+ $250/lease", range: "20+ properties"  },
+              { name: "Starter",   price: "$500/mo",   perf: "+ $200/lease", range: "1–3 properties" },
+              { name: "Pro",       price: "$1,500/mo", perf: "+ $150/lease", range: "4–20 properties" },
+              { name: "Portfolio", price: "$3,000/mo", perf: "+ $100/lease", range: "20+ properties"  },
             ].map((plan) => (
               <div key={plan.name} className="rounded-xl border border-[#1E1E2E] bg-[#16161F] px-5 py-4 text-center">
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">{plan.name}</p>

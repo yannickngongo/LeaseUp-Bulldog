@@ -2,7 +2,7 @@
 // Called daily at 8am by Vercel cron. Alerts operators when pipeline is thin
 // (no new leads in 7 days, or fewer than 3 active leads per property).
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
 interface PropertyRow {
@@ -17,7 +17,11 @@ interface LeadRow {
   created_at: string;
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const db  = getSupabaseAdmin();
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString();

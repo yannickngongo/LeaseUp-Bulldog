@@ -162,9 +162,9 @@ export default function FeaturesPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-3 mb-4">
             {[
-              { name: "Starter", price: "$500", lease: "$150", range: "1–3 properties", popular: false },
-              { name: "Pro",     price: "$1,500", lease: "$200", range: "4–20 properties", popular: true },
-              { name: "Portfolio", price: "$3,000", lease: "$250", range: "20+ properties", popular: false },
+              { name: "Starter", price: "$500", lease: "$200", range: "1–3 properties", popular: false },
+              { name: "Pro",     price: "$1,500", lease: "$150", range: "4–20 properties", popular: true },
+              { name: "Portfolio", price: "$3,000", lease: "$100", range: "20+ properties", popular: false },
             ].map((plan) => (
               <div key={plan.name} className={`rounded-2xl border p-6 flex flex-col ${plan.popular ? "border-[#C8102E] bg-[#C8102E]/5 relative" : "border-[#1E1E2E] bg-[#16161F]"}`}>
                 {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#C8102E] px-3 py-1 text-[10px] font-black text-white tracking-widest uppercase">Most Popular</span>}
@@ -215,7 +215,7 @@ export default function FeaturesPage() {
           <h2 className="mb-6 text-4xl font-black tracking-tight">
             Ready to put it all to work?
           </h2>
-          <p className="mb-8 text-gray-400">Start your 14-day pilot — $1,000 setup, no platform fee during trial. $200/lease only when we deliver.</p>
+          <p className="mb-8 text-gray-400">Start your 14-day pilot — no setup fee, no platform fee during trial. Per-lease fee only when we deliver.</p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/free-trial"

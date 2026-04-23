@@ -1,7 +1,7 @@
 // POST /api/automations/tour-reminders
 // Called hourly by Vercel cron. Sends SMS reminders 24h and 2h before scheduled tours.
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { sendSms } from "@/lib/twilio";
 
@@ -19,7 +19,11 @@ const REMINDER_WINDOWS = [
   { label: "2h",  minBefore: 100,     maxBefore: 140 },
 ];
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const db = getSupabaseAdmin();
   const now = new Date();
   let sent = 0;

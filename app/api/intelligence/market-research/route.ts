@@ -48,7 +48,7 @@ Use your training knowledge about this market. Be as specific as possible to the
   try {
     const client = getAnthropicClient();
     const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 800,
       messages: [{ role: "user", content: prompt }],
     });

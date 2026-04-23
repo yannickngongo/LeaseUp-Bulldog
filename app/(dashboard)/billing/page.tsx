@@ -32,12 +32,12 @@ function StatusBadge({ status }: { status: string | null }) {
 }
 
 const PLAN_DISPLAY: Record<string, { name: string; price: string; perfFee: string; maxProps: string }> = {
-  starter:    { name: "Starter",   price: "$500/month",   perfFee: "$150", maxProps: "Up to 3 properties" },
-  pro:        { name: "Pro",       price: "$1,500/month", perfFee: "$200", maxProps: "Up to 20 properties" },
-  portfolio:  { name: "Portfolio", price: "$3,000/month", perfFee: "$250", maxProps: "Unlimited properties" },
-  growth:     { name: "Pro",       price: "$1,500/month", perfFee: "$200", maxProps: "Up to 20 properties" },
-  enterprise: { name: "Portfolio", price: "$3,000/month", perfFee: "$250", maxProps: "Unlimited properties" },
-  core:       { name: "Starter",   price: "$500/month",   perfFee: "$150", maxProps: "Up to 3 properties" },
+  starter:    { name: "Starter",   price: "$500/month",   perfFee: "$200", maxProps: "Up to 3 properties" },
+  pro:        { name: "Pro",       price: "$1,500/month", perfFee: "$150", maxProps: "Up to 20 properties" },
+  portfolio:  { name: "Portfolio", price: "$3,000/month", perfFee: "$100", maxProps: "Unlimited properties" },
+  growth:     { name: "Pro",       price: "$1,500/month", perfFee: "$150", maxProps: "Up to 20 properties" },
+  enterprise: { name: "Portfolio", price: "$3,000/month", perfFee: "$100", maxProps: "Unlimited properties" },
+  core:       { name: "Starter",   price: "$500/month",   perfFee: "$200", maxProps: "Up to 3 properties" },
 };
 
 const FEATURE_NAMES: Record<string, string> = {
@@ -106,7 +106,11 @@ function BillingContent() {
 
   async function handleUpgrade() {
     setWorking(true);
-    const res  = await fetch("/api/stripe/checkout", { method: "POST" });
+    const res  = await fetch("/api/stripe/checkout", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ plan: planSlug }),
+    });
     const json = await res.json();
     if (json.url) window.location.href = json.url;
     else { alert("Could not start checkout. Please try again."); setWorking(false); }

@@ -101,9 +101,9 @@ export async function POST(req: NextRequest) {
             marketing_addon: hasMarketing,
             marketing_fee:   hasMarketing ? 50000 : 0,
             performance_fee_per_lease: (() => {
-              if (dbPlan === "portfolio") return 25000;
-              if (dbPlan === "pro")       return 20000;
-              return 15000; // starter
+              if (dbPlan === "portfolio") return 10000; // $100
+              if (dbPlan === "pro")       return 15000; // $150
+              return 20000;                             // $200 starter
             })(),
             status: "trialing",
           },

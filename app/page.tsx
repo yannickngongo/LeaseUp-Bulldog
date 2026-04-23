@@ -299,7 +299,7 @@ export default function LandingPage() {
                 <span className="text-4xl font-black text-white">$500</span>
                 <span className="mb-1 text-sm text-gray-400">/mo</span>
               </div>
-              <p className="text-xs text-gray-500 mb-1">+ $150/lease signed</p>
+              <p className="text-xs text-gray-500 mb-1">+ $200/lease signed</p>
               <p className="text-sm text-gray-400 mb-5">1–3 properties. Independent landlords and small operators.</p>
               <ul className="space-y-2 mb-6 flex-1">
                 {["Up to 3 properties", "Unlimited leads", "AI SMS qualification & follow-up", "Human takeover & escalation", "Conversation dashboard", "14-day pilot included"].map(f => (
@@ -321,7 +321,7 @@ export default function LandingPage() {
                 <span className="text-4xl font-black text-white">$1,500</span>
                 <span className="mb-1 text-sm text-gray-400">/mo</span>
               </div>
-              <p className="text-xs text-gray-400 mb-1">+ $200/lease signed</p>
+              <p className="text-xs text-gray-400 mb-1">+ $150/lease signed</p>
               <p className="text-sm text-gray-400 mb-5">4–20 properties. Regional operators and property managers.</p>
               <ul className="space-y-2 mb-6 flex-1">
                 {["Up to 20 properties", "Everything in Starter", "Portfolio overview dashboard", "Tenant retention layer", "AI-generated owner reports", "Competitor rent tracking", "Priority support"].map(f => (
@@ -342,7 +342,7 @@ export default function LandingPage() {
                 <span className="text-4xl font-black text-white">$3,000</span>
                 <span className="mb-1 text-sm text-gray-400">/mo</span>
               </div>
-              <p className="text-xs text-gray-500 mb-1">+ $250/lease signed</p>
+              <p className="text-xs text-gray-500 mb-1">+ $100/lease signed</p>
               <p className="text-sm text-gray-400 mb-5">20+ properties. Enterprise management companies.</p>
               <ul className="space-y-2 mb-6 flex-1">
                 {["Unlimited properties", "Everything in Pro", "Dedicated account manager", "Custom AI configuration", "White-label reporting", "API access & SLA guarantees"].map(f => (
@@ -397,7 +397,7 @@ export default function LandingPage() {
 
           {/* Summary line */}
           <div className="text-center">
-            <p className="text-sm text-gray-500">No setup fee · $500/mo Starter · $1,500/mo Pro · $3,000/mo Portfolio · $150–$250/lease</p>
+            <p className="text-sm text-gray-500">No setup fee · $500/mo Starter · $1,500/mo Pro · $3,000/mo Portfolio · $100–$200/lease</p>
             <Link
               href="/pricing"
               className="mt-2 inline-block text-sm font-medium text-[#C8102E] hover:underline"

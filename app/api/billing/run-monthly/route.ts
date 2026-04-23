@@ -154,7 +154,7 @@ async function runBillingForOperator(
       stripe.invoiceItems.create({
         ...invoiceItemParams,
         amount:      performanceTotal,
-        description: `Performance fee — ${performanceCount} lease${performanceCount !== 1 ? "s" : ""} signed through LUB ($200 each)`,
+        description: `Performance fee — ${performanceCount} lease${performanceCount !== 1 ? "s" : ""} signed through LUB ($${(sub?.performance_fee_per_lease ?? 20000) / 100} each)`,
       })
     );
   }

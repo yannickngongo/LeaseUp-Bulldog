@@ -65,7 +65,7 @@ export async function middleware(req: NextRequest) {
         plan = "starter";
       }
       // Cache for 5 minutes
-      res.cookies.set("lub_plan", plan, {
+      res.cookies.set("lub_plan", plan ?? "starter", {
         maxAge: 300,
         path: "/",
         httpOnly: true,

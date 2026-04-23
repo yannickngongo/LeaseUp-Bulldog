@@ -12,8 +12,8 @@ const FAQS = [
     a: "Everything — AI lead qualification, automated SMS follow-up, human takeover, conversation dashboard, calendar, occupancy intelligence, campaign tools, and priority support.",
   },
   {
-    q: "How does the $150–$250/lease performance fee work?",
-    a: "You pay a per-lease fee for every lease signed through LUB within 30 days of first AI contact. The fee is $150 on Starter, $200 on Pro, and $250 on Portfolio. We only charge you when we deliver a result.",
+    q: "How does the per-lease performance fee work?",
+    a: "You pay a per-lease fee for every lease signed through LUB within 30 days of first AI contact. The fee decreases as you grow: $200 on Starter, $150 on Pro, and $100 on Portfolio. We only charge you when we deliver a result.",
   },
   {
     q: "What is the Marketing Add-On?",
@@ -68,7 +68,7 @@ export default function PricingPage() {
                 <span className="text-4xl font-black text-white">$500</span>
                 <span className="mb-1 text-sm text-gray-400">/mo</span>
               </div>
-              <p className="text-xs text-gray-500 mb-1">+ $150/lease signed</p>
+              <p className="text-xs text-gray-500 mb-1">+ $200/lease signed</p>
               <p className="text-sm text-gray-400 mb-5">1–3 properties. Independent landlords and small operators.</p>
               <ul className="space-y-2.5 mb-6 flex-1">
                 {[
@@ -96,7 +96,7 @@ export default function PricingPage() {
                 <span className="text-4xl font-black text-white">$1,500</span>
                 <span className="mb-1 text-sm text-gray-400">/mo</span>
               </div>
-              <p className="text-xs text-gray-400 mb-1">+ $200/lease signed</p>
+              <p className="text-xs text-gray-400 mb-1">+ $150/lease signed</p>
               <p className="text-sm text-gray-400 mb-5">4–20 properties. Regional operators and property managers.</p>
               <ul className="space-y-2.5 mb-6 flex-1">
                 {[
@@ -124,7 +124,7 @@ export default function PricingPage() {
                 <span className="text-4xl font-black text-white">$3,000</span>
                 <span className="mb-1 text-sm text-gray-400">/mo</span>
               </div>
-              <p className="text-xs text-gray-500 mb-1">+ $250/lease signed</p>
+              <p className="text-xs text-gray-500 mb-1">+ $100/lease signed</p>
               <p className="text-sm text-gray-400 mb-5">20+ properties. Enterprise management companies.</p>
               <ul className="space-y-2.5 mb-6 flex-1">
                 {[
@@ -230,7 +230,7 @@ export default function PricingPage() {
         </div>
         <div className="relative mx-auto max-w-xl">
           <h2 className="mb-5 text-4xl font-black">Only pay when we deliver.</h2>
-          <p className="mb-8 text-gray-400">$500/mo Starter · $1,500/mo Pro · $3,000/mo Portfolio · $150–$250 per lease signed.</p>
+          <p className="mb-8 text-gray-400">$500/mo Starter · $1,500/mo Pro · $3,000/mo Portfolio · $100–$200 per lease signed.</p>
           <Link href="/free-trial" className="inline-block rounded-xl bg-[#C8102E] px-10 py-4 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25">
             Start the Conversation →
           </Link>

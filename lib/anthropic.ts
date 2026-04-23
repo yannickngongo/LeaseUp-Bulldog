@@ -6,7 +6,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
 
-const MODEL = "claude-sonnet-4-6";
+// Haiku is 3-5x faster than Sonnet for short SMS replies with no quality loss
+const MODEL = "claude-haiku-4-5-20251001";
 const MAX_TOKENS = 300; // SMS replies are short — cap spend per call
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -122,7 +123,8 @@ export async function generateLeadReply(
   const response = await client.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
-    system: systemPrompt,
+    // Cache the static system prompt — saves time-to-first-token on repeat calls
+    system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: userPrompt }],
   });
 

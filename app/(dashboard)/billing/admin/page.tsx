@@ -133,7 +133,7 @@ function OperatorCard({
         <div className="flex justify-between">
           <span className="text-gray-400">Performance fees</span>
           <span className="text-white font-semibold">
-            {lease_count} lease{lease_count !== 1 ? "s" : ""} × $200 = {cents(performance_total)}
+            {lease_count} lease{lease_count !== 1 ? "s" : ""} × ${(subscription?.performance_fee_per_lease ?? 20000) / 100} = {cents(performance_total)}
           </span>
         </div>
         {hasMarketing && (

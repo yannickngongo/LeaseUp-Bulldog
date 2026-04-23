@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const PLAN_OPTIONS = [
-  { id: "starter",   label: "Starter",   price: "$500/mo + $150/lease",   desc: "Up to 3 properties" },
-  { id: "pro",       label: "Pro",       price: "$1,500/mo + $200/lease", desc: "Up to 20 properties", popular: true },
-  { id: "portfolio", label: "Portfolio", price: "$3,000/mo + $250/lease", desc: "Unlimited properties" },
+  { id: "starter",   label: "Starter",   price: "$500/mo + $200/lease",   desc: "Up to 3 properties" },
+  { id: "pro",       label: "Pro",       price: "$1,500/mo + $150/lease", desc: "Up to 20 properties", popular: true },
+  { id: "portfolio", label: "Portfolio", price: "$3,000/mo + $100/lease", desc: "Unlimited properties" },
 ];
 
 const PERKS = [

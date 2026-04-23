@@ -73,7 +73,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3">8. Security</h2>
-            <p>We use industry-standard security measures including encryption in transit (TLS), encryption at rest, and role-based access controls. We use Supabase Row Level Security and Stripe for PCI-compliant payment handling. However, no system is perfectly secure — report any security concerns to <a href="mailto:security@leaseuupbulldog.com" className="text-[#C8102E] hover:underline">security@leaseuupbulldog.com</a>.</p>
+            <p>We use industry-standard security measures including encryption in transit (TLS), encryption at rest, and role-based access controls. We use Supabase Row Level Security and Stripe for PCI-compliant payment handling. However, no system is perfectly secure — report any security concerns to <a href="mailto:security@leaseuphq.com" className="text-[#C8102E] hover:underline">security@leaseuphq.com</a>.</p>
           </section>
 
           <section>
@@ -88,7 +88,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3">11. Contact</h2>
-            <p>Privacy questions: <a href="mailto:privacy@leaseuupbulldog.com" className="text-[#C8102E] hover:underline">privacy@leaseuupbulldog.com</a></p>
+            <p>Privacy questions: <a href="mailto:privacy@leaseuphq.com" className="text-[#C8102E] hover:underline">privacy@leaseuphq.com</a></p>
           </section>
         </div>
       </main>
