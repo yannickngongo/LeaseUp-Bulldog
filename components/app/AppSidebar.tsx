@@ -199,8 +199,10 @@ function NavGroupLabel({ label }: { label: string }) {
 
 export function AppSidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
-  const [userName, setUserName] = useState<string>("");
+  const [userName,     setUserName]     = useState<string>("");
   const [userInitials, setUserInitials] = useState<string>("?");
+  const [planLabel,    setPlanLabel]    = useState<string>("");
+  const [hasMarketing, setHasMarketing] = useState<boolean>(false);
 
   useEffect(() => {
     getOperatorEmail().then((email) => {
@@ -211,6 +213,10 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
           const name = j.operator?.name ?? email.split("@")[0];
           setUserName(name);
           setUserInitials(name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase());
+          setHasMarketing(j.operator?.marketing_addon ?? false);
+          const plan = j.operator?.plan ?? "starter";
+          const labels: Record<string, string> = { starter: "Starter", pro: "Pro", portfolio: "Portfolio" };
+          setPlanLabel(labels[plan] ?? "Starter");
         })
         .catch(() => { setUserName(email.split("@")[0]); setUserInitials(email[0]?.toUpperCase() ?? "?"); });
     });
@@ -256,9 +262,23 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
 
         <NavGroupLabel label="Operations" />
         <div className="space-y-0.5">
-          {NAV_SECONDARY.map((item) => (
-            <NavLink key={item.href} item={item} active={isActive(item.href)} />
-          ))}
+          {NAV_SECONDARY.map((item) => {
+            if (item.href === "/marketing" && !hasMarketing) {
+              return (
+                <Link
+                  key={item.href}
+                  href="/billing"
+                  title="Requires Marketing Add-On"
+                  className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-400 dark:text-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
+                >
+                  <span className="text-gray-300 dark:text-gray-700">{item.icon}</span>
+                  <span className="flex-1">{item.label}</span>
+                  <span className="rounded-full bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-600">Add-on</span>
+                </Link>
+              );
+            }
+            return <NavLink key={item.href} item={item} active={isActive(item.href)} />;
+          })}
         </div>
       </nav>
 
@@ -273,7 +293,11 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-gray-700 dark:text-gray-300">{userName || "Loading…"}</p>
-            <p className="truncate text-[10px] text-gray-400 dark:text-gray-500">LeaseUp Bulldog</p>
+            <div className="flex items-center gap-1.5">
+              {planLabel && <span className="text-[9px] font-bold uppercase tracking-wider text-[#C8102E]">{planLabel}</span>}
+              {hasMarketing && <span className="text-[9px] font-bold uppercase tracking-wider text-purple-500">+ Mktg</span>}
+              {!planLabel && <span className="text-[10px] text-gray-400 dark:text-gray-500">LeaseUp Bulldog</span>}
+            </div>
           </div>
         </div>
       </div>

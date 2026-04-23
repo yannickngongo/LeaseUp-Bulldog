@@ -4,35 +4,56 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getOperatorEmail } from "@/lib/demo-auth";
 
+// ── Plan config ───────────────────────────────────────────────────────────────
+
 const PLANS = [
   {
-    id: "core",
-    label: "Core Platform",
-    price: "$1,000/mo",
-    setup: "$1,000",
-    desc: "AI qualification · Full dashboard · Unlimited leads",
-    popular: true,
+    id:             "starter",
+    label:          "Starter",
+    price:          "$500/mo",
+    monthlyAmount:  500,
+    performanceFee: "$150/lease",
+    desc:           "Up to 3 properties · AI qualification · Full dashboard",
+    popular:        false,
   },
   {
-    id: "core_marketing",
-    label: "Core + Marketing",
-    price: "$3,000/mo",
-    setup: "$1,000",
-    desc: "Platform + AI ad campaigns (Facebook & Google)",
-    popular: false,
+    id:             "pro",
+    label:          "Pro",
+    price:          "$1,500/mo",
+    monthlyAmount:  1500,
+    performanceFee: "$200/lease",
+    desc:           "Up to 20 properties · All Starter features + portfolio view",
+    popular:        true,
+  },
+  {
+    id:             "portfolio",
+    label:          "Portfolio",
+    price:          "$3,000/mo",
+    monthlyAmount:  3000,
+    performanceFee: "$250/lease",
+    desc:           "Unlimited properties · All Pro features + dedicated support",
+    popular:        false,
   },
 ];
 
+// ── Checkout form ─────────────────────────────────────────────────────────────
+
 function CheckoutForm() {
-  const router = useRouter();
-  const params = useSearchParams();
+  const router  = useRouter();
+  const params  = useSearchParams();
   const cancelled = params.get("cancelled") === "1";
 
-  const [selectedPlan, setSelectedPlan] = useState("core");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Pre-select plan from URL param (e.g. /checkout?plan=pro)
+  const defaultPlan = PLANS.find(p => p.id === params.get("plan"))?.id ?? "pro";
 
-  const plan = PLANS.find((p) => p.id === selectedPlan) ?? PLANS[0];
+  const [selectedPlan,    setSelectedPlan]    = useState(defaultPlan);
+  const [marketingAddon,  setMarketingAddon]  = useState(false);
+  const [loading,         setLoading]         = useState(false);
+  const [error,           setError]           = useState<string | null>(null);
+
+  const plan = PLANS.find(p => p.id === selectedPlan) ?? PLANS[1];
+
+  const totalMonthly = plan.monthlyAmount + (marketingAddon ? 500 : 0);
 
   async function handleCheckout() {
     setError(null);
@@ -45,9 +66,9 @@ function CheckoutForm() {
       }
 
       const res = await fetch("/api/checkout/create-session", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: selectedPlan, email }),
+        body:    JSON.stringify({ plan: selectedPlan, marketing_addon: marketingAddon, email }),
       });
 
       const json = await res.json();
@@ -66,6 +87,7 @@ function CheckoutForm() {
 
   return (
     <div className="min-h-screen bg-[#08080F] text-white font-sans flex flex-col">
+      {/* Header */}
       <header className="border-b border-[#1E1E2E] px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="text-xl font-black tracking-tight">
@@ -83,21 +105,21 @@ function CheckoutForm() {
       <div className="flex flex-1 items-start justify-center px-6 py-12">
         <div className="w-full max-w-5xl grid gap-10 md:grid-cols-[1fr_380px] items-start">
 
-          {/* Left — plan selection */}
+          {/* Left — selection */}
           <div>
             <h1 className="mb-2 text-3xl font-black">Complete your order</h1>
             <p className="mb-8 text-sm text-gray-500">
-              14-day pilot · $1,000 setup due today · No platform fee during trial
+              14-day free trial · No setup fee · Platform fee starts after trial
             </p>
 
             {cancelled && (
               <div className="mb-6 rounded-xl border border-yellow-900/50 bg-yellow-950/20 px-4 py-3 text-sm text-yellow-400">
-                Payment was cancelled. Your account is still active — choose a plan when you&apos;re ready.
+                Checkout was cancelled — no charge was made. Pick a plan when you&apos;re ready.
               </div>
             )}
 
             {/* Plan selector */}
-            <div className="mb-8">
+            <div className="mb-6">
               <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-gray-500">Choose Your Plan</h2>
               <div className="space-y-3">
                 {PLANS.map((p) => (
@@ -122,33 +144,51 @@ function CheckoutForm() {
                         <span className="font-semibold text-white">{p.label}</span>
                         {p.popular && (
                           <span className="rounded bg-[#C8102E]/20 px-1.5 py-0.5 text-[10px] font-bold text-[#C8102E]">
-                            Popular
+                            Most Popular
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-500">{p.desc}</span>
+                      <p className="text-xs text-gray-500 mt-0.5">{p.desc}</p>
                     </div>
-                    <span className="font-bold text-white">{p.price}</span>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-white">{p.price}</p>
+                      <p className="text-[11px] text-gray-500">+ {p.performanceFee} signed</p>
+                    </div>
                   </label>
                 ))}
-
-                {/* Enterprise — contact sales */}
-                <a
-                  href="mailto:hello@leaseuupbulldog.com?subject=Enterprise%20Inquiry"
-                  className="flex items-center gap-4 rounded-xl border border-[#1E1E2E] bg-[#10101A] px-5 py-4 hover:border-gray-600 transition-colors"
-                >
-                  <div className="h-4 w-4 rounded-full border-2 border-gray-600 shrink-0" />
-                  <div className="flex-1">
-                    <span className="font-semibold text-white">Portfolio / Enterprise</span>
-                    <p className="text-xs text-gray-500">Multi-property · Dedicated support · Custom integrations</p>
-                  </div>
-                  <span className="text-sm font-bold text-gray-400">Contact us →</span>
-                </a>
               </div>
+            </div>
 
-              <p className="mt-3 text-xs text-gray-600">
-                + $200 per lease signed through LUB (performance fee — only when we deliver)
-              </p>
+            {/* Marketing add-on */}
+            <div className="mb-8">
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-gray-500">Add-Ons</h2>
+              <label
+                className={`flex cursor-pointer items-start gap-4 rounded-xl border px-5 py-4 transition-colors ${
+                  marketingAddon
+                    ? "border-purple-500/50 bg-purple-900/10"
+                    : "border-[#1E1E2E] bg-[#10101A] hover:border-purple-500/30"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={marketingAddon}
+                  onChange={e => setMarketingAddon(e.target.checked)}
+                  className="mt-0.5 accent-purple-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-white">Marketing Add-On</span>
+                    <span className="rounded bg-purple-900/40 px-1.5 py-0.5 text-[10px] font-bold text-purple-400">Optional</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    AI ad creative for Facebook & Google. Campaigns auto-built, you approve before they go live.
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-white">$500/mo</p>
+                  <p className="text-[11px] text-gray-500">+ 5% of ad spend</p>
+                </div>
+              </label>
             </div>
 
             {error && (
@@ -162,16 +202,13 @@ function CheckoutForm() {
               disabled={loading}
               className="block w-full rounded-xl bg-[#C8102E] py-4 text-center text-sm font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading
-                ? "Redirecting to Stripe…"
-                : `Start 14-Day Pilot — Pay ${plan.setup} Setup →`}
+              {loading ? "Redirecting to Stripe…" : "Start 14-Day Free Trial →"}
             </button>
 
             <p className="mt-4 text-center text-xs text-gray-600">
               By continuing you agree to our{" "}
               <Link href="/terms" className="hover:underline">Terms</Link>.{" "}
-              Platform fee of {plan.price} begins after your 14-day pilot.
-              You&apos;ll be redirected to Stripe&apos;s secure checkout.
+              Platform fee of ${totalMonthly.toLocaleString()}/mo begins after your 14-day trial.
             </p>
           </div>
 
@@ -179,39 +216,52 @@ function CheckoutForm() {
           <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-6 sticky top-6">
             <h2 className="mb-5 font-semibold text-white">Order Summary</h2>
 
-            <div className="mb-5 rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/5 p-4">
+            {/* Selected plan */}
+            <div className="mb-4 rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/5 p-4">
               <p className="font-bold text-white">{plan.label}</p>
               <p className="text-xs text-gray-400 mt-0.5">{plan.desc}</p>
-              <p className="mt-3 text-2xl font-black text-white">
+              <p className="mt-2 text-2xl font-black text-white">
                 {plan.price}
                 <span className="text-sm font-normal text-gray-500"> after trial</span>
               </p>
             </div>
 
+            {/* Marketing addon summary */}
+            {marketingAddon && (
+              <div className="mb-4 rounded-xl border border-purple-500/30 bg-purple-900/10 p-4">
+                <p className="font-bold text-white text-sm">Marketing Add-On</p>
+                <p className="text-xs text-gray-400 mt-0.5">$500/mo + 5% of ad spend</p>
+              </div>
+            )}
+
             <div className="space-y-3 text-sm">
               <div className="flex justify-between text-gray-400">
-                <span>One-time setup</span>
-                <span className="text-white font-bold">{plan.setup}</span>
+                <span>Due today</span>
+                <span className="text-green-400 font-bold">$0</span>
               </div>
               <div className="flex justify-between text-gray-400">
                 <span>Trial period</span>
                 <span className="text-white font-medium">14 days</span>
               </div>
               <div className="flex justify-between text-gray-400">
-                <span>Platform fee during trial</span>
-                <span className="text-green-400 font-bold">$0</span>
-              </div>
-              <div className="flex justify-between text-gray-400">
-                <span>After trial</span>
+                <span>Platform fee after trial</span>
                 <span className="text-white">{plan.price}</span>
               </div>
+              {marketingAddon && (
+                <div className="flex justify-between text-gray-400">
+                  <span>Marketing add-on after trial</span>
+                  <span className="text-white">$500/mo + 5%</span>
+                </div>
+              )}
               <div className="flex justify-between text-gray-400">
                 <span>Performance fee</span>
-                <span className="text-white">$200/lease signed</span>
+                <span className="text-white">{plan.performanceFee} signed</span>
               </div>
               <div className="border-t border-[#1E1E2E] pt-3 flex justify-between">
-                <span className="font-semibold text-white">Due today</span>
-                <span className="font-black text-white">{plan.setup}</span>
+                <span className="font-semibold text-white">Monthly after trial</span>
+                <span className="font-black text-white">
+                  ${totalMonthly.toLocaleString()}/mo{marketingAddon ? " + 5%" : ""}
+                </span>
               </div>
             </div>
 
@@ -219,12 +269,12 @@ function CheckoutForm() {
 
             <ul className="space-y-2">
               {[
-                "14-day pilot included",
-                "No platform fee during trial",
-                "Unlimited leads",
+                "14-day pilot — nothing due today",
+                "No setup fee",
+                "Unlimited leads during trial",
                 "AI responses 24/7",
-                "$200/lease — only when we deliver",
-                "Cancel anytime after trial",
+                `${plan.performanceFee} — only when we deliver`,
+                "Cancel anytime",
               ].map((perk) => (
                 <li key={perk} className="flex items-center gap-2 text-xs text-gray-400">
                   <span className="text-[#C8102E]">✓</span>

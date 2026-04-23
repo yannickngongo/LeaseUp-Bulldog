@@ -21,5 +21,20 @@ export const stripe = new Proxy({} as Stripe, {
   },
 });
 
-export const STRIPE_PRICE_ID       = process.env.STRIPE_PRICE_ID       ?? "";
-export const STRIPE_WEBHOOK_SECRET  = process.env.STRIPE_WEBHOOK_SECRET  ?? "";
+export const STRIPE_PRICE_ID_STARTER         = process.env.STRIPE_PRICE_ID_STARTER         ?? "";
+export const STRIPE_PRICE_ID_PRO             = process.env.STRIPE_PRICE_ID_PRO             ?? "";
+export const STRIPE_PRICE_ID_PORTFOLIO       = process.env.STRIPE_PRICE_ID_PORTFOLIO       ?? "";
+export const STRIPE_PRICE_ID_MARKETING_ADDON = process.env.STRIPE_PRICE_ID_MARKETING_ADDON ?? "";
+export const STRIPE_WEBHOOK_SECRET           = process.env.STRIPE_WEBHOOK_SECRET           ?? "";
+
+// Legacy aliases for backwards compat
+export const STRIPE_PRICE_ID_CORE           = STRIPE_PRICE_ID_STARTER;
+export const STRIPE_PRICE_ID_CORE_MARKETING = STRIPE_PRICE_ID_STARTER;
+
+export const STRIPE_PRICE_IDS: Record<string, string> = {
+  starter:         STRIPE_PRICE_ID_STARTER,
+  pro:             STRIPE_PRICE_ID_PRO,
+  portfolio:       STRIPE_PRICE_ID_PORTFOLIO,
+  core:            STRIPE_PRICE_ID_STARTER,
+  core_marketing:  STRIPE_PRICE_ID_STARTER,
+};

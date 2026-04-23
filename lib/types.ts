@@ -9,7 +9,9 @@ export interface Operator {
   created_at: string;
   name: string;
   email: string;
-  plan: "starter" | "pro";
+  plan: "starter" | "pro" | "portfolio";
+  meta_ad_account_id?: string;
+  google_ads_customer_id?: string;
 }
 
 // ─── Properties ───────────────────────────────────────────────────────────────
@@ -211,10 +213,14 @@ export interface BillingPeriod {
   period_end: string;
   platform_fee: number;
   marketing_addon_fee: number;
+  ad_spend_cents: number;
+  ad_spend_fee_cents: number;
   performance_lease_count: number;
   performance_fee_total: number;
   total_due: number;
   status: BillingPeriodStatus;
+  stripe_invoice_id?: string;
+  stripe_invoice_url?: string;
   notes?: string;
 }
 

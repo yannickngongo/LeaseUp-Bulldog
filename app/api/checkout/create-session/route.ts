@@ -1,12 +1,18 @@
 // POST /api/checkout/create-session
-// Creates a Stripe Checkout Session and returns { url } to redirect the client.
+// Creates a Stripe Checkout Session (subscription + 14-day trial) and returns { url }.
 //
-// Body: { plan: "core" | "core_marketing", email: string }
+// Body: { plan: "starter" | "pro" | "portfolio", marketing_addon: boolean, email: string }
 
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext } from "@/lib/auth";
+import {
+  STRIPE_PRICE_ID_STARTER,
+  STRIPE_PRICE_ID_PRO,
+  STRIPE_PRICE_ID_PORTFOLIO,
+  STRIPE_PRICE_ID_MARKETING_ADDON,
+} from "@/lib/stripe";
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -14,28 +20,46 @@ function getStripe(): Stripe {
   return new Stripe(key, { apiVersion: "2026-03-25.dahlia" });
 }
 
-const PLANS: Record<string, { name: string; monthlyAmount: number; description: string }> = {
-  core: {
-    name: "Core Platform",
-    monthlyAmount: 100000, // $1,000/mo in cents
-    description: "AI lead qualification · Full dashboard · Unlimited leads · $200/lease performance fee",
-  },
-  core_marketing: {
-    name: "Core + Marketing",
-    monthlyAmount: 300000, // $3,000/mo in cents
-    description: "Everything in Core + AI ad campaigns (Facebook & Google) · $200/lease performance fee",
-  },
+interface PlanConfig {
+  name: string;
+  unitAmount: number;
+  priceId: string;
+}
+
+const PLAN_CONFIG: Record<string, PlanConfig> = {
+  starter:   { name: "Starter",   unitAmount: 50000,  priceId: STRIPE_PRICE_ID_STARTER },
+  pro:       { name: "Pro",       unitAmount: 150000, priceId: STRIPE_PRICE_ID_PRO },
+  portfolio: { name: "Portfolio", unitAmount: 300000, priceId: STRIPE_PRICE_ID_PORTFOLIO },
 };
+
+function makePriceItem(priceId: string, name: string, unitAmount: number) {
+  if (priceId) {
+    return { price: priceId, quantity: 1 };
+  }
+  return {
+    price_data: {
+      currency: "usd" as const,
+      product_data: { name: `LeaseUp Bulldog — ${name}` },
+      unit_amount: unitAmount,
+      recurring: { interval: "month" as const },
+    },
+    quantity: 1,
+  };
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { plan, email } = body as { plan?: string; email?: string };
+  const { plan, marketing_addon, email } = body as {
+    plan?: string;
+    marketing_addon?: boolean;
+    email?: string;
+  };
 
   if (!plan || !email) {
     return NextResponse.json({ error: "plan and email required" }, { status: 400 });
   }
 
-  const planConfig = PLANS[plan];
+  const planConfig = PLAN_CONFIG[plan];
   if (!planConfig) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
@@ -45,9 +69,8 @@ export async function POST(req: NextRequest) {
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin;
   const stripe = getStripe();
-
-  // Look up or create a Stripe customer for this operator
   const db = getSupabaseAdmin();
+
   const { data: operator } = await db
     .from("operators")
     .select("id, stripe_customer_id")
@@ -71,25 +94,31 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+    makePriceItem(planConfig.priceId, planConfig.name, planConfig.unitAmount),
+  ];
+
+  if (marketing_addon) {
+    lineItems.push(
+      makePriceItem(
+        STRIPE_PRICE_ID_MARKETING_ADDON,
+        "Marketing Add-On (Facebook & Google Ads)",
+        50000, // $500/mo
+      )
+    );
+  }
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
-    mode: "payment",
+    mode: "subscription",
     payment_method_types: ["card"],
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `LeaseUp Bulldog — ${planConfig.name} Setup`,
-            description: `14-day pilot · ${planConfig.description}`,
-          },
-          unit_amount: 100000, // $1,000 setup fee
-        },
-        quantity: 1,
-      },
-    ],
+    line_items: lineItems,
+    subscription_data: {
+      trial_period_days: 14,
+    },
     metadata: {
       plan,
+      marketing_addon: marketing_addon ? "1" : "0",
       operator_id: operator?.id ?? "",
       operator_email: email,
     },

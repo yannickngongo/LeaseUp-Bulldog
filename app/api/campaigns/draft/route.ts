@@ -5,9 +5,24 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+
+  // Gate: marketing add-on required
+  const operatorId = body.operator_id as string | undefined;
+  if (operatorId) {
+    const db = getSupabaseAdmin();
+    const { data: sub } = await db
+      .from("billing_subscriptions")
+      .select("marketing_addon")
+      .eq("operator_id", operatorId)
+      .single();
+    if (!sub?.marketing_addon) {
+      return NextResponse.json({ error: "Marketing add-on required", upgrade: true }, { status: 403 });
+    }
+  }
   const {
     property_name, city, state, neighborhood,
     current_occupancy_pct, total_units, unit_types, avg_rents,

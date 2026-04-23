@@ -7,10 +7,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { stripe, STRIPE_PRICE_ID } from "@/lib/stripe";
+import { stripe, STRIPE_PRICE_IDS } from "@/lib/stripe";
 
 export async function POST(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://lease-up-bulldog.vercel.app";
+  const body = await req.json().catch(() => ({}));
+  const plan = (body as { plan?: string }).plan ?? "core";
+  const priceId = STRIPE_PRICE_IDS[plan];
+  if (!priceId) return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
 
   // Get authenticated user
   const cookieStore = await cookies();
@@ -51,7 +55,7 @@ export async function POST(req: NextRequest) {
   const session = await stripe.checkout.sessions.create({
     customer:             customerId,
     mode:                 "subscription",
-    line_items:           [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+    line_items:           [{ price: priceId, quantity: 1 }],
     subscription_data:    { trial_period_days: 14 },
     success_url:          `${appUrl}/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url:           `${appUrl}/billing?cancelled=true`,

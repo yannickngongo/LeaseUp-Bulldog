@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { provisionAdAccounts } from "@/lib/ad-accounts";
+import { normalizePlan } from "@/lib/plans";
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -14,10 +16,14 @@ function getStripe(): Stripe {
   return new Stripe(key, { apiVersion: "2026-03-25.dahlia" });
 }
 
+// Maps Stripe checkout plan IDs → canonical plan slugs
 const PLAN_MAP: Record<string, string> = {
+  starter:        "starter",
+  pro:            "pro",
+  portfolio:      "portfolio",
+  // legacy slugs kept for backwards compat
   core:           "starter",
-  core_marketing: "growth",
-  portfolio:      "enterprise",
+  core_marketing: "starter",
 };
 
 export async function POST(req: NextRequest) {
@@ -48,31 +54,74 @@ export async function POST(req: NextRequest) {
     }
 
     const db = getSupabaseAdmin();
-    const dbPlan = PLAN_MAP[plan] ?? "starter";
+    const dbPlan = normalizePlan(PLAN_MAP[plan] ?? plan);
     const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
 
-    if (operator_id) {
+    // Resolve operator record
+    let resolvedId: string | null = operator_id ?? null;
+
+    if (resolvedId) {
       await db
         .from("operators")
         .update({
-          plan:                dbPlan,
-          stripe_customer_id:  session.customer as string,
-          stripe_payment_intent: session.payment_intent as string,
-          trial_ends_at:       trialEndsAt,
-          activated_at:        new Date().toISOString(),
+          plan:                    dbPlan,
+          stripe_customer_id:      session.customer as string,
+          stripe_subscription_id:  session.subscription as string ?? null,
+          trial_ends_at:           trialEndsAt,
+          activated_at:            new Date().toISOString(),
         })
-        .eq("id", operator_id);
+        .eq("id", resolvedId);
     } else if (operator_email) {
-      await db
+      const { data: op } = await db
         .from("operators")
         .update({
-          plan:                dbPlan,
-          stripe_customer_id:  session.customer as string,
-          stripe_payment_intent: session.payment_intent as string,
-          trial_ends_at:       trialEndsAt,
-          activated_at:        new Date().toISOString(),
+          plan:                    dbPlan,
+          stripe_customer_id:      session.customer as string,
+          stripe_subscription_id:  session.subscription as string ?? null,
+          trial_ends_at:           trialEndsAt,
+          activated_at:            new Date().toISOString(),
         })
-        .eq("email", operator_email);
+        .eq("email", operator_email)
+        .select("id, name")
+        .single();
+
+      resolvedId = op?.id ?? null;
+    }
+
+    if (resolvedId) {
+      const hasMarketing = session.metadata?.marketing_addon === "1" || plan === "core_marketing";
+
+      // Upsert billing_subscriptions record
+      await db
+        .from("billing_subscriptions")
+        .upsert(
+          {
+            operator_id:     resolvedId,
+            stripe_subscription_id: session.subscription as string ?? null,
+            marketing_addon: hasMarketing,
+            marketing_fee:   hasMarketing ? 50000 : 0,
+            performance_fee_per_lease: (() => {
+              if (dbPlan === "portfolio") return 25000;
+              if (dbPlan === "pro")       return 20000;
+              return 15000; // starter
+            })(),
+            status: "trialing",
+          },
+          { onConflict: "operator_id" }
+        );
+
+      // Auto-provision Meta + Google ad sub-accounts for marketing operators
+      if (hasMarketing) {
+        const { data: op } = await db
+          .from("operators")
+          .select("name")
+          .eq("id", resolvedId)
+          .single();
+
+        provisionAdAccounts(resolvedId, op?.name ?? "Unknown Operator").catch(err =>
+          console.error("[checkout/webhook] ad account provisioning failed:", err)
+        );
+      }
     }
   }
 

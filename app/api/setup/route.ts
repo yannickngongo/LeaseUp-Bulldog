@@ -12,15 +12,24 @@ export async function GET(req: NextRequest) {
   const db = getSupabaseAdmin();
   const { data: operator } = await db
     .from("operators")
-    .select("id, name, plan")
+    .select("id, name, plan, subscription_status, trial_ends_at, activated_at, stripe_customer_id, stripe_subscription_id")
     .eq("email", email)
     .single();
 
-  const { data: properties } = operator
-    ? await db.from("properties").select("id, name, phone_number, address, city, state").eq("operator_id", operator.id)
-    : { data: [] };
+  const [propertiesResult, subResult] = await Promise.all([
+    operator
+      ? db.from("properties").select("id, name, phone_number, address, city, state").eq("operator_id", operator.id)
+      : Promise.resolve({ data: [] }),
+    operator
+      ? db.from("billing_subscriptions").select("marketing_addon, marketing_fee, performance_fee_per_lease").eq("operator_id", operator.id).single()
+      : Promise.resolve({ data: null }),
+  ]);
 
-  return NextResponse.json({ operator: operator ?? null, properties: properties ?? [] });
+  const enrichedOperator = operator
+    ? { ...operator, marketing_addon: subResult.data?.marketing_addon ?? false }
+    : null;
+
+  return NextResponse.json({ operator: enrichedOperator, properties: propertiesResult.data ?? [] });
 }
 
 export async function PATCH(req: NextRequest) {
