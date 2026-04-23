@@ -225,6 +225,12 @@ export default function SettingsPage() {
   const platformFee = planConfig.monthlyPrice;
   const totalDue = platformFee + performanceFee;
 
+  // Billing visible only to owner — operator email matches login email, or role is owner
+  const currentMember = members.find(m => m.email === email);
+  const isOwner = !currentMember || currentMember.role === "owner" || currentMember.role === "admin"
+    ? operator?.email === email || currentMember?.role === "owner"
+    : false;
+
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const nextBillingDate = nextMonth.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
@@ -477,8 +483,8 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* ── Usage & Billing ───────────────────────────────────────────── */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+        {/* ── Usage & Billing — owner only ──────────────────────────────── */}
+        {isOwner && <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
           <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Usage & Billing</h2>
 
           <div className="space-y-3">
@@ -543,7 +549,7 @@ export default function SettingsPage() {
             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Billing managed by LeaseUp Bulldog team</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Contact your account manager for invoices, receipts, or billing changes.</p>
           </div>
-        </div>
+        </div>}
 
         {/* ── SMS Connection ────────────────────────────────────────────── */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
