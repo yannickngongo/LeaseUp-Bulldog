@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CountBadge } from "@/components/ui/Badge";
 import { getOperatorEmail } from "@/lib/demo-auth";
+import { createBrowserClient } from "@supabase/ssr";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -207,12 +208,27 @@ function NavGroupLabel({ label }: { label: string }) {
 
 // ─── AppSidebar ───────────────────────────────────────────────────────────────
 
+function getSupabase() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+  );
+}
+
 export function AppSidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname();
+  const router   = useRouter();
   const [userName,     setUserName]     = useState<string>("");
   const [userInitials, setUserInitials] = useState<string>("?");
   const [planLabel,    setPlanLabel]    = useState<string>("");
   const [hasMarketing, setHasMarketing] = useState<boolean>(false);
+  const [loggingOut,   setLoggingOut]   = useState(false);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    await getSupabase().auth.signOut();
+    router.push("/login");
+  }
 
   useEffect(() => {
     getOperatorEmail().then((email) => {
@@ -296,8 +312,21 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
       <div className="border-t border-gray-100 px-3 py-3 space-y-0.5 dark:border-white/5">
         <NavLink item={{ href: "/settings", label: "Settings", icon: <IconSettings /> }} active={isActive("/settings")} onClose={onClose} />
 
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-red-400 disabled:opacity-50"
+        >
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+            <path d="M11.5 13l4-4-4-4M15.5 9H6.5" />
+            <path d="M6.5 15.5H3a1 1 0 01-1-1V3.5a1 1 0 011-1h3.5" />
+          </svg>
+          <span>{loggingOut ? "Signing out…" : "Sign Out"}</span>
+        </button>
+
         {/* User */}
-        <div className="mt-2 flex items-center gap-2.5 rounded-lg px-3 py-2">
+        <div className="mt-1 flex items-center gap-2.5 rounded-lg px-3 py-2">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[11px] font-semibold text-white dark:bg-white/10 dark:text-gray-200">
             {userInitials}
           </div>
