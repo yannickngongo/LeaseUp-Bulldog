@@ -188,23 +188,23 @@ function AddLeadModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     finally { setLoading(false); }
   }
 
-  const inputCls = "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 placeholder-gray-400 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all";
+  const inputCls = "w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 shadow-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all";
 
   if (success) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-        <div className="w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#1C1F2E] p-8 text-center shadow-2xl">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/20">
             <svg viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth={2} className="h-8 w-8">
               <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <h3 className="mb-1 text-xl font-bold text-gray-900">Lead Added!</h3>
-          <p className="mb-5 text-sm text-gray-500">AI welcome SMS sent automatically</p>
+          <h3 className="mb-1 text-xl font-bold text-gray-900 dark:text-white">Lead Added!</h3>
+          <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">AI welcome SMS sent automatically</p>
           {aiMessage && (
-            <div className="mb-6 rounded-2xl border border-violet-100 bg-violet-50 p-4 text-left">
+            <div className="mb-6 rounded-2xl border border-violet-100 dark:border-violet-800/30 bg-violet-50 dark:bg-violet-900/20 p-4 text-left">
               <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-violet-500">AI sent</p>
-              <p className="text-sm leading-relaxed text-violet-800">{aiMessage}</p>
+              <p className="text-sm leading-relaxed text-violet-800 dark:text-violet-300">{aiMessage}</p>
             </div>
           )}
           <button onClick={() => { onAdded(); onClose(); }}
@@ -218,14 +218,14 @@ function AddLeadModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#1C1F2E] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 px-6 py-5">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Add New Lead</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Add New Lead</h2>
             <p className="text-xs text-gray-400 mt-0.5">AI sends a welcome SMS instantly</p>
           </div>
-          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors">
+          <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
@@ -280,16 +280,16 @@ function AddLeadModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
             </div>
           </div>
 
-          {error && <p className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</p>}
+          {error && <p className="rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-2.5 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
           <div className="flex gap-2 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 dark:border-white/10 py-2.5 text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
               Cancel
             </button>
             <button type="submit" disabled={loading || !propertyId || !firstName || !lastName || !phone}
               className={cn("flex-1 rounded-xl py-2.5 text-sm font-bold text-white transition-all",
                 loading || !propertyId || !firstName || !lastName || !phone
-                  ? "cursor-not-allowed bg-gray-200 text-gray-400"
+                  ? "cursor-not-allowed bg-gray-200 dark:bg-white/10 text-gray-400 dark:text-gray-600"
                   : "bg-[#C8102E] hover:bg-[#A50D25]"
               )}
               style={(!loading && propertyId && firstName && lastName && phone) ? { boxShadow: "0 8px 20px rgba(200,16,46,0.25)" } : {}}>
@@ -313,8 +313,8 @@ function StatChip({ label, value, sub, color }: { label: string; value: string; 
         <div className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
       </div>
       <div>
-        <p className="text-xl font-bold tabular-nums text-gray-900 leading-none">{value}</p>
-        <p className="mt-0.5 text-[11px] text-gray-400">{label}{sub && <span className="ml-1.5 font-semibold" style={{ color }}>{sub}</span>}</p>
+        <p className="text-xl font-bold tabular-nums text-gray-900 dark:text-white leading-none">{value}</p>
+        <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">{label}{sub && <span className="ml-1.5 font-semibold" style={{ color }}>{sub}</span>}</p>
       </div>
     </div>
   );
@@ -380,11 +380,11 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
   return (
     <div className="flex w-full flex-col sm:w-[280px]">
       {/* Header */}
-      <div className="border-b border-gray-100 px-4 py-4">
+      <div className="border-b border-gray-100 dark:border-white/5 px-4 py-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-base font-bold text-gray-900">Leads</h2>
-            <p className="text-xs text-gray-400">{leads.length} total contacts</p>
+            <h2 className="text-base font-bold text-gray-900 dark:text-white">Leads</h2>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{leads.length} total contacts</p>
           </div>
           <button onClick={onAddLead}
             className="flex items-center gap-1.5 rounded-xl bg-[#C8102E] px-3 py-2 text-xs font-bold text-white hover:bg-[#A50D25] transition-colors"
@@ -397,23 +397,23 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
         </div>
 
         {/* Search */}
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-3.5 w-3.5 shrink-0 text-gray-400">
             <circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5l3 3" strokeLinecap="round" />
           </svg>
           <input type="text" value={search} onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search leads…"
-            className="flex-1 bg-transparent text-xs text-gray-700 placeholder-gray-400 focus:outline-none" />
+            className="flex-1 bg-transparent text-xs text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none" />
         </div>
 
         {/* Property filter */}
         {properties.length > 1 && (
-          <div className="mt-2 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="mt-2 flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2">
             <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-3.5 w-3.5 shrink-0 text-gray-400">
               <path d="M8 1.5L1.5 6v8h4v-4h5v4h4V6L8 1.5z" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <select value={propertyFilter} onChange={(e) => onPropertyFilterChange(e.target.value)}
-              className="flex-1 bg-transparent text-xs text-gray-700 focus:outline-none">
+              className="flex-1 bg-transparent text-xs text-gray-700 dark:text-gray-300 focus:outline-none">
               <option value="all">All properties</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -424,16 +424,16 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
       </div>
 
       {/* Filters */}
-      <div className="flex gap-1 overflow-x-auto border-b border-gray-100 px-3 py-2 scrollbar-hide">
+      <div className="flex gap-1 overflow-x-auto border-b border-gray-100 dark:border-white/5 px-3 py-2 scrollbar-hide">
         {FILTERS.map((f) => {
           const count = applyFilter(applyPropertyFilter(leads, propertyFilter), f.key).length;
           return (
             <button key={f.key} onClick={() => onFilterChange(f.key)}
               className={cn("flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors",
-                filter === f.key ? "bg-[#C8102E] text-white" : "text-gray-500 hover:bg-gray-100")}>
+                filter === f.key ? "bg-[#C8102E] text-white" : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10")}>
               {f.label}
               <span className={cn("rounded-full px-1 text-[9px] font-bold",
-                filter === f.key ? "bg-white/25 text-white" : "bg-gray-100 text-gray-400")}>
+                filter === f.key ? "bg-white/25 text-white" : "bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-500")}>
                 {count}
               </span>
             </button>
@@ -446,24 +446,24 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
         {loading ? (
           <div className="p-3 space-y-2">
             {[1,2,3,4].map((i) => (
-              <div key={i} className="flex items-center gap-3 rounded-2xl border border-gray-100 p-3 animate-pulse">
-                <div className="h-10 w-10 shrink-0 rounded-2xl bg-gray-100" />
+              <div key={i} className="flex items-center gap-3 rounded-2xl border border-gray-100 dark:border-white/5 p-3 animate-pulse">
+                <div className="h-10 w-10 shrink-0 rounded-2xl bg-gray-100 dark:bg-white/10" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3 w-28 rounded bg-gray-100" />
-                  <div className="h-2.5 w-20 rounded bg-gray-100" />
+                  <div className="h-3 w-28 rounded bg-gray-100 dark:bg-white/10" />
+                  <div className="h-2.5 w-20 rounded bg-gray-100 dark:bg-white/10" />
                 </div>
               </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-gray-300">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 dark:bg-white/5">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-gray-300 dark:text-gray-600">
                 <path d="M9 9a2 2 0 114 0 2 2 0 01-4 0z" />
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a4 4 0 00-3.446 6.032l-2.261 2.26a1 1 0 101.414 1.415l2.261-2.261A4 4 0 1011 5z" clipRule="evenodd" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-gray-400">No leads here yet</p>
+            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">No leads here yet</p>
           </div>
         ) : (
           <div className="p-2 space-y-1">
@@ -476,7 +476,7 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
                   className={cn("w-full rounded-2xl p-3 text-left transition-all",
                     isSelected
                       ? "bg-gradient-to-r from-[#C8102E]/8 to-[#C8102E]/3 ring-1 ring-[#C8102E]/15"
-                      : "hover:bg-gray-50"
+                      : "hover:bg-gray-50 dark:hover:bg-white/5"
                   )}>
                   <div className="flex items-center gap-3">
                     {/* Avatar */}
@@ -485,16 +485,16 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
                         style={{ background: av.bg, color: av.text }}>
                         {initials(lead.name)}
                       </div>
-                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white"
+                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-[#12141E]"
                         style={{ background: sc.dot }} />
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-1">
-                        <span className="truncate text-sm font-semibold text-gray-900">{lead.name}</span>
-                        <span className="shrink-0 text-[10px] text-gray-400">{relativeTime(lead.created_at)}</span>
+                        <span className="truncate text-sm font-semibold text-gray-900 dark:text-white">{lead.name}</span>
+                        <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-500">{relativeTime(lead.created_at)}</span>
                       </div>
-                      <p className="text-[11px] text-gray-400 truncate">{lead.property_name}</p>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500 truncate">{lead.property_name}</p>
                       <div className="mt-1 flex items-center gap-1.5">
                         <span className="rounded-full px-2 py-0.5 text-[9px] font-bold"
                           style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
@@ -543,40 +543,40 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-gray-50/50">
+    <div className="flex flex-1 flex-col overflow-hidden bg-gray-50/50 dark:bg-[#0D0F1A]/60">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-100 bg-white px-6 py-3.5">
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E] px-6 py-3.5">
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-bold"
               style={{ background: av.bg, color: av.text }}>
               {initials(lead.name)}
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white"
+            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-[#12141E]"
               style={{ background: sc.dot }} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900">{lead.name}</span>
+              <span className="font-bold text-gray-900 dark:text-white">{lead.name}</span>
               <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
                 style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
                 {sc.label}
               </span>
             </div>
-            <p className="text-xs text-gray-400">{lead.phone} · {lead.property_name}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{lead.phone} · {lead.property_name}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {lead.ai_score != null && (
-            <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3 py-1.5">
-              <span className="text-xs text-gray-400">AI Score</span>
+            <div className="flex items-center gap-2 rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 px-3 py-1.5">
+              <span className="text-xs text-gray-400 dark:text-gray-500">AI Score</span>
               <span className={cn("text-sm font-bold tabular-nums",
                 lead.ai_score >= 7 ? "text-emerald-600" : lead.ai_score >= 4 ? "text-amber-600" : "text-red-500")}>
                 {lead.ai_score}/10
               </span>
             </div>
           )}
-          <button className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+          <button className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors">
             View Profile
           </button>
         </div>
@@ -595,22 +595,22 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-sm border border-gray-100">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-8 w-8 text-gray-300">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white dark:bg-white/5 shadow-sm border border-gray-100 dark:border-white/10">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-8 w-8 text-gray-300 dark:text-gray-600">
                   <path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <p className="text-sm font-semibold text-gray-400">No messages yet</p>
-              <p className="mt-1 text-xs text-gray-300">Start the conversation below</p>
+              <p className="text-sm font-semibold text-gray-400 dark:text-gray-500">No messages yet</p>
+              <p className="mt-1 text-xs text-gray-300 dark:text-gray-600">Start the conversation below</p>
             </div>
           ) : (
             <div className="space-y-1">
               {grouped.map(({ date, msgs }) => (
                 <div key={date}>
                   <div className="my-5 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-gray-200" />
-                    <span className="text-[10px] font-semibold text-gray-400">{date}</span>
-                    <div className="h-px flex-1 bg-gray-200" />
+                    <div className="h-px flex-1 bg-gray-200 dark:bg-white/10" />
+                    <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500">{date}</span>
+                    <div className="h-px flex-1 bg-gray-200 dark:bg-white/10" />
                   </div>
                   <div className="space-y-3">
                     {msgs.map((msg) => {
@@ -625,13 +625,13 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
                           )}
                           <div className={cn("flex max-w-[70%] flex-col", isOut ? "items-end" : "items-start")}>
                             <div className={cn("rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
-                              isOut ? "rounded-tr-sm bg-gray-900 text-white" : "rounded-tl-sm border border-gray-100 bg-white text-gray-800")}>
+                              isOut ? "rounded-tr-sm bg-gray-900 text-white" : "rounded-tl-sm border border-gray-100 dark:border-white/10 bg-white dark:bg-white/10 text-gray-800 dark:text-gray-200")}>
                               {msg.body}
                             </div>
                             <div className={cn("mt-1 flex items-center gap-1.5", isOut ? "flex-row-reverse" : "flex-row")}>
-                              <span className="text-[10px] text-gray-400">{msgTime(msg.created_at)}</span>
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500">{msgTime(msg.created_at)}</span>
                               {isOut && msg.ai_generated && (
-                                <span className="rounded-md bg-violet-50 px-1.5 py-0.5 text-[9px] font-bold text-violet-600 border border-violet-100">AI</span>
+                                <span className="rounded-md bg-violet-50 dark:bg-violet-900/30 px-1.5 py-0.5 text-[9px] font-bold text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-800/30">AI</span>
                               )}
                             </div>
                           </div>
@@ -648,14 +648,14 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
       </div>
 
       {/* Reply */}
-      <div className="shrink-0 border-t border-gray-100 bg-white">
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-gray-50 px-4 py-2 scrollbar-hide">
+      <div className="shrink-0 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E]">
+        <div className="flex items-center gap-2 overflow-x-auto border-b border-gray-50 dark:border-white/5 px-4 py-2 scrollbar-hide">
           {["Schedule Tour", "Send Application", "Follow Up", "Mark Won"].map((label) => (
-            <button key={label} className="shrink-0 rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] font-semibold text-gray-500 hover:border-gray-300 hover:bg-gray-50 transition-colors">
+            <button key={label} className="shrink-0 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
               {label}
             </button>
           ))}
-          <button className="ml-auto shrink-0 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-[11px] font-semibold text-red-400 hover:bg-red-100 transition-colors">
+          <button className="ml-auto shrink-0 rounded-full border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 px-3 py-1 text-[11px] font-semibold text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
             Mark Lost
           </button>
         </div>
@@ -664,14 +664,14 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSend(); }}
             placeholder="Type a reply… (⌘ + Enter to send)"
             rows={3}
-            className="w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 placeholder-gray-400 focus:border-gray-300 focus:bg-white focus:outline-none transition-all" />
+            className="w-full resize-none rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:border-gray-300 dark:focus:border-white/20 focus:bg-white dark:focus:bg-white/10 focus:outline-none transition-all" />
           <div className="mt-2.5 flex items-center justify-between">
-            <span className="text-[11px] text-gray-400">{replyText.length} chars</span>
+            <span className="text-[11px] text-gray-400 dark:text-gray-500">{replyText.length} chars</span>
             <button onClick={onSend} disabled={!replyText.trim() || sending}
               className={cn("rounded-xl px-5 py-2 text-sm font-bold transition-all",
                 replyText.trim() && !sending
                   ? "bg-[#C8102E] text-white hover:bg-[#A50D25]"
-                  : "cursor-not-allowed bg-gray-100 text-gray-400"
+                  : "cursor-not-allowed bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-600"
               )}
               style={replyText.trim() && !sending ? { boxShadow: "0 4px 16px rgba(200,16,46,0.25)" } : {}}>
               {sending ? "Sending…" : "Send SMS →"}
@@ -721,48 +721,48 @@ function ScheduleTourModal({ lead, onClose, onScheduled }: {
     finally { setLoading(false); }
   }
 
-  const inputCls = "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:border-[#C8102E]/50 focus:outline-none focus:ring-2 focus:ring-[#C8102E]/10 transition-all";
+  const inputCls = "w-full rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:border-[#C8102E]/50 focus:outline-none focus:ring-2 focus:ring-[#C8102E]/10 transition-all";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#1C1F2E] shadow-2xl">
         {done ? (
           <div className="p-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-900/20">
               <svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth={2} className="h-8 w-8">
                 <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h3 className="mb-1 text-xl font-bold text-gray-900">Tour Scheduled!</h3>
-            <p className="mb-2 text-sm text-gray-500">SMS confirmation sent to {lead.name.split(" ")[0]}</p>
-            <p className="mb-6 text-xs text-gray-400">Lead status updated to <strong className="text-amber-600">Tour Booked</strong></p>
+            <h3 className="mb-1 text-xl font-bold text-gray-900 dark:text-white">Tour Scheduled!</h3>
+            <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">SMS confirmation sent to {lead.name.split(" ")[0]}</p>
+            <p className="mb-6 text-xs text-gray-400 dark:text-gray-500">Lead status updated to <strong className="text-amber-600">Tour Booked</strong></p>
             <button onClick={() => { onScheduled("tour_scheduled"); onClose(); }}
               className="w-full rounded-2xl bg-[#C8102E] py-3 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
               style={{ boxShadow: "0 8px 24px rgba(200,16,46,0.25)" }}>Done</button>
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-white/5 px-6 py-5">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Schedule a Tour</h2>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Schedule a Tour</h2>
                 <p className="text-xs text-gray-400 mt-0.5">SMS confirmation sent automatically</p>
               </div>
-              <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 text-gray-400 hover:bg-gray-50">
+              <button onClick={onClose} className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5">
                 <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
                   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                 </svg>
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 flex items-center gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+              <div className="rounded-xl border border-amber-100 dark:border-amber-800/30 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-center gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
                   <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-amber-600">
                     <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-amber-900">{lead.name}</p>
-                  <p className="text-xs text-amber-600">{lead.property_name} · {lead.phone}</p>
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">{lead.name}</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">{lead.property_name} · {lead.phone}</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -786,7 +786,7 @@ function ScheduleTourModal({ lead, onClose, onScheduled }: {
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="e.g. Unit 2B, meet at leasing office"
                   className={`${inputCls} resize-none`} />
               </div>
-              {error && <p className="rounded-xl bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</p>}
+              {error && <p className="rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-2.5 text-sm text-red-600 dark:text-red-400">{error}</p>}
               <button type="submit" disabled={loading}
                 className="w-full rounded-2xl bg-[#C8102E] py-3 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors disabled:opacity-60"
                 style={{ boxShadow: "0 8px 24px rgba(200,16,46,0.25)" }}>
@@ -824,7 +824,7 @@ function KanbanCard({ lead, col, onSelect, onAdvance }: {
   const daysAgo = Math.floor((Date.now() - new Date(lead.created_at).getTime()) / 86400000);
 
   return (
-    <div className="mb-2 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+    <div className="mb-2 rounded-2xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
       onClick={() => onSelect(lead.id)}>
       <div className="flex items-center gap-2 mb-2">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-bold"
@@ -832,12 +832,12 @@ function KanbanCard({ lead, col, onSelect, onAdvance }: {
           {initials(lead.name)}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-gray-900">{lead.name}</p>
-          <p className="truncate text-[10px] text-gray-400">{lead.property_name}</p>
+          <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{lead.name}</p>
+          <p className="truncate text-[10px] text-gray-400 dark:text-gray-500">{lead.property_name}</p>
         </div>
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-gray-400">{daysAgo === 0 ? "Today" : `${daysAgo}d ago`}</span>
+        <span className="text-[10px] text-gray-400 dark:text-gray-500">{daysAgo === 0 ? "Today" : `${daysAgo}d ago`}</span>
         {lead.ai_score != null && (
           <span className={cn("text-[10px] font-bold", lead.ai_score >= 7 ? "text-emerald-600" : lead.ai_score >= 4 ? "text-amber-600" : "text-red-500")}>
             {lead.ai_score}/10
@@ -868,7 +868,7 @@ function PipelineView({ leads, onSelectLead, onAdvanceLead, onSwitchToInbox }: {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Funnel summary */}
-      <div className="shrink-0 border-b border-gray-100 bg-white px-6 py-3">
+      <div className="shrink-0 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E] px-6 py-3">
         <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide">
           {PIPELINE_COLS.filter(c => c.status !== "lost").map((col, i) => {
             const count = leads.filter(l => l.status === col.status).length;
@@ -876,18 +876,18 @@ function PipelineView({ leads, onSelectLead, onAdvanceLead, onSwitchToInbox }: {
             const rate  = prev != null && prev > 0 ? Math.round((count / prev) * 100) : null;
             return (
               <div key={col.status} className="flex shrink-0 items-center gap-2">
-                {i > 0 && <span className="text-gray-200">›</span>}
+                {i > 0 && <span className="text-gray-200 dark:text-gray-700">›</span>}
                 <div className="text-center">
                   <p className="text-lg font-black tabular-nums" style={{ color: col.color }}>{count}</p>
-                  <p className="text-[10px] text-gray-400">{col.label}</p>
-                  {rate != null && <p className="text-[9px] font-semibold text-gray-300">{rate}%</p>}
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">{col.label}</p>
+                  {rate != null && <p className="text-[9px] font-semibold text-gray-300 dark:text-gray-600">{rate}%</p>}
                 </div>
               </div>
             );
           })}
           <div className="ml-auto shrink-0 text-right">
             <p className="text-sm font-black text-emerald-600">{convRate}%</p>
-            <p className="text-[10px] text-gray-400">close rate</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500">close rate</p>
           </div>
         </div>
       </div>
@@ -910,10 +910,10 @@ function PipelineView({ leads, onSelectLead, onAdvanceLead, onSwitchToInbox }: {
                 </div>
 
                 {/* Cards */}
-                <div className="flex-1 overflow-y-auto rounded-2xl bg-gray-50/50 p-2">
+                <div className="flex-1 overflow-y-auto rounded-2xl bg-gray-50/50 dark:bg-white/[0.03] p-2">
                   {colLeads.length === 0 ? (
                     <div className="flex h-20 items-center justify-center">
-                      <p className="text-[10px] text-gray-300">Empty</p>
+                      <p className="text-[10px] text-gray-300 dark:text-gray-600">Empty</p>
                     </div>
                   ) : (
                     colLeads.map(lead => (
@@ -936,9 +936,9 @@ function PipelineView({ leads, onSelectLead, onAdvanceLead, onSwitchToInbox }: {
 
 function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
-      <span className="text-xs text-gray-400">{label}</span>
-      <span className="text-right text-xs font-semibold text-gray-700">{value ?? "—"}</span>
+    <div className="flex items-center justify-between gap-4 py-2.5 border-b border-gray-50 dark:border-white/5 last:border-0">
+      <span className="text-xs text-gray-400 dark:text-gray-500">{label}</span>
+      <span className="text-right text-xs font-semibold text-gray-700 dark:text-gray-300">{value ?? "—"}</span>
     </div>
   );
 }
@@ -949,7 +949,7 @@ function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void 
   const theme = cardThemeFor(lead.id);
 
   return (
-    <div className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-l border-gray-100 bg-white">
+    <div className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-l border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E]">
       {/* Profile card — gradient header like image 2 */}
       <div className="relative overflow-hidden px-5 pb-5 pt-6"
         style={{ background: `linear-gradient(135deg, ${theme.bg}22 0%, ${theme.bg}10 100%)` }}>
@@ -960,12 +960,12 @@ function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void 
               style={{ background: av.bg, color: av.text, boxShadow: `0 8px 24px ${av.bg}` }}>
               {initials(lead.name)}
             </div>
-            <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white"
+            <div className="absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white dark:border-[#12141E]"
               style={{ background: sc.dot }} />
           </div>
 
-          <h3 className="text-base font-bold text-gray-900">{lead.name}</h3>
-          <p className="text-xs text-gray-400 mt-0.5">{lead.property_name}</p>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">{lead.name}</h3>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{lead.property_name}</p>
 
           <span className="mt-2 rounded-full px-3 py-1 text-[10px] font-bold"
             style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
@@ -980,7 +980,7 @@ function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void 
               { icon: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z", label: "Schedule", action: onSchedule },
             ].map(({ icon, label, action }) => (
               <button key={label} title={label} onClick={action}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50 transition-colors shadow-sm">
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors shadow-sm">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
                   <path d={icon} strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -992,22 +992,22 @@ function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void 
 
       {/* AI Score */}
       {lead.ai_score != null && (
-        <div className="mx-4 my-3 rounded-2xl border border-gray-100 bg-gray-50 p-3">
+        <div className="mx-4 my-3 rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-gray-500">AI Lead Score</span>
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">AI Lead Score</span>
             <span className={cn("text-lg font-black tabular-nums",
               lead.ai_score >= 7 ? "text-emerald-600" : lead.ai_score >= 4 ? "text-amber-600" : "text-red-500")}>
-              {lead.ai_score}<span className="text-xs font-semibold text-gray-400">/10</span>
+              {lead.ai_score}<span className="text-xs font-semibold text-gray-400 dark:text-gray-500">/10</span>
             </span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
             <div className="h-full rounded-full transition-all"
               style={{
                 width: `${lead.ai_score * 10}%`,
                 background: lead.ai_score >= 7 ? "#10B981" : lead.ai_score >= 4 ? "#F59E0B" : "#EF4444"
               }} />
           </div>
-          <p className="mt-1.5 text-[11px] text-gray-400">
+          <p className="mt-1.5 text-[11px] text-gray-400 dark:text-gray-500">
             {lead.ai_summary ?? (lead.ai_score >= 7 ? "High intent — prioritize this lead" : lead.ai_score >= 4 ? "Moderate interest" : "Low engagement")}
           </p>
         </div>
@@ -1015,15 +1015,15 @@ function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void 
 
       {/* Detailed info — like image 2's "Detailed Information" section */}
       <div className="px-4 pb-2">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Contact</p>
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Contact</p>
         <DetailField label="Phone" value={<a href={`tel:${lead.phone}`} className="text-[#C8102E] hover:underline font-mono text-[11px]">{lead.phone}</a>} />
         <DetailField label="Email" value={lead.email ? <a href={`mailto:${lead.email}`} className="text-[#C8102E] hover:underline">{lead.email}</a> : "—"} />
         <DetailField label="Prefers" value={<span className="capitalize">{lead.preferred_contact}</span>} />
         <DetailField label="Source" value={lead.source} />
       </div>
 
-      <div className="border-t border-gray-100 px-4 py-3">
-        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400">Qualification</p>
+      <div className="border-t border-gray-100 dark:border-white/5 px-4 py-3">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Qualification</p>
         <DetailField label="Move-in" value={lead.move_in_date ? new Date(lead.move_in_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"} />
         <DetailField label="Unit" value={lead.bedrooms != null ? (lead.bedrooms === 0 ? "Studio" : `${lead.bedrooms} Bedroom`) : "—"} />
         <DetailField label="Budget" value={formatBudget(lead.budget_min, lead.budget_max)} />
@@ -1031,21 +1031,21 @@ function DetailPanel({ lead, onSchedule }: { lead: Lead; onSchedule: () => void 
       </div>
 
       {/* Notes */}
-      <div className="border-t border-gray-100 flex-1 p-4">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">Notes</p>
+      <div className="border-t border-gray-100 dark:border-white/5 flex-1 p-4">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Notes</p>
         <textarea defaultValue={lead.notes ?? ""} placeholder="Add a private note…" rows={3}
-          className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-xs text-gray-700 placeholder-gray-400 focus:border-gray-300 focus:bg-white focus:outline-none transition-all" />
-        <button className="mt-2 w-full rounded-xl bg-gray-100 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-200 transition-colors">
+          className="w-full resize-none rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3 py-2.5 text-xs text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:border-gray-300 dark:focus:border-white/20 focus:bg-white dark:focus:bg-white/10 focus:outline-none transition-all" />
+        <button className="mt-2 w-full rounded-xl bg-gray-100 dark:bg-white/10 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors">
           Save Note
         </button>
       </div>
 
       {/* Danger */}
-      <div className="border-t border-gray-100 p-4 space-y-1.5">
-        <button className="w-full rounded-xl border border-gray-200 py-2 text-xs font-semibold text-gray-400 hover:bg-gray-50 transition-colors">
+      <div className="border-t border-gray-100 dark:border-white/5 p-4 space-y-1.5">
+        <button className="w-full rounded-xl border border-gray-200 dark:border-white/10 py-2 text-xs font-semibold text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
           Unsubscribe Lead
         </button>
-        <button className="w-full rounded-xl border border-red-100 bg-red-50 py-2 text-xs font-semibold text-red-400 hover:bg-red-100 transition-colors">
+        <button className="w-full rounded-xl border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 py-2 text-xs font-semibold text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
           Delete Lead
         </button>
       </div>
@@ -1168,8 +1168,7 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #f8f7ff 0%, #f0f4ff 40%, #fdf8ff 100%)" }}>
+    <div className="flex h-full flex-col overflow-hidden [background:linear-gradient(135deg,#f8f7ff_0%,#f0f4ff_40%,#fdf8ff_100%)] dark:[background:none] dark:bg-[#0D0F1A]">
 
       {showAddModal && <AddLeadModal onClose={() => setShowAddModal(false)} onAdded={handleAdded} />}
       {showScheduleModal && selectedLead && (
@@ -1181,28 +1180,28 @@ export default function LeadsPage() {
       )}
 
       {/* Stats bar — scrollable on mobile */}
-      <div className="shrink-0 border-b border-white/80 bg-white/70 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-3.5">
+      <div className="shrink-0 border-b border-white/80 dark:border-white/5 bg-white/70 dark:bg-[#12141E]/80 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide sm:gap-8">
             <StatChip label="Total" value={filteredLeads.length.toString()} color="#6366F1" />
-            <div className="h-6 w-px shrink-0 bg-gray-100 sm:h-8" />
+            <div className="h-6 w-px shrink-0 bg-gray-100 dark:bg-white/10 sm:h-8" />
             <StatChip label="New" value={newCount.toString()} sub={newCount > 0 ? "needs reply" : ""} color="#3B82F6" />
-            <div className="h-6 w-px shrink-0 bg-gray-100 sm:h-8" />
+            <div className="h-6 w-px shrink-0 bg-gray-100 dark:bg-white/10 sm:h-8" />
             <StatChip label="Tours" value={tourCount.toString()} color="#F59E0B" />
-            <div className="h-6 w-px shrink-0 bg-gray-100 sm:h-8" />
+            <div className="h-6 w-px shrink-0 bg-gray-100 dark:bg-white/10 sm:h-8" />
             <StatChip label="Won" value={wonCount.toString()} color="#10B981" />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {/* View toggle */}
-            <div className="hidden sm:flex items-center gap-0.5 rounded-xl border border-gray-200 bg-gray-50 p-0.5">
+            <div className="hidden sm:flex items-center gap-0.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-0.5">
               <button onClick={() => setView("inbox")}
                 className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                  view === "inbox" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600")}>
+                  view === "inbox" ? "bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300")}>
                 Inbox
               </button>
               <button onClick={() => setView("pipeline")}
                 className={cn("rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                  view === "pipeline" ? "bg-white text-gray-900 shadow-sm" : "text-gray-400 hover:text-gray-600")}>
+                  view === "pipeline" ? "bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm" : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300")}>
                 Pipeline
               </button>
             </div>
@@ -1242,7 +1241,7 @@ export default function LeadsPage() {
 
         {/* Left panel — full width on mobile when showing list */}
         <div className={cn(
-          "flex-col border-r border-gray-100 bg-white",
+          "flex-col border-r border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E]",
           "sm:flex sm:w-[280px] sm:shrink-0",
           mobileView === "list" ? "flex w-full" : "hidden"
         )}>
@@ -1262,7 +1261,7 @@ export default function LeadsPage() {
             mobileView === "conversation" ? "flex" : "hidden sm:flex"
           )}>
             {/* Mobile back button */}
-            <div className="flex items-center gap-2 border-b border-gray-100 bg-white px-4 py-2 sm:hidden">
+            <div className="flex items-center gap-2 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E] px-4 py-2 sm:hidden">
               <button onClick={() => setMobileView("list")}
                 className="flex items-center gap-1.5 text-xs font-semibold text-[#C8102E]">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
@@ -1284,12 +1283,12 @@ export default function LeadsPage() {
           </div>
         ) : !leadsLoading && (
           <div className={cn("flex-1 flex-col items-center justify-center gap-4", mobileView === "list" ? "hidden sm:flex" : "flex")}>
-            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white shadow-sm border border-gray-100">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25} className="h-10 w-10 text-gray-300">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white dark:bg-white/5 shadow-sm border border-gray-100 dark:border-white/10">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.25} className="h-10 w-10 text-gray-300 dark:text-gray-600">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <p className="text-sm font-semibold text-gray-400">No leads yet</p>
+            <p className="text-sm font-semibold text-gray-400 dark:text-gray-500">No leads yet</p>
             <button onClick={() => setShowAddModal(true)}
               className="rounded-2xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
               style={{ boxShadow: "0 6px 20px rgba(200,16,46,0.25)" }}>

@@ -225,11 +225,9 @@ export default function SettingsPage() {
   const platformFee = planConfig.monthlyPrice;
   const totalDue = platformFee + performanceFee;
 
-  // Billing visible only to owner — operator email matches login email, or role is owner
+  // Billing visible only to owner — if not in members list they're the original operator, or role is owner
   const currentMember = members.find(m => m.email === email);
-  const isOwner = !currentMember || currentMember.role === "owner" || currentMember.role === "admin"
-    ? operator?.email === email || currentMember?.role === "owner"
-    : false;
+  const isOwner = !currentMember || currentMember.role === "owner";
 
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const nextBillingDate = nextMonth.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
