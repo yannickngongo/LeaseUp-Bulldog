@@ -9,6 +9,15 @@ import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
+function IconGettingStarted() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <circle cx="9" cy="9" r="7.5" />
+      <path d="M9 5v4l2.5 2.5" />
+    </svg>
+  );
+}
+
 function IconDashboard() {
   return (
     <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
@@ -143,10 +152,11 @@ interface NavItem {
 }
 
 const NAV_PRIMARY: NavItem[] = [
-  { href: "/dashboard",  label: "Dashboard",  icon: <IconDashboard /> },
-  { href: "/portfolio",  label: "Portfolio",  icon: <IconPortfolio /> },
-  { href: "/leads",      label: "Leads",      icon: <IconLeads /> },
-  { href: "/properties", label: "Properties", icon: <IconProperties /> },
+  { href: "/dashboard",       label: "Dashboard",      icon: <IconDashboard /> },
+  { href: "/getting-started", label: "Getting Started", icon: <IconGettingStarted /> },
+  { href: "/portfolio",       label: "Portfolio",      icon: <IconPortfolio /> },
+  { href: "/leads",           label: "Leads",          icon: <IconLeads /> },
+  { href: "/properties",      label: "Properties",     icon: <IconProperties /> },
 ];
 
 const NAV_SECONDARY: NavItem[] = [

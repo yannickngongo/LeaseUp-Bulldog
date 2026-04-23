@@ -226,6 +226,23 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {/* Getting Started banner — shown when leads count is 0 (new user) */}
+      {!loading && leads.length === 0 && (
+        <Link
+          href="/getting-started"
+          className="flex items-center justify-between rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/5 px-5 py-4 hover:bg-[#C8102E]/10 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/20 text-[#C8102E] text-sm font-bold">✓</div>
+            <div>
+              <p className="text-sm font-semibold text-white">Complete your setup</p>
+              <p className="text-xs text-gray-400 mt-0.5">Follow the step-by-step guide to get your first lead flowing in.</p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-[#C8102E] shrink-0">View guide →</span>
+        </Link>
+      )}
+
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
