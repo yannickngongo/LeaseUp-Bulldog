@@ -243,9 +243,9 @@ export default function SettingsPage() {
   const platformFee = planConfig.monthlyPrice;
   const totalDue = platformFee + performanceFee;
 
-  // Billing visible only to owner — if not in members list they're the original operator, or role is owner
   const currentMember = members.find(m => m.email === email);
-  const isOwner = !currentMember || currentMember.role === "owner";
+  const isOwner   = !currentMember || currentMember.role === "owner";
+  const canManage = isOwner || currentMember?.role === "admin"; // can add/edit properties, invite team, view integrations
 
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const nextBillingDate = nextMonth.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -345,7 +345,7 @@ export default function SettingsPage() {
                       )}
                     </div>
                   </div>
-                  {m.role !== "owner" && m.status !== "deactivated" && (
+                  {canManage && m.role !== "owner" && m.status !== "deactivated" && (
                     <button onClick={() => deactivateMember(m.id)}
                       className="ml-3 shrink-0 text-xs font-medium text-red-500 hover:underline">
                       Deactivate
@@ -369,18 +369,20 @@ export default function SettingsPage() {
                         {inv.role.replace("_", " ")} · expires {new Date(inv.expires_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <button onClick={() => cancelInvitation(inv.id)}
-                      className="ml-3 text-xs font-medium text-red-500 hover:underline">
-                      Cancel
-                    </button>
+                    {canManage && (
+                      <button onClick={() => cancelInvitation(inv.id)}
+                        className="ml-3 text-xs font-medium text-red-500 hover:underline">
+                        Cancel
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Invite form */}
-          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-white/5 dark:bg-white/5">
+          {/* Invite form — admins/owners only */}
+          {canManage && <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-white/5 dark:bg-white/5">
             <p className="mb-3 text-xs font-semibold text-gray-700 dark:text-gray-300">Invite a team member</p>
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
               <input
@@ -447,7 +449,7 @@ export default function SettingsPage() {
                 )}
               </div>
             )}
-          </div>
+          </div>}
 
           {/* Role legend */}
           <div className="mt-4 rounded-xl bg-gray-50 px-4 py-3 dark:bg-white/5">
@@ -465,7 +467,7 @@ export default function SettingsPage() {
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Properties</h2>
-            <a href="/properties/new" className="text-xs font-semibold text-[#C8102E] hover:underline">+ Add Property</a>
+            {canManage && <a href="/properties/new" className="text-xs font-semibold text-[#C8102E] hover:underline">+ Add Property</a>}
           </div>
 
           {loading ? (
@@ -481,125 +483,119 @@ export default function SettingsPage() {
             <div className="space-y-3">
               {properties.map(p => (
                 <div key={p.id} className="flex items-start justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-white/5 dark:bg-white/5">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{p.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{p.address}, {p.city}, {p.state}</p>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3 text-gray-400">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">{p.name}</p>
+                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">{p.address}, {p.city}, {p.state}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3 shrink-0 text-gray-400">
                         <path d="M2 2a1 1 0 011-1h2a1 1 0 01.95.684l.74 2.22a1 1 0 01-.233 1.022L5.2 6.16a9.7 9.7 0 004.64 4.64l1.234-1.257a1 1 0 011.022-.233l2.22.74A1 1 0 0115 11v2a1 1 0 01-1 1h-1C6.82 14 2 9.18 2 3V2z" />
                       </svg>
                       <span className="font-mono text-[11px] text-gray-600 dark:text-gray-300">{p.phone_number}</span>
                       <span className="text-[10px] font-semibold text-gray-400">AI line</span>
                     </div>
                   </div>
-                  <a href={`/properties/${p.id}`} className="ml-4 shrink-0 text-xs font-medium text-[#C8102E] hover:underline">Edit</a>
+                  {canManage && <a href={`/properties/${p.id}`} className="ml-4 shrink-0 text-xs font-medium text-[#C8102E] hover:underline">Edit</a>}
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* ── Usage & Billing — owner only ──────────────────────────────── */}
-        {isOwner && <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-          <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Usage & Billing</h2>
+        {/* ── Usage & Billing ───────────────────────────────────────────── */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+          <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+            {isOwner ? "Usage & Billing" : "Plan"}
+          </h2>
 
-          <div className="space-y-3">
-            {/* Platform fee */}
-            <div className="flex items-center justify-between rounded-xl border border-[#C8102E]/20 bg-[#C8102E]/5 px-5 py-4">
-              <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Platform Fee</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{planConfig.maxProps} · unlimited leads · 24/7 SMS</p>
+          {!isOwner ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${planInfo.color}`}>{planInfo.label}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">plan</span>
               </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">${planConfig.monthlyPrice.toLocaleString()}<span className="text-xs font-normal text-gray-400">/mo</span></p>
-                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                  <CheckIcon /> Active
-                </span>
+              <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-white/5 dark:bg-white/5">
+                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Billing is managed by your account owner.</p>
+                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Only the account owner can view pricing, upgrade plans, or manage billing. Contact your admin if you need changes.</p>
               </div>
             </div>
-
-            {/* Performance fee */}
-            <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-500/20 dark:bg-amber-900/10">
-              <div>
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Performance Fee</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Per lease signed through LeaseUp Bulldog · 30-day attribution</p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">${planConfig.perfFee}<span className="text-xs font-normal text-gray-400">/lease</span></p>
-                <p className="text-[10px] text-amber-600 dark:text-amber-400">Pay for results</p>
-              </div>
-            </div>
-          </div>
-
-          {/* This month — real data */}
-          <div className="mt-5 rounded-xl border border-gray-100 bg-gray-50 px-5 py-4 dark:border-white/5 dark:bg-white/5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-              {now.toLocaleString("default", { month: "long", year: "numeric" })}
-            </p>
-            {loading ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {[1,2,3].map(i => <Skeleton key={i} className="h-10" />)}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#C8102E]/20 bg-[#C8102E]/5 px-5 py-4">
                 <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{wonThisMonth}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Leases signed</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Platform Fee</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{planConfig.maxProps} · unlimited leads · 24/7 SMS</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold text-[#C8102E]">${performanceFee.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Performance fees</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">${totalDue.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Est. total due</p>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">${planConfig.monthlyPrice.toLocaleString()}<span className="text-xs font-normal text-gray-400">/mo</span></p>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400"><CheckIcon /> Active</span>
                 </div>
               </div>
-            )}
-            <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">
-              Next billing date: {nextBillingDate} · ${platformFee.toLocaleString()} platform{performanceFee > 0 ? ` + $${performanceFee.toLocaleString()} performance` : ""}
-            </p>
-          </div>
 
-          {/* Upgrade options */}
-          {(() => {
-            const planRank: Record<string, number> = { starter: 0, core: 0, pro: 1, growth: 1, portfolio: 2, enterprise: 2 };
-            const currentRank = planRank[operator?.plan ?? "starter"] ?? 0;
-            const upgradePlans = [
-              { slug: "pro",       name: "Pro",       price: "$1,500/mo", perfFee: "$150/lease", maxProps: "Up to 20 properties",  popular: true  },
-              { slug: "portfolio", name: "Portfolio", price: "$3,000/mo", perfFee: "$100/lease", maxProps: "Unlimited properties",  popular: false },
-            ].filter(p => (planRank[p.slug] ?? 0) > currentRank);
-
-            if (upgradePlans.length === 0) return (
-              <div className="mt-4 rounded-lg border border-gray-100 px-4 py-3 dark:border-white/5">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">You&apos;re on the Portfolio plan</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Contact us at <a href="mailto:support@leaseuphq.com" className="text-[#C8102E] hover:underline">support@leaseuphq.com</a> for invoices, receipts, or custom pricing.</p>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-500/20 dark:bg-amber-900/10">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Performance Fee</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Per lease signed · 30-day attribution</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gray-900 dark:text-gray-100">${planConfig.perfFee}<span className="text-xs font-normal text-gray-400">/lease</span></p>
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400">Pay for results</p>
+                </div>
               </div>
-            );
 
-            return (
-              <div className="mt-4">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Upgrade Your Plan</p>
-                <div className={`grid gap-3 ${upgradePlans.length === 1 ? "grid-cols-1" : "sm:grid-cols-2"}`}>
-                  {upgradePlans.map(plan => (
-                    <div key={plan.slug} className={`rounded-xl border p-4 ${plan.popular ? "border-[#C8102E]/40 bg-[#C8102E]/5" : "border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]"}`}>
-                      <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${plan.popular ? "text-[#C8102E]" : "text-gray-500"}`}>{plan.name}</p>
-                      <p className="text-xl font-black text-gray-900 dark:text-gray-100">{plan.price}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">+ {plan.perfFee} · {plan.maxProps}</p>
-                      <button
-                        onClick={() => handleUpgrade(plan.slug)}
-                        disabled={upgrading}
-                        className={`w-full rounded-lg py-2 text-sm font-bold transition-colors disabled:opacity-50 ${plan.popular ? "bg-[#C8102E] text-white hover:bg-[#A50D25]" : "border border-gray-200 dark:border-white/10 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-white/5"}`}
-                      >
-                        {upgrading ? "Redirecting…" : `Upgrade to ${plan.name} →`}
-                      </button>
+              <div className="rounded-xl border border-gray-100 bg-gray-50 px-5 py-4 dark:border-white/5 dark:bg-white/5">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+                  {now.toLocaleString("default", { month: "long", year: "numeric" })}
+                </p>
+                {loading ? (
+                  <div className="grid grid-cols-3 gap-3">
+                    {[1,2,3].map(i => <Skeleton key={i} className="h-10" />)}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div><p className="text-xl font-bold text-gray-900 dark:text-gray-100">{wonThisMonth}</p><p className="text-[11px] text-gray-500 dark:text-gray-400">Leases</p></div>
+                    <div><p className="text-xl font-bold text-[#C8102E]">${performanceFee.toLocaleString()}</p><p className="text-[11px] text-gray-500 dark:text-gray-400">Perf. fees</p></div>
+                    <div><p className="text-xl font-bold text-gray-900 dark:text-gray-100">${totalDue.toLocaleString()}</p><p className="text-[11px] text-gray-500 dark:text-gray-400">Est. total</p></div>
+                  </div>
+                )}
+                <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">Next billing: {nextBillingDate}</p>
+              </div>
+
+              {(() => {
+                const planRank: Record<string, number> = { starter: 0, core: 0, pro: 1, growth: 1, portfolio: 2, enterprise: 2 };
+                const currentRank = planRank[operator?.plan ?? "starter"] ?? 0;
+                const upgradePlans = [
+                  { slug: "pro",       name: "Pro",       price: "$1,500/mo", perfFee: "$150/lease", maxProps: "Up to 20 properties", popular: true  },
+                  { slug: "portfolio", name: "Portfolio", price: "$3,000/mo", perfFee: "$100/lease", maxProps: "Unlimited properties", popular: false },
+                ].filter(p => (planRank[p.slug] ?? 0) > currentRank);
+
+                if (upgradePlans.length === 0) return (
+                  <div className="rounded-lg border border-gray-100 px-4 py-3 dark:border-white/5">
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">You&apos;re on the Portfolio plan</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Contact <a href="mailto:support@leaseuphq.com" className="text-[#C8102E] hover:underline">support@leaseuphq.com</a> for custom pricing.</p>
+                  </div>
+                );
+                return (
+                  <div>
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Upgrade Your Plan</p>
+                    <div className={`grid gap-3 ${upgradePlans.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
+                      {upgradePlans.map(plan => (
+                        <div key={plan.slug} className={`rounded-xl border p-4 ${plan.popular ? "border-[#C8102E]/40 bg-[#C8102E]/5" : "border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]"}`}>
+                          <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${plan.popular ? "text-[#C8102E]" : "text-gray-500"}`}>{plan.name}</p>
+                          <p className="text-xl font-black text-gray-900 dark:text-gray-100">{plan.price}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">+ {plan.perfFee} · {plan.maxProps}</p>
+                          <button onClick={() => handleUpgrade(plan.slug)} disabled={upgrading}
+                            className={`w-full rounded-lg py-2.5 text-sm font-bold transition-colors disabled:opacity-50 ${plan.popular ? "bg-[#C8102E] text-white hover:bg-[#A50D25]" : "border border-gray-200 dark:border-white/10 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-white/5"}`}>
+                            {upgrading ? "Redirecting…" : `Upgrade to ${plan.name} →`}
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-        </div>}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
 
         {/* ── SMS Connection ────────────────────────────────────────────── */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
@@ -627,45 +623,50 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* ── Integrations ──────────────────────────────────────────────── */}
-        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
-          <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Integrations</h2>
-          <div className="space-y-3">
-            {[
-              { name: "Twilio",             desc: "SMS delivery · inbound & outbound AI responses",  status: "connected" },
-              { name: "Anthropic Claude",   desc: "AI engine powering lead replies & intelligence",   status: "connected" },
-              { name: "Supabase",           desc: "Database, auth, and real-time data",              status: "connected" },
-              { name: "Zapier",             desc: "Connect to 5,000+ apps",                          status: "coming_soon" },
-              { name: "Facebook Ads",       desc: "AI-generated ad campaigns",                        status: "coming_soon" },
-            ].map(int => (
-              <div key={int.name} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 dark:border-white/5">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{int.name}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{int.desc}</p>
+        {/* ── Integrations (owners/admins only) ─────────────────────────── */}
+        {canManage && (
+          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+            <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Integrations</h2>
+            <div className="space-y-3">
+              {[
+                { name: "Twilio",           desc: "SMS delivery · inbound & outbound AI responses", status: "connected" },
+                { name: "Anthropic Claude", desc: "AI engine powering lead replies & intelligence",  status: "connected" },
+                { name: "Supabase",         desc: "Database, auth, and real-time data",             status: "connected" },
+                { name: "Zapier",           desc: "Connect to 5,000+ apps",                         status: "coming_soon" },
+                { name: "Facebook Ads",     desc: "AI-generated ad campaigns",                       status: "coming_soon" },
+              ].map(int => (
+                <div key={int.name} className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 dark:border-white/5">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{int.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{int.desc}</p>
+                  </div>
+                  {int.status === "connected" ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      <CheckIcon /> Connected
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500 dark:bg-white/5 dark:text-gray-400">Coming soon</span>
+                  )}
                 </div>
-                {int.status === "connected" ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                    <CheckIcon /> Connected
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-500 dark:bg-white/5 dark:text-gray-400">Coming soon</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Danger Zone ───────────────────────────────────────────────── */}
-        <div className="rounded-xl border border-red-100 bg-white p-6 shadow-sm dark:border-red-900/30 dark:bg-[#1C1F2E]">
-          <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-red-400">Danger Zone</h2>
-          <div className="flex items-center justify-between rounded-lg border border-red-100 px-4 py-3 dark:border-red-900/30">
-            <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Delete Account</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Permanently removes your account, properties, and all lead data. Cannot be undone.</p>
+              ))}
             </div>
-            <button className="ml-4 shrink-0 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700">Delete</button>
           </div>
-        </div>
+        )}
+
+        {/* ── Danger Zone (owner only) ──────────────────────────────────── */}
+        {isOwner && (
+          <div className="rounded-xl border border-red-100 bg-white p-6 shadow-sm dark:border-red-900/30 dark:bg-[#1C1F2E]">
+            <h2 className="mb-5 text-xs font-semibold uppercase tracking-widest text-red-400">Danger Zone</h2>
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-red-100 px-4 py-3 dark:border-red-900/30">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Delete Account</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Permanently removes your account, properties, and all lead data. Cannot be undone.</p>
+              </div>
+              <button className="shrink-0 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

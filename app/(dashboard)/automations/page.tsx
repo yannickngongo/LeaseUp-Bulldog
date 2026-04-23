@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -296,10 +297,12 @@ function AutomationCard({
   automation,
   onToggle,
   onDelete,
+  canManage,
 }: {
   automation: Automation;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  canManage: boolean;
 }) {
   return (
     <div className={`relative flex flex-col gap-4 rounded-2xl border bg-white p-5 shadow-sm transition-all dark:bg-[#1C1F2E] ${
@@ -321,13 +324,19 @@ function AutomationCard({
           </div>
         </div>
 
-        {/* Toggle */}
-        <button
-          onClick={() => onToggle(automation.id)}
-          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${automation.enabled ? "bg-[#C8102E]" : "bg-gray-200 dark:bg-white/20"}`}
-        >
-          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${automation.enabled ? "translate-x-[22px]" : "translate-x-0.5"}`} />
-        </button>
+        {/* Toggle — read-only for sub-accounts */}
+        {canManage ? (
+          <button
+            onClick={() => onToggle(automation.id)}
+            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${automation.enabled ? "bg-[#C8102E]" : "bg-gray-200 dark:bg-white/20"}`}
+          >
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${automation.enabled ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+          </button>
+        ) : (
+          <div className={`relative h-6 w-11 shrink-0 rounded-full opacity-50 cursor-not-allowed ${automation.enabled ? "bg-[#C8102E]" : "bg-gray-200 dark:bg-white/20"}`}>
+            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow ${automation.enabled ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+          </div>
+        )}
       </div>
 
       {/* Rule flow */}
@@ -359,7 +368,7 @@ function AutomationCard({
             <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{automation.runLast7d} runs</p>
           </div>
         </div>
-        {automation.isCustom && (
+        {canManage && automation.isCustom && (
           <button onClick={() => onDelete(automation.id)} className="text-xs text-red-400 hover:text-red-600 transition-colors">
             Delete
           </button>
@@ -377,6 +386,21 @@ export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [showCreate, setShowCreate]   = useState(false);
   const [filter, setFilter]           = useState<"all" | "enabled" | "disabled">("all");
+  const [canManage, setCanManage]     = useState(true);
+
+  // Resolve role
+  useEffect(() => {
+    getOperatorEmail().then(async (email) => {
+      if (!email) return;
+      const res = await fetch(`/api/org/members?email=${encodeURIComponent(email)}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      const members: { email: string; role: string }[] = json.members ?? [];
+      const me = members.find((m) => m.email === email);
+      const isOwner = !me || me.role === "owner";
+      setCanManage(isOwner || me?.role === "admin");
+    });
+  }, []);
 
   // Load from localStorage (merge with defaults)
   useEffect(() => {
@@ -434,16 +458,18 @@ export default function AutomationsPage() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Automations</h1>
           <p className="mt-0.5 text-sm text-gray-400 dark:text-gray-500">Set rules once — LUB runs them forever</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
-          style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Create Automation
-        </button>
+        {canManage && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 rounded-xl bg-[#C8102E] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
+            style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Create Automation
+          </button>
+        )}
       </div>
 
       {/* Stats banner */}
@@ -480,7 +506,7 @@ export default function AutomationsPage() {
       {/* Automations grid */}
       <div className="grid gap-4 lg:grid-cols-2">
         {filtered.map((a) => (
-          <AutomationCard key={a.id} automation={a} onToggle={toggle} onDelete={deleteAuto} />
+          <AutomationCard key={a.id} automation={a} onToggle={toggle} onDelete={deleteAuto} canManage={canManage} />
         ))}
       </div>
 
