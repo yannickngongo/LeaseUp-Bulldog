@@ -64,9 +64,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
-    const host = req.headers.get("host") ?? "lease-up-bulldog.vercel.app";
-    const proto = host.startsWith("localhost") ? "http" : "https";
-    const origin = process.env.NEXT_PUBLIC_APP_URL ?? `${proto}://${host}`;
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ??
+      (() => {
+        const host = req.headers.get("host") ?? "";
+        const proto = host.startsWith("localhost") ? "http" : "https";
+        return host ? `${proto}://${host}` : "https://lease-up-bulldog.vercel.app";
+      })();
     const stripe = getStripe();
     const db = getSupabaseAdmin();
 
