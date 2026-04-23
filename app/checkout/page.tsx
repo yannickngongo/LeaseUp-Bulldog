@@ -71,7 +71,9 @@ function CheckoutForm() {
         body:    JSON.stringify({ plan: selectedPlan, marketing_addon: marketingAddon, email }),
       });
 
-      const json = await res.json();
+      let json: { url?: string; error?: string } = {};
+      try { json = await res.json(); } catch { /* non-JSON response */ }
+
       if (!res.ok || !json.url) {
         setError(json.error ?? "Could not start checkout. Please try again.");
         setLoading(false);
@@ -80,7 +82,7 @@ function CheckoutForm() {
 
       window.location.href = json.url;
     } catch {
-      setError("Network error. Please try again.");
+      setError("Could not reach the server. Please try again.");
       setLoading(false);
     }
   }
