@@ -66,11 +66,14 @@ function CheckIcon() {
   );
 }
 
-const PLAN_LABELS: Record<string, { label: string; color: string }> = {
-  starter:  { label: "Starter",  color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
-  growth:   { label: "Growth",   color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" },
-  pro:      { label: "Pro",      color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
-  enterprise: { label: "Enterprise", color: "bg-gray-100 text-gray-700 dark:bg-white/10 dark:text-gray-300" },
+const PLAN_LABELS: Record<string, { label: string; color: string; monthlyPrice: number; perfFee: number; maxProps: string }> = {
+  starter:   { label: "Starter",   color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",     monthlyPrice: 500,  perfFee: 150, maxProps: "Up to 3 properties" },
+  pro:       { label: "Pro",       color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", monthlyPrice: 1500, perfFee: 200, maxProps: "Up to 20 properties" },
+  portfolio: { label: "Portfolio", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", monthlyPrice: 3000, perfFee: 250, maxProps: "Unlimited properties" },
+  // legacy slugs
+  growth:     { label: "Pro",       color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400", monthlyPrice: 1500, perfFee: 200, maxProps: "Up to 20 properties" },
+  enterprise: { label: "Portfolio", color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", monthlyPrice: 3000, perfFee: 250, maxProps: "Unlimited properties" },
+  core:       { label: "Starter",   color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",     monthlyPrice: 500,  perfFee: 150, maxProps: "Up to 3 properties" },
 };
 
 export default function SettingsPage() {
@@ -217,8 +220,9 @@ export default function SettingsPage() {
   const wonThisMonth = leads.filter(l =>
     l.status === "won" && new Date(l.created_at) >= startOfMonth
   ).length;
-  const performanceFee = wonThisMonth * 200;
-  const platformFee = 1000;
+  const planConfig = PLAN_LABELS[operator?.plan ?? "starter"] ?? PLAN_LABELS.starter;
+  const performanceFee = wonThisMonth * planConfig.perfFee;
+  const platformFee = planConfig.monthlyPrice;
   const totalDue = platformFee + performanceFee;
 
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -482,10 +486,10 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between rounded-xl border border-[#C8102E]/20 bg-[#C8102E]/5 px-5 py-4">
               <div>
                 <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Platform Fee</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Full AI leasing suite · unlimited leads · 24/7 SMS</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{planConfig.maxProps} · unlimited leads · 24/7 SMS</p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">$1,000<span className="text-xs font-normal text-gray-400">/mo</span></p>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">${planConfig.monthlyPrice.toLocaleString()}<span className="text-xs font-normal text-gray-400">/mo</span></p>
                 <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
                   <CheckIcon /> Active
                 </span>
@@ -499,7 +503,7 @@ export default function SettingsPage() {
                 <p className="text-xs text-gray-500 dark:text-gray-400">Per lease signed through LeaseUp Bulldog · 30-day attribution</p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">$200<span className="text-xs font-normal text-gray-400">/lease</span></p>
+                <p className="text-lg font-bold text-gray-900 dark:text-gray-100">${planConfig.perfFee}<span className="text-xs font-normal text-gray-400">/lease</span></p>
                 <p className="text-[10px] text-amber-600 dark:text-amber-400">Pay for results</p>
               </div>
             </div>
@@ -531,7 +535,7 @@ export default function SettingsPage() {
               </div>
             )}
             <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">
-              Next billing date: {nextBillingDate} · $1,000 platform{performanceFee > 0 ? ` + $${performanceFee.toLocaleString()} performance` : ""}
+              Next billing date: {nextBillingDate} · ${platformFee.toLocaleString()} platform{performanceFee > 0 ? ` + $${performanceFee.toLocaleString()} performance` : ""}
             </p>
           </div>
 
