@@ -231,17 +231,40 @@ export interface ApprovedFAQ {
   answer: string;
 }
 
+export interface UnitTypeConfig {
+  label: string;       // "Studio", "1 Bedroom", "2 Bedroom", "3 Bedroom"
+  bedrooms: number;    // 0 = studio
+  bathrooms: number;   // 1, 1.5, 2, etc.
+  sq_ft_min?: number;
+  sq_ft_max?: number;
+  rent_min?: number;
+  rent_max?: number;
+  available: number;   // units available right now
+  total: number;       // total units of this type in the building
+}
+
 export interface PropertyAIConfig {
   id: string;
   created_at: string;
   updated_at: string;
   property_id: string;
+  // Current special
   leasing_special_title?: string;
   leasing_special_description?: string;
-  pricing_notes?: string;
+  // Unit mix & pricing — the most impactful context for the AI
+  unit_mix: UnitTypeConfig[];
+  // Property details
+  amenities: string[];          // e.g. ["Pool", "Gym", "Dog Park", "Covered Parking"]
+  pet_policy?: string;          // e.g. "Cats and dogs welcome, max 2 pets, $300 deposit + $50/mo"
+  parking_info?: string;        // e.g. "1 covered space included, additional $100/mo"
+  laundry_info?: string;        // e.g. "In-unit washer/dryer in all units"
+  utilities_included?: string;  // e.g. "Water and trash included. Tenant pays electric and gas."
+  // Leasing process
   application_link?: string;
   tour_instructions?: string;
   office_hours?: string;
+  pricing_notes?: string;       // free-form notes to supplement unit_mix
+  // AI behavior controls
   approved_faqs: ApprovedFAQ[];
   objection_handling_notes?: string;
   allowed_messaging?: string;

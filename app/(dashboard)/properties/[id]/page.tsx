@@ -1259,6 +1259,374 @@ function CompetitorSection(_: { property: Property; email: string }) { return nu
 
 function OfferScoringSection(_: { property: Property; units: Unit[]; leads: Lead[] }) { return null; }
 
+// ─── AI Brain Config ──────────────────────────────────────────────────────────
+
+interface UnitTypeRow { label: string; bedrooms: number; bathrooms: number; sq_ft_min: string; sq_ft_max: string; rent_min: string; rent_max: string; available: string; total: string; }
+
+const AMENITY_OPTIONS = [
+  "Swimming Pool","Fitness Center","Dog Park","Rooftop Deck","Courtyard","BBQ Area",
+  "Covered Parking","Garage Parking","Bike Storage","EV Charging","Storage Units",
+  "Concierge","Package Lockers","Co-working Space","Game Room","Movie Theater",
+  "In-Unit Washer/Dryer","Dishwasher","Stainless Appliances","Quartz Countertops",
+  "Hardwood Floors","Balcony/Patio","City Views","Smart Home Tech","Fiber Internet",
+  "On-site Maintenance","24hr Maintenance","Gated Access","Controlled Entry",
+];
+
+const BLANK_UNIT: UnitTypeRow = { label: "", bedrooms: 1, bathrooms: 1, sq_ft_min: "", sq_ft_max: "", rent_min: "", rent_max: "", available: "", total: "" };
+
+function AIConfigSection({ propertyId }: { propertyId: string }) {
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+  const [error,    setError]    = useState("");
+
+  // Unit mix
+  const [units, setUnits] = useState<UnitTypeRow[]>([{ ...BLANK_UNIT }]);
+  // Amenities
+  const [amenities,         setAmenities]         = useState<string[]>([]);
+  const [customAmenity,     setCustomAmenity]      = useState("");
+  // Policies & details
+  const [petPolicy,         setPetPolicy]          = useState("");
+  const [parkingInfo,       setParkingInfo]        = useState("");
+  const [laundryInfo,       setLaundryInfo]        = useState("");
+  const [utilitiesIncluded, setUtilitiesIncluded]  = useState("");
+  const [pricingNotes,      setPricingNotes]       = useState("");
+  // Leasing
+  const [tourInstructions,  setTourInstructions]   = useState("");
+  const [officeHours,       setOfficeHours]        = useState("");
+  const [applicationLink,   setApplicationLink]    = useState("");
+  // Special
+  const [specialTitle,      setSpecialTitle]       = useState("");
+  const [specialDesc,       setSpecialDesc]        = useState("");
+  // FAQs
+  const [faqs, setFaqs] = useState<{ question: string; answer: string }[]>([]);
+  // Escalation
+  const [escalationTriggers, setEscalationTriggers] = useState("");
+
+  useEffect(() => {
+    fetch(`/api/properties/${propertyId}/ai-config`)
+      .then(r => r.json())
+      .then(j => {
+        const c = j.config;
+        if (!c) { setLoading(false); return; }
+        setUnits(
+          (c.unit_mix ?? []).map((u: Record<string, unknown>) => ({
+            label: String(u.label ?? ""), bedrooms: Number(u.bedrooms ?? 1), bathrooms: Number(u.bathrooms ?? 1),
+            sq_ft_min: u.sq_ft_min ? String(u.sq_ft_min) : "", sq_ft_max: u.sq_ft_max ? String(u.sq_ft_max) : "",
+            rent_min: u.rent_min ? String(u.rent_min) : "", rent_max: u.rent_max ? String(u.rent_max) : "",
+            available: String(u.available ?? ""), total: String(u.total ?? ""),
+          }))
+        );
+        if (c.unit_mix?.length === 0 || !c.unit_mix) setUnits([{ ...BLANK_UNIT }]);
+        setAmenities(c.amenities ?? []);
+        setPetPolicy(c.pet_policy ?? "");
+        setParkingInfo(c.parking_info ?? "");
+        setLaundryInfo(c.laundry_info ?? "");
+        setUtilitiesIncluded(c.utilities_included ?? "");
+        setPricingNotes(c.pricing_notes ?? "");
+        setTourInstructions(c.tour_instructions ?? "");
+        setOfficeHours(c.office_hours ?? "");
+        setApplicationLink(c.application_link ?? "");
+        setSpecialTitle(c.leasing_special_title ?? "");
+        setSpecialDesc(c.leasing_special_description ?? "");
+        setFaqs(c.approved_faqs?.length > 0 ? c.approved_faqs : []);
+        setEscalationTriggers((c.escalation_triggers ?? []).join(", "));
+      })
+      .finally(() => setLoading(false));
+  }, [propertyId]);
+
+  async function handleSave() {
+    setSaving(true); setError(""); setSaved(false);
+    try {
+      const unit_mix = units
+        .filter(u => u.label.trim())
+        .map(u => ({
+          label: u.label.trim(), bedrooms: Number(u.bedrooms), bathrooms: Number(u.bathrooms),
+          sq_ft_min: u.sq_ft_min ? Number(u.sq_ft_min) : undefined,
+          sq_ft_max: u.sq_ft_max ? Number(u.sq_ft_max) : undefined,
+          rent_min: u.rent_min ? Number(u.rent_min) : undefined,
+          rent_max: u.rent_max ? Number(u.rent_max) : undefined,
+          available: Number(u.available) || 0, total: Number(u.total) || 0,
+        }));
+      const res = await fetch(`/api/properties/${propertyId}/ai-config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          unit_mix, amenities,
+          pet_policy: petPolicy || undefined,
+          parking_info: parkingInfo || undefined,
+          laundry_info: laundryInfo || undefined,
+          utilities_included: utilitiesIncluded || undefined,
+          pricing_notes: pricingNotes || undefined,
+          tour_instructions: tourInstructions || undefined,
+          office_hours: officeHours || undefined,
+          application_link: applicationLink || undefined,
+          leasing_special_title: specialTitle || undefined,
+          leasing_special_description: specialDesc || undefined,
+          approved_faqs: faqs.filter(f => f.question.trim() && f.answer.trim()),
+          escalation_triggers: escalationTriggers ? escalationTriggers.split(",").map(s => s.trim()).filter(Boolean) : [],
+        }),
+      });
+      if (!res.ok) { const j = await res.json(); setError(j.error ? JSON.stringify(j.error) : "Save failed"); return; }
+      setSaved(true); setTimeout(() => setSaved(false), 3000);
+    } finally { setSaving(false); }
+  }
+
+  const fieldCls = "w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:border-[#C8102E]/50 focus:outline-none focus:ring-2 focus:ring-[#C8102E]/10 transition-all";
+  const labelCls = "mb-1.5 block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide";
+
+  if (loading) return (
+    <div className="rounded-2xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-6">
+      <div className="mb-4 h-4 w-24 animate-pulse rounded bg-gray-100 dark:bg-white/5" />
+      <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-10 animate-pulse rounded-lg bg-gray-100 dark:bg-white/5" />)}</div>
+    </div>
+  );
+
+  return (
+    <div className="rounded-2xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-6 space-y-8">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100">AI Brain Configuration</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Everything the AI knows about this property. The more you fill in, the more precisely it answers leads.</p>
+        </div>
+        <button onClick={handleSave} disabled={saving}
+          className="shrink-0 rounded-xl bg-[#C8102E] px-4 py-2 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 transition-colors"
+          style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}>
+          {saved ? "✓ Saved" : saving ? "Saving…" : "Save"}
+        </button>
+      </div>
+      {error && <p className="rounded-xl bg-red-50 dark:bg-red-900/20 px-4 py-2.5 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      {/* ── Unit Mix ─────────────────────────────────────────────────────────── */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Unit Mix & Pricing</p>
+            <p className="text-xs text-gray-400 mt-0.5">The AI uses this to answer "what's your price?" and "do you have 2BRs available?" precisely.</p>
+          </div>
+          <button onClick={() => setUnits(p => [...p, { ...BLANK_UNIT }])}
+            className="shrink-0 rounded-lg border border-gray-200 dark:border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            + Add Unit Type
+          </button>
+        </div>
+        <div className="space-y-3">
+          {units.map((u, i) => (
+            <div key={i} className="rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <input value={u.label} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, label: e.target.value } : r))}
+                  placeholder="e.g. Studio, 1 Bedroom, 2BR/2BA Deluxe"
+                  className="flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm font-semibold text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:border-[#C8102E]/50 focus:outline-none focus:ring-2 focus:ring-[#C8102E]/10" />
+                {units.length > 1 && (
+                  <button onClick={() => setUnits(p => p.filter((_, j) => j !== i))}
+                    className="ml-3 shrink-0 text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-500 transition-colors">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4"><path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/></svg>
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-gray-400">Beds</label>
+                  <select value={u.bedrooms} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, bedrooms: Number(e.target.value) } : r))}
+                    className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 py-1.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none">
+                    <option value={0}>Studio</option><option value={1}>1 BR</option><option value={2}>2 BR</option>
+                    <option value={3}>3 BR</option><option value={4}>4 BR</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-gray-400">Baths</label>
+                  <select value={u.bathrooms} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, bathrooms: Number(e.target.value) } : r))}
+                    className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 py-1.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none">
+                    <option value={1}>1</option><option value={1.5}>1.5</option><option value={2}>2</option><option value={2.5}>2.5</option><option value={3}>3</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-gray-400">Sq Ft Range</label>
+                  <div className="flex items-center gap-1">
+                    <input type="number" value={u.sq_ft_min} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, sq_ft_min: e.target.value } : r))}
+                      placeholder="650" className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none" />
+                    <span className="text-gray-300">–</span>
+                    <input type="number" value={u.sq_ft_max} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, sq_ft_max: e.target.value } : r))}
+                      placeholder="750" className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none" />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-gray-400">Rent Range / mo</label>
+                  <div className="flex items-center gap-1">
+                    <input type="number" value={u.rent_min} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, rent_min: e.target.value } : r))}
+                      placeholder="1400" className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none" />
+                    <span className="text-gray-300">–</span>
+                    <input type="number" value={u.rent_max} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, rent_max: e.target.value } : r))}
+                      placeholder="1600" className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 py-1.5 text-xs text-gray-800 dark:text-gray-200 focus:outline-none" />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-gray-400">Available Now</label>
+                  <input type="number" min="0" value={u.available} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, available: e.target.value } : r))}
+                    placeholder="3" className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 py-1.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-gray-400">Total in Building</label>
+                  <input type="number" min="0" value={u.total} onChange={e => setUnits(p => p.map((r, j) => j === i ? { ...r, total: e.target.value } : r))}
+                    placeholder="24" className="w-full rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2 py-1.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Amenities ────────────────────────────────────────────────────────── */}
+      <div>
+        <p className="mb-1 text-sm font-semibold text-gray-800 dark:text-gray-100">Amenities</p>
+        <p className="mb-3 text-xs text-gray-400">The AI mentions these when relevant — it won&apos;t list them all unprompted.</p>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {AMENITY_OPTIONS.map(a => (
+            <button key={a} onClick={() => setAmenities(p => p.includes(a) ? p.filter(x => x !== a) : [...p, a])}
+              className={cn("rounded-full px-3 py-1 text-xs font-semibold border transition-all",
+                amenities.includes(a)
+                  ? "border-[#C8102E]/30 bg-[#C8102E]/10 text-[#C8102E] dark:text-red-400"
+                  : "border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20")}>
+              {a}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <input value={customAmenity} onChange={e => setCustomAmenity(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && customAmenity.trim()) { setAmenities(p => [...p, customAmenity.trim()]); setCustomAmenity(""); } }}
+            placeholder="Add custom amenity…"
+            className="flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:border-[#C8102E]/50 focus:outline-none focus:ring-2 focus:ring-[#C8102E]/10" />
+          <button onClick={() => { if (customAmenity.trim()) { setAmenities(p => [...p, customAmenity.trim()]); setCustomAmenity(""); } }}
+            className="shrink-0 rounded-lg border border-gray-200 dark:border-white/10 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">Add</button>
+        </div>
+        {amenities.filter(a => !AMENITY_OPTIONS.includes(a)).map(a => (
+          <span key={a} className="mt-2 mr-2 inline-flex items-center gap-1 rounded-full border border-[#C8102E]/30 bg-[#C8102E]/10 px-3 py-1 text-xs font-semibold text-[#C8102E] dark:text-red-400">
+            {a}
+            <button onClick={() => setAmenities(p => p.filter(x => x !== a))} className="ml-1 opacity-60 hover:opacity-100">×</button>
+          </span>
+        ))}
+      </div>
+
+      {/* ── Policies ─────────────────────────────────────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>Pet Policy</label>
+          <textarea value={petPolicy} onChange={e => setPetPolicy(e.target.value)} rows={2} className={fieldCls}
+            placeholder="e.g. Cats and dogs welcome, max 2 pets, $300 refundable deposit + $50/mo pet rent. Breed restrictions apply." />
+        </div>
+        <div>
+          <label className={labelCls}>Parking</label>
+          <textarea value={parkingInfo} onChange={e => setParkingInfo(e.target.value)} rows={2} className={fieldCls}
+            placeholder="e.g. 1 covered space included with each unit. Additional parking $75/mo." />
+        </div>
+        <div>
+          <label className={labelCls}>Laundry</label>
+          <input value={laundryInfo} onChange={e => setLaundryInfo(e.target.value)} className={fieldCls}
+            placeholder="e.g. In-unit washer/dryer in all units" />
+        </div>
+        <div>
+          <label className={labelCls}>Utilities Included in Rent</label>
+          <input value={utilitiesIncluded} onChange={e => setUtilitiesIncluded(e.target.value)} className={fieldCls}
+            placeholder="e.g. Water and trash included. Tenant pays electric and gas." />
+        </div>
+      </div>
+
+      {/* ── Leasing Process ──────────────────────────────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className={labelCls}>Office Hours</label>
+          <input value={officeHours} onChange={e => setOfficeHours(e.target.value)} className={fieldCls}
+            placeholder="e.g. Mon–Fri 9am–6pm, Sat 10am–4pm" />
+        </div>
+        <div>
+          <label className={labelCls}>Tour Scheduling Instructions</label>
+          <input value={tourInstructions} onChange={e => setTourInstructions(e.target.value)} className={fieldCls}
+            placeholder="e.g. Use the booking link, or reply to schedule" />
+        </div>
+        <div>
+          <label className={labelCls}>Application Link</label>
+          <input type="url" value={applicationLink} onChange={e => setApplicationLink(e.target.value)} className={fieldCls}
+            placeholder="https://apply.rentcafe.com/..." />
+        </div>
+        <div>
+          <label className={labelCls}>Additional Pricing Notes</label>
+          <input value={pricingNotes} onChange={e => setPricingNotes(e.target.value)} className={fieldCls}
+            placeholder="e.g. Prices change weekly — confirm at time of application" />
+        </div>
+      </div>
+
+      {/* ── Current Special ───────────────────────────────────────────────────── */}
+      <div>
+        <p className="mb-3 text-sm font-semibold text-gray-800 dark:text-gray-100">Current Special <span className="ml-1 text-xs font-normal text-gray-400">(leave blank if none)</span></p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Special Title</label>
+            <input value={specialTitle} onChange={e => setSpecialTitle(e.target.value)} className={fieldCls}
+              placeholder="e.g. First Month Free on 2BR" />
+          </div>
+          <div>
+            <label className={labelCls}>Special Details</label>
+            <input value={specialDesc} onChange={e => setSpecialDesc(e.target.value)} className={fieldCls}
+              placeholder="e.g. On 12-month leases, move-in by June 30" />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Approved Q&A ─────────────────────────────────────────────────────── */}
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Approved Q&A</p>
+            <p className="text-xs text-gray-400 mt-0.5">The AI uses these exact answers when a lead asks a matching question.</p>
+          </div>
+          <button onClick={() => setFaqs(p => [...p, { question: "", answer: "" }])}
+            className="shrink-0 rounded-lg border border-gray-200 dark:border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            + Add Q&A
+          </button>
+        </div>
+        {faqs.length === 0 && <p className="text-xs text-gray-400 italic">No Q&A added yet. Add answers to common questions like income requirements, lease terms, or move-in fees.</p>}
+        <div className="space-y-3">
+          {faqs.map((f, i) => (
+            <div key={i} className="flex gap-2">
+              <div className="flex-1 grid gap-2 sm:grid-cols-2">
+                <input value={f.question} onChange={e => setFaqs(p => p.map((r, j) => j === i ? { ...r, question: e.target.value } : r))}
+                  placeholder="Question leads ask…" className={fieldCls} />
+                <input value={f.answer} onChange={e => setFaqs(p => p.map((r, j) => j === i ? { ...r, answer: e.target.value } : r))}
+                  placeholder="Exact answer to use…" className={fieldCls} />
+              </div>
+              <button onClick={() => setFaqs(p => p.filter((_, j) => j !== i))}
+                className="shrink-0 text-gray-300 hover:text-red-400 dark:text-gray-600 dark:hover:text-red-500 transition-colors mt-1">
+                <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4"><path d="M3.72 3.72a.75.75 0 011.06 0L8 6.94l3.22-3.22a.75.75 0 111.06 1.06L9.06 8l3.22 3.22a.75.75 0 11-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 01-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 010-1.06z"/></svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Escalation Triggers ───────────────────────────────────────────────── */}
+      <div>
+        <label className={labelCls}>Escalate to Human When Lead Mentions</label>
+        <input value={escalationTriggers} onChange={e => setEscalationTriggers(e.target.value)} className={fieldCls}
+          placeholder="e.g. eviction, lawsuit, Section 8, emergency (comma separated)" />
+        <p className="mt-1 text-xs text-gray-400">Comma-separated keywords. When detected, the AI stops and hands off to your team.</p>
+      </div>
+
+      {/* Save footer */}
+      <div className="flex items-center justify-between border-t border-gray-100 dark:border-white/5 pt-4">
+        {saved && <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">✓ Saved — AI will use this context on the next message</p>}
+        {!saved && <p className="text-xs text-gray-400">Changes take effect immediately on all new conversations.</p>}
+        <button onClick={handleSave} disabled={saving}
+          className="rounded-xl bg-[#C8102E] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 transition-colors"
+          style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}>
+          {saved ? "✓ Saved" : saving ? "Saving…" : "Save AI Config"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Rent Roll Stale Banner ───────────────────────────────────────────────────
 
 function RentRollStaleBanner({
@@ -1628,6 +1996,12 @@ export default function PropertyDetailPage() {
       {/* ── Rent Roll & Occupancy ───────────────────────────────────────── */}
       <div id="rent-roll-section">
         <RentRollSection propertyId={propertyId} daysSinceUpdate={daysSinceRentRoll} />
+      </div>
+
+      {/* ── AI Brain Configuration ───────────────────────────────────────── */}
+      <div>
+        <SectionLabel>AI Brain Configuration</SectionLabel>
+        <AIConfigSection propertyId={propertyId} />
       </div>
 
       {/* ── Recent Lead Activity ────────────────────────────────────────── */}

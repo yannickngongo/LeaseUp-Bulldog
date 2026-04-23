@@ -5,9 +5,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase";
 
+const UnitTypeSchema = z.object({
+  label:      z.string().min(1),
+  bedrooms:   z.number().int().min(0).max(10),
+  bathrooms:  z.number().min(0).max(10),
+  sq_ft_min:  z.number().int().positive().optional(),
+  sq_ft_max:  z.number().int().positive().optional(),
+  rent_min:   z.number().int().positive().optional(),
+  rent_max:   z.number().int().positive().optional(),
+  available:  z.number().int().min(0),
+  total:      z.number().int().min(0),
+});
+
 const PatchSchema = z.object({
   leasing_special_title:       z.string().optional(),
   leasing_special_description: z.string().optional(),
+  unit_mix:                    z.array(UnitTypeSchema).optional(),
+  amenities:                   z.array(z.string()).optional(),
+  pet_policy:                  z.string().optional(),
+  parking_info:                z.string().optional(),
+  laundry_info:                z.string().optional(),
+  utilities_included:          z.string().optional(),
   pricing_notes:               z.string().optional(),
   application_link:            z.string().url().optional().or(z.literal("")),
   tour_instructions:           z.string().optional(),
