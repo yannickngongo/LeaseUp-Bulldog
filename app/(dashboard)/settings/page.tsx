@@ -86,6 +86,7 @@ export default function SettingsPage() {
   const [name, setName]             = useState("");
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
+  const [upgrading, setUpgrading]   = useState(false);
 
   // Team management state
   const [members, setMembers]             = useState<Member[]>([]);
@@ -203,6 +204,22 @@ export default function SettingsPage() {
       body: JSON.stringify({ email, memberId }),
     });
     setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: "deactivated" } : m));
+  }
+
+  async function handleUpgrade(targetPlan: string) {
+    setUpgrading(true);
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ plan: targetPlan }),
+      });
+      const json = await res.json();
+      if (json.url) window.location.href = json.url;
+      else { alert("Could not start checkout. Please try again."); }
+    } finally {
+      setUpgrading(false);
+    }
   }
 
   async function cancelInvitation(invitationId: string) {
@@ -543,10 +560,44 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="mt-4 rounded-lg border border-gray-100 px-4 py-3 dark:border-white/5">
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Billing managed by LeaseUp Bulldog team</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Contact your account manager for invoices, receipts, or billing changes.</p>
-          </div>
+          {/* Upgrade options */}
+          {(() => {
+            const planRank: Record<string, number> = { starter: 0, core: 0, pro: 1, growth: 1, portfolio: 2, enterprise: 2 };
+            const currentRank = planRank[operator?.plan ?? "starter"] ?? 0;
+            const upgradePlans = [
+              { slug: "pro",       name: "Pro",       price: "$1,500/mo", perfFee: "$150/lease", maxProps: "Up to 20 properties",  popular: true  },
+              { slug: "portfolio", name: "Portfolio", price: "$3,000/mo", perfFee: "$100/lease", maxProps: "Unlimited properties",  popular: false },
+            ].filter(p => (planRank[p.slug] ?? 0) > currentRank);
+
+            if (upgradePlans.length === 0) return (
+              <div className="mt-4 rounded-lg border border-gray-100 px-4 py-3 dark:border-white/5">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">You&apos;re on the Portfolio plan</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Contact us at <a href="mailto:support@leaseuphq.com" className="text-[#C8102E] hover:underline">support@leaseuphq.com</a> for invoices, receipts, or custom pricing.</p>
+              </div>
+            );
+
+            return (
+              <div className="mt-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">Upgrade Your Plan</p>
+                <div className={`grid gap-3 ${upgradePlans.length === 1 ? "grid-cols-1" : "sm:grid-cols-2"}`}>
+                  {upgradePlans.map(plan => (
+                    <div key={plan.slug} className={`rounded-xl border p-4 ${plan.popular ? "border-[#C8102E]/40 bg-[#C8102E]/5" : "border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/[0.02]"}`}>
+                      <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${plan.popular ? "text-[#C8102E]" : "text-gray-500"}`}>{plan.name}</p>
+                      <p className="text-xl font-black text-gray-900 dark:text-gray-100">{plan.price}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">+ {plan.perfFee} · {plan.maxProps}</p>
+                      <button
+                        onClick={() => handleUpgrade(plan.slug)}
+                        disabled={upgrading}
+                        className={`w-full rounded-lg py-2 text-sm font-bold transition-colors disabled:opacity-50 ${plan.popular ? "bg-[#C8102E] text-white hover:bg-[#A50D25]" : "border border-gray-200 dark:border-white/10 text-gray-900 dark:text-gray-100 hover:bg-white dark:hover:bg-white/5"}`}
+                      >
+                        {upgrading ? "Redirecting…" : `Upgrade to ${plan.name} →`}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>}
 
         {/* ── SMS Connection ────────────────────────────────────────────── */}

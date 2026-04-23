@@ -26,8 +26,8 @@ export function MarketingFooter() {
             <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-gray-500">Company</p>
             <ul className="space-y-2 text-sm text-gray-400">
               <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
-              <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+              <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
             </ul>
           </div>
           <div>
