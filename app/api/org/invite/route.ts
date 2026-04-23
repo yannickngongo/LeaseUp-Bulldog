@@ -15,14 +15,23 @@ export async function GET(req: NextRequest) {
   const db = getSupabaseAdmin();
   const { data: inv } = await db
     .from("organization_invitations")
-    .select("id, email, role, property_ids, expires_at, organization_id, organizations(name)")
+    .select("id, email, role, property_ids, expires_at, organization_id, organizations(name, operator_id)")
     .eq("token", token)
     .is("accepted_at", null)
     .gt("expires_at", new Date().toISOString())
     .single();
 
   if (!inv) return NextResponse.json({ error: "Invitation not found or expired" }, { status: 404 });
-  return NextResponse.json({ invitation: inv });
+
+  // Fetch the operator's real name so the invite page can show it
+  let inviterName = "";
+  const operatorId = (inv.organizations as { operator_id?: string } | null)?.operator_id;
+  if (operatorId) {
+    const { data: op } = await db.from("operators").select("name").eq("id", operatorId).single();
+    inviterName = op?.name ?? "";
+  }
+
+  return NextResponse.json({ invitation: { ...inv, inviter_name: inviterName } });
 }
 
 export async function POST(req: NextRequest) {

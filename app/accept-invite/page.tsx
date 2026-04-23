@@ -11,6 +11,7 @@ interface Invitation {
   email: string;
   role: string;
   expires_at: string;
+  inviter_name?: string;
   organizations: { name: string } | null;
 }
 
@@ -36,7 +37,8 @@ function AcceptInviteContent() {
       .finally(() => setLoading(false));
   }, [token]);
 
-  const orgName   = inv?.organizations?.name ?? "your team";
+  const rawInviterName = inv?.inviter_name ?? inv?.organizations?.name ?? "";
+  const inviterFirstName = rawInviterName.split(" ")[0] || rawInviterName.split("@")[0] || "your team";
   const signupUrl = `/signup?invite_token=${encodeURIComponent(token)}&invite_email=${encodeURIComponent(inv?.email ?? "")}`;
   const loginUrl  = `/login?invite_token=${encodeURIComponent(token)}`;
 
@@ -78,7 +80,7 @@ function AcceptInviteContent() {
               </div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">You&rsquo;ve been invited</h2>
               <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Join <strong className="text-gray-900 dark:text-white">{orgName}</strong> as a{" "}
+                Join <strong className="text-gray-900 dark:text-white">{inviterFirstName}</strong>&apos;s team as a{" "}
                 <span className="rounded-full bg-[#C8102E]/10 px-2 py-0.5 text-xs font-semibold text-[#C8102E]">
                   {inv.role.replace("_", " ")}
                 </span>
