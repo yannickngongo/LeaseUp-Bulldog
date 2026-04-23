@@ -49,8 +49,10 @@ export async function GET(req: NextRequest) {
   const type        = searchParams.get("type");
   const inviteToken = searchParams.get("invite_token") ?? "";
 
-  // Build a response we can attach cookies to (default — may be overridden below)
-  let res = NextResponse.redirect(`${origin}/dashboard`);
+  // Collect cookies here so we can apply them to whichever response we ultimately return.
+  // DO NOT close over `res` in setAll — the final response object may change after cookies are set.
+  type CookieEntry = { name: string; value: string; options: Record<string, unknown> };
+  const pendingCookies: CookieEntry[] = [];
   let isNewOperator = false;
 
   const supabase = createServerClient(
@@ -62,13 +64,17 @@ export async function GET(req: NextRequest) {
           return req.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            res.cookies.set(name, value, options)
-          );
+          cookiesToSet.forEach(c => pendingCookies.push(c as CookieEntry));
         },
       },
     }
   );
+
+  function buildResponse(destination: string) {
+    const r = NextResponse.redirect(destination);
+    pendingCookies.forEach(({ name, value, options }) => r.cookies.set(name, value, options as Parameters<typeof r.cookies.set>[2]));
+    return r;
+  }
 
   // ── Email verification (magic link / email confirm) ───────────────────────
   if (token_hash && type) {
@@ -83,8 +89,7 @@ export async function GET(req: NextRequest) {
 
     // Password recovery — send to reset page, not dashboard
     if (type === "recovery") {
-      res = NextResponse.redirect(`${origin}/reset-password`);
-      return res;
+      return buildResponse(`${origin}/reset-password`);
     }
 
     if (inviteToken && data.user?.email) {
@@ -109,10 +114,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (isNewOperator) {
-      res = NextResponse.redirect(`${origin}/onboarding`);
-    }
-    return res;
+    return buildResponse(isNewOperator ? `${origin}/onboarding` : `${origin}/dashboard`);
   }
 
   // ── OAuth code exchange (Google, etc.) ────────────────────────────────────
@@ -143,8 +145,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (isNewOperator && !inviteToken) {
-    res = NextResponse.redirect(`${origin}/onboarding`);
-  }
-  return res;
+  return buildResponse(isNewOperator && !inviteToken ? `${origin}/onboarding` : `${origin}/dashboard`);
 }

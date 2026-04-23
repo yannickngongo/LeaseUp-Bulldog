@@ -76,13 +76,15 @@ function SignupForm() {
   }
 
   async function handleGoogle() {
+    setError(null);
     const redirectTo = inviteToken
       ? `${window.location.origin}/auth/callback?invite_token=${encodeURIComponent(inviteToken)}`
       : `${window.location.origin}/auth/callback`;
-    await getSupabase().auth.signInWithOAuth({
+    const { error: oauthError } = await getSupabase().auth.signInWithOAuth({
       provider: "google",
       options:  { redirectTo },
     });
+    if (oauthError) setError(oauthError.message);
   }
 
   return (
