@@ -54,7 +54,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3">6. Payment Terms</h2>
-            <p>The Service is billed monthly at the rate displayed at checkout. A one-time setup fee is due at the start of your pilot. After the 14-day trial period, your chosen monthly plan begins. A performance fee of $200 applies per lease signed through the Service. You may cancel at any time after the trial period ends.</p>
+            <p>The Service is billed monthly after a 14-day free trial. Pricing is plan-based: Starter ($500/month + $150/lease), Pro ($1,500/month + $200/lease), Portfolio ($3,000/month + $250/lease). A Marketing Add-On is available on any plan for an additional $500/month. Performance fees apply per lease marked &quot;Won&quot; in the platform within the 30-day attribution window. You may cancel at any time; cancellation takes effect at the end of the current billing cycle.</p>
           </section>
 
           <section>
@@ -84,7 +84,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3">12. Contact</h2>
-            <p>Questions about these Terms? Email us at <a href="mailto:legal@leaseuupbulldog.com" className="text-[#C8102E] hover:underline">legal@leaseuupbulldog.com</a>.</p>
+            <p>Questions about these Terms? Email us at <a href="mailto:legal@leaseuphq.com" className="text-[#C8102E] hover:underline">legal@leaseuphq.com</a>.</p>
           </section>
         </div>
       </main>

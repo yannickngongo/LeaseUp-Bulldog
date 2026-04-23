@@ -141,6 +141,12 @@ function LoginForm() {
               New to LeaseUp Bulldog?{" "}
               <Link href={signupHref} className="text-[#C8102E] hover:underline">Start your free trial</Link>
             </p>
+            <p className="mt-4 text-center text-[10px] text-gray-500">
+              By signing in you agree to our{" "}
+              <Link href="/terms" className="hover:underline">Terms</Link>
+              {" "}and{" "}
+              <Link href="/privacy" className="hover:underline">Privacy Policy</Link>
+            </p>
           </div>
         </div>
       </div>

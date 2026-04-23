@@ -13,6 +13,24 @@ import {
   STRIPE_PRICE_ID_MARKETING_ADDON,
 } from "@/lib/stripe";
 
+// Simple in-memory rate limiter — max 5 checkout attempts per email per 15 minutes.
+// Resets on cold starts; good enough for basic abuse prevention on serverless.
+const checkoutAttempts = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 5;
+const WINDOW_MS  = 15 * 60 * 1000;
+
+function checkRateLimit(email: string): boolean {
+  const now   = Date.now();
+  const entry = checkoutAttempts.get(email);
+  if (!entry || now > entry.resetAt) {
+    checkoutAttempts.set(email, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("Missing STRIPE_SECRET_KEY");
@@ -57,6 +75,13 @@ export async function POST(req: NextRequest) {
 
     if (!plan || !email) {
       return NextResponse.json({ error: "plan and email required" }, { status: 400 });
+    }
+
+    if (!checkRateLimit(email)) {
+      return NextResponse.json(
+        { error: "Too many checkout attempts. Please wait 15 minutes and try again." },
+        { status: 429 }
+      );
     }
 
     const planConfig = PLAN_CONFIG[plan];

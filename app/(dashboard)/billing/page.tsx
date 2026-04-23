@@ -31,14 +31,49 @@ function StatusBadge({ status }: { status: string | null }) {
   return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${s.cls}`}>{s.label}</span>;
 }
 
+const PLAN_DISPLAY: Record<string, { name: string; price: string; perfFee: string; maxProps: string }> = {
+  starter:    { name: "Starter",   price: "$500/month",   perfFee: "$150", maxProps: "Up to 3 properties" },
+  pro:        { name: "Pro",       price: "$1,500/month", perfFee: "$200", maxProps: "Up to 20 properties" },
+  portfolio:  { name: "Portfolio", price: "$3,000/month", perfFee: "$250", maxProps: "Unlimited properties" },
+  growth:     { name: "Pro",       price: "$1,500/month", perfFee: "$200", maxProps: "Up to 20 properties" },
+  enterprise: { name: "Portfolio", price: "$3,000/month", perfFee: "$250", maxProps: "Unlimited properties" },
+  core:       { name: "Starter",   price: "$500/month",   perfFee: "$150", maxProps: "Up to 3 properties" },
+};
+
+const FEATURE_NAMES: Record<string, string> = {
+  portfolio:   "Portfolio View",
+  automations: "Automations",
+  competitors: "Competitor Tracking",
+  insights:    "Insights",
+};
+
+interface Invoice {
+  id: string;
+  number: string | null;
+  status: string | null;
+  amount_paid: number;
+  currency: string;
+  created: number;
+  pdf_url: string | null;
+  hosted_url: string | null;
+}
+
+function fmtAmount(cents: number, currency: string) {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
+}
+
 function BillingContent() {
   const searchParams  = useSearchParams();
   const [info, setInfo]       = useState<BillingInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [invoices, setInvoices]   = useState<Invoice[]>([]);
+  const [invLoading, setInvLoading] = useState(false);
 
   const justSucceeded  = searchParams.get("success") === "true";
   const justCancelled  = searchParams.get("cancelled") === "true";
+  const needsUpgrade   = searchParams.get("upgrade") === "1";
+  const blockedFeature = searchParams.get("feature") ?? "";
 
   useEffect(() => {
     getOperatorEmail().then(async email => {
@@ -55,6 +90,15 @@ function BillingContent() {
           stripe_customer_id:     op.stripe_customer_id ?? null,
           stripe_subscription_id: op.stripe_subscription_id ?? null,
         });
+        // Fetch invoices if they have a Stripe customer
+        if (op.stripe_customer_id) {
+          setInvLoading(true);
+          fetch(`/api/billing/invoices?email=${encodeURIComponent(email)}`)
+            .then(r => r.json())
+            .then(d => setInvoices(d.invoices ?? []))
+            .catch(() => {})
+            .finally(() => setInvLoading(false));
+        }
       }
       setLoading(false);
     });
@@ -76,6 +120,8 @@ function BillingContent() {
     else { alert("Could not open billing portal. Please try again."); setWorking(false); }
   }
 
+  const planSlug      = info?.plan ?? "starter";
+  const planDisplay   = PLAN_DISPLAY[planSlug] ?? PLAN_DISPLAY.starter;
   const trialDays     = daysUntil(info?.trial_ends_at ?? null);
   const isTrialing    = info?.subscription_status === "trial" || (!info?.subscription_status && trialDays !== null && trialDays > 0);
   const isActive      = info?.subscription_status === "active";
@@ -88,11 +134,26 @@ function BillingContent() {
 
         <h1 className="mb-6 text-2xl font-black text-gray-900 dark:text-gray-100">Billing & Plan</h1>
 
+        {/* Upgrade required banner — shown when middleware redirects here */}
+        {needsUpgrade && (
+          <div className="mb-5 rounded-xl border border-violet-200 dark:border-violet-900/40 bg-violet-50 dark:bg-violet-900/10 px-5 py-4 flex items-start gap-3">
+            <span className="text-xl shrink-0">🔒</span>
+            <div>
+              <p className="font-semibold text-violet-700 dark:text-violet-400">
+                {FEATURE_NAMES[blockedFeature] ?? "This feature"} requires a Pro or Portfolio plan
+              </p>
+              <p className="text-sm text-violet-600 dark:text-violet-500 mt-0.5">
+                Upgrade your plan below to unlock {FEATURE_NAMES[blockedFeature]?.toLowerCase() ?? "this feature"} and all advanced tools.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Success / cancelled banners */}
         {justSucceeded && (
           <div className="mb-5 rounded-xl border border-green-200 dark:border-green-900/40 bg-green-50 dark:bg-green-900/10 px-5 py-4">
             <p className="font-semibold text-green-700 dark:text-green-400">🎉 You&apos;re all set! Your subscription is now active.</p>
-            <p className="text-sm text-green-600 dark:text-green-500 mt-0.5">AI follow-up is live on all your properties. Welcome to LUB Pro.</p>
+            <p className="text-sm text-green-600 dark:text-green-500 mt-0.5">AI follow-up is live on all your properties. Welcome to LeaseUp Bulldog {planDisplay.name}.</p>
           </div>
         )}
         {justCancelled && (
@@ -119,8 +180,8 @@ function BillingContent() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Current Plan</p>
-                  <p className="text-2xl font-black text-gray-900 dark:text-gray-100">LeaseUp Bulldog Pro</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">$299/month · billed monthly · cancel any time</p>
+                  <p className="text-2xl font-black text-gray-900 dark:text-gray-100">LeaseUp Bulldog {planDisplay.name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{planDisplay.price} + {planDisplay.perfFee}/lease · {planDisplay.maxProps} · cancel any time</p>
                 </div>
                 <StatusBadge status={info?.subscription_status ?? "trial"} />
               </div>
@@ -185,10 +246,55 @@ function BillingContent() {
             <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-5">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Performance Fee</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                A <strong className="text-gray-900 dark:text-gray-100">$200 performance fee</strong> applies per lease signed through LUB within the 30-day attribution window.
+                A <strong className="text-gray-900 dark:text-gray-100">{planDisplay.perfFee} performance fee</strong> applies per lease signed through LUB within the 30-day attribution window.
                 This is tracked automatically when you mark a lead as &quot;Won&quot;.
               </p>
             </div>
+
+            {/* Invoice history */}
+            {(invLoading || invoices.length > 0) && (
+              <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-5">
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Invoice History</p>
+                {invLoading ? (
+                  <div className="space-y-2">
+                    {[1,2,3].map(i => <div key={i} className="h-10 rounded-lg animate-pulse bg-gray-100 dark:bg-white/5" />)}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-50 dark:divide-white/5">
+                    {invoices.map(inv => (
+                      <div key={inv.id} className="flex items-center justify-between py-3 gap-4">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {fmtAmount(inv.amount_paid, inv.currency)}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
+                            {new Date(inv.created * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                            {inv.number ? ` · ${inv.number}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            inv.status === "paid"
+                              ? "bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400"
+                              : inv.status === "open"
+                              ? "bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400"
+                              : "bg-gray-100 dark:bg-white/5 text-gray-500"
+                          }`}>
+                            {inv.status ?? "—"}
+                          </span>
+                          {inv.pdf_url && (
+                            <a href={inv.pdf_url} target="_blank" rel="noreferrer"
+                              className="text-xs font-semibold text-[#C8102E] hover:underline">
+                              PDF
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         )}

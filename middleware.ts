@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 
+// Routes that require Pro or Portfolio plan
+const PRO_ROUTES = ["/portfolio", "/automations", "/competitors", "/insights"];
+
+// Plan slugs that qualify as Pro or above
+const PRO_PLANS = new Set(["pro", "portfolio", "growth", "enterprise"]);
+
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: { headers: req.headers } });
 
@@ -9,9 +15,7 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
+        getAll() { return req.cookies.getAll(); },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
           res = NextResponse.next({ request: req });
@@ -31,6 +35,61 @@ export async function middleware(req: NextRequest) {
     loginUrl.pathname = "/login";
     loginUrl.searchParams.set("redirect", req.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  // ── Plan gating for Pro-only routes ──────────────────────────────────────────
+  const pathname = req.nextUrl.pathname;
+  const isProRoute = PRO_ROUTES.some(r => pathname.startsWith(r));
+
+  if (isProRoute) {
+    // Read from 5-minute plan cache cookie to avoid a DB hit on every request
+    const cachedPlan = req.cookies.get("lub_plan")?.value;
+    let plan = cachedPlan;
+
+    if (!plan) {
+      // Use service role so we can read operators regardless of RLS policy
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (serviceKey) {
+        const admin = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          serviceKey,
+          { cookies: { getAll: () => [], setAll: () => {} } }
+        );
+        const { data: op } = await admin
+          .from("operators")
+          .select("plan")
+          .eq("email", user.email!)
+          .maybeSingle();
+        plan = op?.plan ?? "starter";
+      } else {
+        plan = "starter";
+      }
+      // Cache for 5 minutes
+      res.cookies.set("lub_plan", plan, {
+        maxAge: 300,
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+      });
+    }
+
+    if (!PRO_PLANS.has(plan ?? "starter")) {
+      const upgradeUrl = req.nextUrl.clone();
+      upgradeUrl.pathname = "/billing";
+      upgradeUrl.searchParams.set("upgrade", "1");
+      upgradeUrl.searchParams.set("feature", pathname.split("/")[1]);
+      const redirect = NextResponse.redirect(upgradeUrl);
+      // Persist the plan cookie on the redirect response too
+      if (!cachedPlan && plan) {
+        redirect.cookies.set("lub_plan", plan, {
+          maxAge: 300,
+          path: "/",
+          httpOnly: true,
+          sameSite: "lax",
+        });
+      }
+      return redirect;
+    }
   }
 
   return res;
@@ -53,5 +112,6 @@ export const config = {
     "/renewals/:path*",
     "/billing/:path*",
     "/onboarding/:path*",
+    "/getting-started/:path*",
   ],
 };
