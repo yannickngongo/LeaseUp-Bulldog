@@ -64,7 +64,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
     }
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL ?? req.nextUrl.origin;
+    const host = req.headers.get("host") ?? "lease-up-bulldog.vercel.app";
+    const proto = host.startsWith("localhost") ? "http" : "https";
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? `${proto}://${host}`;
     const stripe = getStripe();
     const db = getSupabaseAdmin();
 
