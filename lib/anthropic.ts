@@ -6,9 +6,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
 
-// Haiku is 3-5x faster than Sonnet for short SMS replies with no quality loss
-const MODEL = "claude-haiku-4-5-20251001";
-const MAX_TOKENS = 300; // SMS replies are short — cap spend per call
+// Sonnet for leasing conversations — the quality difference closes more leases than Haiku saves in cost
+const MODEL = "claude-sonnet-4-6";
+const MAX_TOKENS = 350; // SMS replies are short but objection handling needs room to breathe
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
