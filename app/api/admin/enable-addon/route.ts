@@ -47,35 +47,23 @@ export async function POST(req: NextRequest) {
     log.push(`Plan already ${plan} — no change`);
   }
 
-  // Upsert billing_subscriptions if marketing_addon or plan requested
-  if (marketing_addon !== undefined || plan) {
+  // Upsert billing_subscriptions if marketing_addon requested
+  if (marketing_addon !== undefined) {
     const effectivePlan = plan ?? operator.plan ?? "starter";
     const perfFeeMap: Record<string, number> = { starter: 20000, core: 20000, pro: 15000, growth: 15000, portfolio: 10000, enterprise: 10000 };
 
-    const { data: existing } = await db
-      .from("billing_subscriptions")
-      .select("id, marketing_addon")
-      .eq("operator_id", operator.id)
-      .maybeSingle();
-
-    if (existing?.id) {
-      const updates: Record<string, unknown> = { plan: effectivePlan, performance_fee_per_lease: perfFeeMap[effectivePlan] ?? 20000 };
-      if (marketing_addon !== undefined) updates.marketing_addon = marketing_addon;
-      const { error } = await db.from("billing_subscriptions").update(updates).eq("id", existing.id);
-      if (error) log.push(`ERROR updating billing_subscriptions: ${error.message}`);
-      else        log.push(`billing_subscriptions updated (marketing_addon=${marketing_addon ?? existing.marketing_addon})`);
-    } else {
-      const { error } = await db.from("billing_subscriptions").insert({
+    const { error } = await db.from("billing_subscriptions").upsert(
+      {
         operator_id:               operator.id,
-        plan:                      effectivePlan,
         status:                    "active",
-        marketing_addon:           marketing_addon ?? false,
+        marketing_addon,
         marketing_fee:             marketing_addon ? 20000 : 0,
         performance_fee_per_lease: perfFeeMap[effectivePlan] ?? 20000,
-      });
-      if (error) log.push(`ERROR creating billing_subscriptions: ${error.message}`);
-      else        log.push(`Created billing_subscriptions row (plan=${effectivePlan}, marketing_addon=${marketing_addon ?? false})`);
-    }
+      },
+      { onConflict: "operator_id" }
+    );
+    if (error) log.push(`ERROR upserting billing_subscriptions: ${error.message}`);
+    else        log.push(`billing_subscriptions upserted (marketing_addon=${marketing_addon})`);
   }
 
   return NextResponse.json({ ok: true, log });
