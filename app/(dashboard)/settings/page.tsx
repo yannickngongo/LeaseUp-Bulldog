@@ -215,7 +215,8 @@ export default function SettingsPage() {
         body:    JSON.stringify({ plan: targetPlan }),
       });
       const json = await res.json();
-      if (json.url) window.location.href = json.url;
+      if (json.url)           window.location.href = json.url;
+      else if (json.upgraded) window.location.href = "/billing?success=true";
       else { alert("Could not start checkout. Please try again."); }
     } finally {
       setUpgrading(false);
