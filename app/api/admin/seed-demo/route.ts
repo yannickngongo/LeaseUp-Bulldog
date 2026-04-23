@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
 
   const db = getSupabaseAdmin();
   const log: string[] = [];
+  let proOperatorId = "";
 
   for (const account of ACCOUNTS) {
     // Create or update auth user
@@ -140,6 +141,72 @@ export async function POST(req: NextRequest) {
       else       log.push(`seeded 5 leads for ${account.property.name}`);
     } else {
       log.push(`leads exist for ${account.property.name}`);
+    }
+
+    if (account.plan === "pro") proOperatorId = operatorId;
+  }
+
+  // ── demo.agent sub-account under Pro ─────────────────────────────────────
+  const agentEmail = "demo.agent@leaseuphq.com";
+
+  const { data: allUsers } = await db.auth.admin.listUsers();
+  const existingAgent = allUsers.users.find(u => u.email === agentEmail);
+  if (existingAgent) {
+    await db.auth.admin.updateUserById(existingAgent.id, { password: PASSWORD });
+    log.push(`updated auth: ${agentEmail}`);
+  } else {
+    const { error } = await db.auth.admin.createUser({
+      email: agentEmail, password: PASSWORD, email_confirm: true,
+    });
+    if (error) log.push(`ERROR creating ${agentEmail}: ${error.message}`);
+    else       log.push(`created auth: ${agentEmail}`);
+  }
+
+  const { data: existingAgentOp } = await db.from("operators").select("id")
+    .eq("email", agentEmail).maybeSingle();
+  if (!existingAgentOp?.id) {
+    await db.from("operators").insert({ email: agentEmail, name: "Demo Agent", plan: "member" });
+    log.push(`created operator: ${agentEmail}`);
+  } else {
+    log.push(`operator exists: ${agentEmail}`);
+  }
+
+  if (proOperatorId) {
+    let orgId: string | null = null;
+    const { data: existingOrg } = await db.from("organizations").select("id")
+      .eq("owner_operator_id", proOperatorId).maybeSingle();
+
+    if (existingOrg?.id) {
+      orgId = existingOrg.id;
+      log.push(`organization exists for Pro`);
+    } else {
+      const { data: newOrg, error } = await db.from("organizations")
+        .insert({ owner_operator_id: proOperatorId, name: "Demo Pro Properties" })
+        .select("id").single();
+      if (error) {
+        const { data: newOrg2, error: e2 } = await db.from("organizations")
+          .insert({ name: "Demo Pro Properties" }).select("id").single();
+        if (e2) log.push(`ERROR creating org: ${e2.message}`);
+        else { orgId = newOrg2.id; log.push(`created organization`); }
+      } else {
+        orgId = newOrg.id;
+        log.push(`created organization for Pro`);
+      }
+    }
+
+    if (orgId) {
+      const { data: existingMember } = await db.from("organization_members").select("id")
+        .eq("organization_id", orgId).eq("email", agentEmail).maybeSingle();
+      if (!existingMember?.id) {
+        const { error } = await db.from("organization_members").insert({
+          organization_id: orgId, email: agentEmail, role: "leasing_agent",
+          status: "active", accepted_at: new Date().toISOString(),
+        });
+        if (error) log.push(`ERROR adding agent member: ${error.message}`);
+        else       log.push(`added demo.agent as leasing_agent`);
+      } else {
+        log.push(`agent member exists`);
+      }
     }
   }
 
