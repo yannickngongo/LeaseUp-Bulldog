@@ -74,9 +74,14 @@ export async function PATCH(
 
   const db = getSupabaseAdmin();
 
+  const payload: Record<string, unknown> = { ...parsed.data, property_id: id };
+  if (parsed.data.unit_mix !== undefined) {
+    payload.unit_mix_synced_at = new Date().toISOString();
+  }
+
   const { data, error } = await db
     .from("property_ai_configs")
-    .upsert({ ...parsed.data, property_id: id }, { onConflict: "property_id" })
+    .upsert(payload, { onConflict: "property_id" })
     .select()
     .single();
 

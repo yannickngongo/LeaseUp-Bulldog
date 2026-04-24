@@ -1,9 +1,98 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { AppHeader } from "@/components/app/AppHeader";
 import { getOperatorEmail } from "@/lib/demo-auth";
+
+// ─── Welcome / Onboarding Modal ───────────────────────────────────────────────
+
+function WelcomeModal() {
+  const [show, setShow]   = useState(false);
+  const [name, setName]   = useState("");
+  const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("lub_welcome_seen")) return;
+    getOperatorEmail().then(email => {
+      if (!email) return;
+      fetch(`/api/setup?email=${encodeURIComponent(email)}`)
+        .then(r => r.json())
+        .then(d => { setName(d.operator?.name?.split(" ")[0] ?? ""); })
+        .catch(() => {});
+    });
+    setShow(true);
+  }, []);
+
+  function dismiss(goToGuide: boolean) {
+    localStorage.setItem("lub_welcome_seen", "1");
+    setShow(false);
+    if (goToGuide) router.push("/getting-started");
+  }
+
+  if (!show) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="relative w-full max-w-md rounded-2xl border border-white/10 bg-[#10101A] p-8 shadow-2xl"
+        style={{ boxShadow: "0 24px 80px rgba(200,16,46,0.18)" }}>
+
+        {/* Brand mark */}
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#C8102E]/10">
+            <svg className="h-5 w-5 text-[#C8102E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#C8102E]">LeaseUp Bulldog</p>
+            <p className="text-xs text-gray-500">Your AI leasing agent is ready</p>
+          </div>
+        </div>
+
+        <h2 className="mb-2 text-2xl font-black text-white">
+          {name ? `Welcome, ${name}!` : "Welcome to LUB!"}
+        </h2>
+        <p className="mb-6 text-sm leading-relaxed text-gray-400">
+          Your AI leasing agent is live and ready to qualify leads 24/7. Follow the setup guide to get your first property running — it takes about 10 minutes.
+        </p>
+
+        {/* Feature bullets */}
+        <ul className="mb-7 space-y-2.5">
+          {[
+            ["📱", "AI phone number for every property"],
+            ["🤖", "Responds to leads in seconds, any hour"],
+            ["🧠", "Configure what the AI knows in AI Brain"],
+            ["📊", "Track leads, tours, and leases in real time"],
+          ].map(([icon, text]) => (
+            <li key={text} className="flex items-center gap-3 text-sm text-gray-300">
+              <span className="text-base">{icon}</span>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="flex flex-col gap-2.5">
+          <button
+            onClick={() => dismiss(true)}
+            className="w-full rounded-xl bg-[#C8102E] py-3 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
+            style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.3)" }}
+          >
+            Start the Setup Guide →
+          </button>
+          <button
+            onClick={() => dismiss(false)}
+            className="w-full rounded-xl border border-white/10 py-2.5 text-sm font-medium text-gray-400 hover:border-white/20 hover:text-gray-200 transition-colors"
+          >
+            Skip for now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Co-pilot Chat Widget ─────────────────────────────────────────────────────
 
@@ -261,6 +350,9 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
 
       {/* Human takeover notifications */}
       <HumanTakeoverBanner />
+
+      {/* First-login welcome modal */}
+      <WelcomeModal />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -43,10 +43,10 @@ const DEFAULT_AUTOMATIONS: Automation[] = [
   },
   {
     id: "auto-2",
-    name: "48-Hour No-Reply Follow-Up",
+    name: "No-Reply Follow-Up",
     trigger: "no_reply",
-    triggerLabel: "No reply in 48 hours",
-    triggerDetail: "Lead contacted but hasn't responded",
+    triggerLabel: "No reply within your set window",
+    triggerDetail: "Lead contacted but hasn't responded — timing set above",
     action: "send_followup",
     actionLabel: "AI sends follow-up nudge",
     actionDetail: "Friendly check-in with current availability and special offer",
@@ -85,14 +85,14 @@ const DEFAULT_AUTOMATIONS: Automation[] = [
   },
   {
     id: "auto-5",
-    name: "7-Day Ghosted Lead Recovery",
+    name: "Warm Lead Re-Engagement",
     trigger: "no_reply",
-    triggerLabel: "No reply in 7 days",
-    triggerDetail: "Lead has been silent for a full week",
+    triggerLabel: "Lead goes quiet after engaging",
+    triggerDetail: "Had a conversation but stopped replying",
     action: "send_followup",
-    actionLabel: "AI sends breakup text",
-    actionDetail: "Last-chance message — creates urgency with limited availability",
-    enabled: false,
+    actionLabel: "AI sends re-engagement text",
+    actionDetail: "Picks up the thread naturally — references prior conversation, updates on availability",
+    enabled: true,
     runsTotal: 0,
     runLast7d: 0,
     category: "nurture",
@@ -140,6 +140,160 @@ const DEFAULT_AUTOMATIONS: Automation[] = [
     category: "nurture",
   },
 ];
+
+// ─── No-Reply Follow-Up Timing ───────────────────────────────────────────────
+
+type NoReplyWindow = "1" | "4" | "12" | "24" | "48";
+
+const WINDOW_OPTIONS: { value: NoReplyWindow; label: string; desc: string }[] = [
+  { value: "1",  label: "1 hour",   desc: "Strike while it's hottest" },
+  { value: "4",  label: "4 hours",  desc: "Same business day" },
+  { value: "12", label: "12 hours", desc: "Half-day window" },
+  { value: "24", label: "24 hours", desc: "Next day follow-up" },
+  { value: "48", label: "48 hours", desc: "Standard 2-day window" },
+];
+
+const FOLLOWUP_STORAGE_KEY = "lub_followup_window_v1";
+
+function FollowUpSequencePanel({ canManage }: { canManage: boolean }) {
+  const [window_,  setWindow]  = useState<NoReplyWindow>("4");
+  const [saved,    setSaved]   = useState(false);
+  const [saving,   setSaving]  = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(FOLLOWUP_STORAGE_KEY) as NoReplyWindow | null;
+      if (stored) setWindow(stored);
+    } catch { /* ignore */ }
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      localStorage.setItem(FOLLOWUP_STORAGE_KEY, window_);
+      const { getOperatorEmail } = await import("@/lib/demo-auth");
+      const email = await getOperatorEmail();
+      if (email) {
+        await fetch("/api/operators/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, settings: { no_reply_window_hours: Number(window_) } }),
+        }).catch(() => {});
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally { setSaving(false); }
+  }
+
+  const selected = WINDOW_OPTIONS.find(o => o.value === window_)!;
+
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-white/5 dark:bg-[#1C1F2E]">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-base">⚡</span>
+            <p className="text-sm font-bold text-gray-900 dark:text-gray-100">No-Reply Follow-Up Timing</p>
+          </div>
+          <p className="mt-0.5 text-xs text-gray-400">
+            If a lead doesn&apos;t reply, how long before LUB follows up again? Max 48 hours — leads don&apos;t wait around.
+          </p>
+        </div>
+        {canManage && (
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="shrink-0 rounded-xl bg-[#C8102E] px-4 py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 transition-colors"
+            style={{ boxShadow: "0 4px 12px rgba(200,16,46,0.2)" }}
+          >
+            {saved ? "✓ Saved" : saving ? "Saving…" : "Save"}
+          </button>
+        )}
+      </div>
+
+      {/* Window selector */}
+      <div className="mb-5 grid grid-cols-3 gap-2 sm:grid-cols-5">
+        {WINDOW_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => canManage && setWindow(opt.value)}
+            disabled={!canManage}
+            className={`rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed ${
+              window_ === opt.value
+                ? "border-[#C8102E] bg-[#C8102E]/5 dark:bg-[#C8102E]/10"
+                : "border-gray-200 hover:border-gray-300 dark:border-white/10 dark:hover:border-white/20"
+            }`}
+          >
+            <p className={`text-sm font-bold ${window_ === opt.value ? "text-[#C8102E]" : "text-gray-800 dark:text-gray-200"}`}>{opt.label}</p>
+            <p className="mt-0.5 text-[10px] leading-tight text-gray-400">{opt.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Flow preview */}
+      <div className="rounded-xl bg-gray-50 p-4 dark:bg-white/5">
+        <p className="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-400">How it works</p>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+
+          {/* Lead texts in */}
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-800 text-sm dark:bg-gray-200">💬</div>
+            <p className="text-[9px] font-semibold text-gray-500">Lead texts</p>
+          </div>
+
+          <div className="flex shrink-0 flex-col items-center gap-0.5">
+            <div className="h-0.5 w-8 bg-[#C8102E]/40" />
+          </div>
+
+          {/* AI instant reply */}
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#C8102E]/10 ring-1 ring-[#C8102E]/30 text-sm">🤖</div>
+            <p className="text-[9px] font-semibold text-[#C8102E]">&lt; 60s</p>
+          </div>
+
+          {/* No reply gap */}
+          <div className="flex shrink-0 flex-col items-center gap-0.5">
+            <div className="h-0.5 w-16 bg-gray-300 dark:bg-white/15" style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 4px, currentColor 4px, currentColor 8px)" }} />
+          </div>
+
+          {/* Clock bubble */}
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            <div className="flex h-9 min-w-[36px] items-center justify-center rounded-full bg-amber-50 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:ring-amber-800 px-2 text-xs font-bold text-amber-600 dark:text-amber-400">
+              {selected.label}
+            </div>
+            <p className="text-[9px] font-medium text-amber-500">no reply</p>
+          </div>
+
+          <div className="flex shrink-0 flex-col items-center gap-0.5">
+            <div className="h-0.5 w-8 bg-[#C8102E]/40" />
+          </div>
+
+          {/* AI follow-up */}
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#C8102E]/10 ring-1 ring-[#C8102E]/30 text-sm">🔁</div>
+            <p className="text-[9px] font-semibold text-[#C8102E]">Follow-up</p>
+          </div>
+
+          <div className="flex shrink-0 flex-col items-center gap-0.5">
+            <div className="h-0.5 w-4 bg-gray-200 dark:bg-white/10" />
+          </div>
+
+          {/* Repeat */}
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-dashed border-gray-300 dark:border-white/20 text-[10px] font-bold text-gray-400">
+              ∞
+            </div>
+            <p className="text-[9px] text-gray-400">repeats</p>
+          </div>
+        </div>
+
+        <p className="mt-3 text-[10px] text-gray-500 dark:text-gray-400">
+          Every time LUB sends a message and gets no reply, it waits exactly <span className="font-semibold text-gray-700 dark:text-gray-300">{selected.label}</span> then follows up again — until the lead replies, opts out, or is marked won/lost.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 const CATEGORY_LABELS: Record<string, string> = {
   follow_up:  "Follow-Up",
@@ -502,6 +656,9 @@ export default function AutomationsPage() {
           </button>
         ))}
       </div>
+
+      {/* Follow-Up Sequence Settings */}
+      <FollowUpSequencePanel canManage={canManage} />
 
       {/* Automations grid */}
       <div className="grid gap-4 lg:grid-cols-2">

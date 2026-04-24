@@ -1263,6 +1263,63 @@ function OfferScoringSection(_: { property: Property; units: Unit[]; leads: Lead
 
 interface UnitTypeRow { label: string; bedrooms: number; bathrooms: number; sq_ft_min: string; sq_ft_max: string; rent_min: string; rent_max: string; available: string; total: string; }
 
+interface RentRollUnit { unit_type: string | null; bedrooms: number | null; sq_ft: number | null; status: string; monthly_rent: number | null; }
+
+function bedsToLabel(beds: number, unitType: string | null): string {
+  if (unitType) {
+    const t = unitType.toLowerCase().trim();
+    if (t === "studio" || t === "0br") return "Studio";
+    if (t === "1br" || t === "1bed") return "1 Bedroom";
+    if (t === "2br" || t === "2bed") return "2 Bedroom";
+    if (t === "3br" || t === "3bed") return "3 Bedroom";
+    if (t === "4br" || t === "4bed") return "4 Bedroom";
+    return unitType; // keep original casing for custom types
+  }
+  if (beds === 0) return "Studio";
+  return `${beds} Bedroom`;
+}
+
+function defaultBaths(beds: number): number {
+  if (beds <= 1) return 1;
+  if (beds === 2) return 2;
+  return 2;
+}
+
+function aggregateRentRoll(raw: RentRollUnit[]): UnitTypeRow[] {
+  // Group by unit_type first (if set), otherwise by bedrooms
+  const groups = new Map<string, RentRollUnit[]>();
+  for (const u of raw) {
+    const key = u.unit_type?.toLowerCase().trim() || String(u.bedrooms ?? 0);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(u);
+  }
+
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => {
+      const bedsA = groups.get(a)![0].bedrooms ?? 0;
+      const bedsB = groups.get(b)![0].bedrooms ?? 0;
+      return bedsA - bedsB;
+    })
+    .map(([, us]) => {
+      const beds = us[0].bedrooms ?? 0;
+      const unitType = us[0].unit_type;
+      const rents = us.map(u => u.monthly_rent).filter((r): r is number => r != null);
+      const sqfts = us.map(u => u.sq_ft).filter((s): s is number => s != null);
+      const available = us.filter(u => u.status === "vacant").length;
+      return {
+        label: bedsToLabel(beds, unitType),
+        bedrooms: beds,
+        bathrooms: defaultBaths(beds),
+        sq_ft_min: sqfts.length ? String(Math.min(...sqfts)) : "",
+        sq_ft_max: sqfts.length ? String(Math.max(...sqfts)) : "",
+        rent_min:  rents.length ? String(Math.min(...rents)) : "",
+        rent_max:  rents.length ? String(Math.max(...rents)) : "",
+        available: String(available),
+        total: String(us.length),
+      };
+    });
+}
+
 const AMENITY_OPTIONS = [
   "Swimming Pool","Fitness Center","Dog Park","Rooftop Deck","Courtyard","BBQ Area",
   "Covered Parking","Garage Parking","Bike Storage","EV Charging","Storage Units",
@@ -1278,7 +1335,38 @@ function AIConfigSection({ propertyId }: { propertyId: string }) {
   const [loading,  setLoading]  = useState(true);
   const [saving,   setSaving]   = useState(false);
   const [saved,    setSaved]    = useState(false);
-  const [error,    setError]    = useState("");
+  const [syncing,      setSyncing]      = useState(false);
+  const [syncMsg,      setSyncMsg]      = useState("");
+  const [syncedAt,     setSyncedAt]     = useState<string | null>(null);
+  const [error,        setError]        = useState("");
+
+  async function syncFromRentRoll() {
+    setSyncing(true); setSyncMsg("");
+    try {
+      const res = await fetch(`/api/properties/${propertyId}/units`);
+      const json = await res.json();
+      const raw: RentRollUnit[] = json.units ?? [];
+      if (!raw.length) { setSyncMsg("No units found in rent roll. Upload a rent roll first."); return; }
+      const aggregated = aggregateRentRoll(raw);
+      setUnits(aggregated);
+      setSyncedAt(new Date().toISOString());
+      setSyncMsg(`Synced ${aggregated.length} unit type${aggregated.length !== 1 ? "s" : ""} from rent roll. Review and save.`);
+    } catch { setSyncMsg("Failed to sync. Try again."); }
+    finally { setSyncing(false); }
+  }
+
+  function syncedLabel(): string {
+    if (!syncedAt) return "";
+    const days = Math.floor((Date.now() - new Date(syncedAt).getTime()) / 86_400_000);
+    if (days === 0) return "Synced today";
+    if (days === 1) return "Synced yesterday";
+    return `Synced ${days}d ago`;
+  }
+
+  const isStale = syncedAt
+    ? (Date.now() - new Date(syncedAt).getTime()) > 14 * 86_400_000
+    : false;
+  const neverSynced = !syncedAt;
 
   // Unit mix
   const [units, setUnits] = useState<UnitTypeRow[]>([{ ...BLANK_UNIT }]);
@@ -1331,6 +1419,7 @@ function AIConfigSection({ propertyId }: { propertyId: string }) {
         setSpecialDesc(c.leasing_special_description ?? "");
         setFaqs(c.approved_faqs?.length > 0 ? c.approved_faqs : []);
         setEscalationTriggers((c.escalation_triggers ?? []).join(", "));
+        setSyncedAt(c.unit_mix_synced_at ?? null);
       })
       .finally(() => setLoading(false));
   }, [propertyId]);
@@ -1400,16 +1489,53 @@ function AIConfigSection({ propertyId }: { propertyId: string }) {
 
       {/* ── Unit Mix ─────────────────────────────────────────────────────────── */}
       <div>
+        {/* Staleness banner */}
+        {(isStale || neverSynced) && (
+          <div className="mb-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-700/40 dark:bg-amber-900/10">
+            <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div>
+              <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                {neverSynced ? "Rent roll never synced" : "Rent roll data is over 14 days old"}
+              </p>
+              <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-500">
+                {neverSynced
+                  ? "Upload your rent roll and click \"↑ Sync from Rent Roll\" so the AI has accurate pricing and availability."
+                  : "Upload a fresh rent roll and re-sync so the AI doesn't quote stale prices to prospects."}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="mb-3 flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Unit Mix & Pricing</p>
             <p className="text-xs text-gray-400 mt-0.5">The AI uses this to answer "what's your price?" and "do you have 2BRs available?" precisely.</p>
           </div>
-          <button onClick={() => setUnits(p => [...p, { ...BLANK_UNIT }])}
-            className="shrink-0 rounded-lg border border-gray-200 dark:border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-            + Add Unit Type
-          </button>
+          <div className="flex items-center gap-2">
+            <div className="flex flex-col items-end gap-0.5">
+              <button onClick={syncFromRentRoll} disabled={syncing}
+                className="shrink-0 rounded-lg border border-[#C8102E]/30 bg-[#C8102E]/5 px-3 py-1.5 text-xs font-semibold text-[#C8102E] hover:bg-[#C8102E]/10 disabled:opacity-50 transition-colors">
+                {syncing ? "Syncing…" : "↑ Sync from Rent Roll"}
+              </button>
+              {syncedAt && (
+                <span className={`text-[10px] font-medium ${isStale ? "text-amber-500" : "text-gray-400"}`}>
+                  {syncedLabel()}
+                </span>
+              )}
+            </div>
+            <button onClick={() => setUnits(p => [...p, { ...BLANK_UNIT }])}
+              className="shrink-0 rounded-lg border border-gray-200 dark:border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+              + Add Unit Type
+            </button>
+          </div>
         </div>
+        {syncMsg && (
+          <p className={`mt-2 rounded-lg px-3 py-2 text-xs font-medium ${syncMsg.startsWith("Failed") || syncMsg.startsWith("No units") ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400" : "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"}`}>
+            {syncMsg}
+          </p>
+        )}
         <div className="space-y-3">
           {units.map((u, i) => (
             <div key={i} className="rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 p-4">
