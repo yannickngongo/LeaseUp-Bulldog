@@ -4,13 +4,18 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/app/AppSidebar";
 import { AppHeader } from "@/components/app/AppHeader";
+import { PlatformTour } from "@/components/app/PlatformTour";
 import { getOperatorEmail } from "@/lib/demo-auth";
 
 // ─── Welcome / Onboarding Modal ───────────────────────────────────────────────
 
-function WelcomeModal() {
-  const [show, setShow]   = useState(false);
-  const [name, setName]   = useState("");
+interface WelcomeModalProps {
+  onStartTour: () => void;
+}
+
+function WelcomeModal({ onStartTour }: WelcomeModalProps) {
+  const [show, setShow] = useState(false);
+  const [name, setName] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -26,10 +31,11 @@ function WelcomeModal() {
     setShow(true);
   }, []);
 
-  function dismiss(goToGuide: boolean) {
+  function dismiss(action: "tour" | "guide" | "skip") {
     localStorage.setItem("lub_welcome_seen", "1");
     setShow(false);
-    if (goToGuide) router.push("/getting-started");
+    if (action === "tour")  { onStartTour(); }
+    if (action === "guide") { router.push("/getting-started"); }
   }
 
   if (!show) return null;
@@ -56,39 +62,50 @@ function WelcomeModal() {
           {name ? `Welcome, ${name}!` : "Welcome to LUB!"}
         </h2>
         <p className="mb-6 text-sm leading-relaxed text-gray-400">
-          Your AI leasing agent is live and ready to qualify leads 24/7. Follow the setup guide to get your first property running — it takes about 10 minutes.
+          Your AI leasing agent is live and ready to qualify leads 24/7. How would you like to get started?
         </p>
 
-        {/* Feature bullets */}
-        <ul className="mb-7 space-y-2.5">
-          {[
-            ["📱", "AI phone number for every property"],
-            ["🤖", "Responds to leads in seconds, any hour"],
-            ["🧠", "Configure what the AI knows in AI Brain"],
-            ["📊", "Track leads, tours, and leases in real time"],
-          ].map(([icon, text]) => (
-            <li key={text} className="flex items-center gap-3 text-sm text-gray-300">
-              <span className="text-base">{icon}</span>
-              <span>{text}</span>
-            </li>
-          ))}
-        </ul>
-
-        <div className="flex flex-col gap-2.5">
+        {/* Options */}
+        <div className="mb-5 space-y-3">
           <button
-            onClick={() => dismiss(true)}
-            className="w-full rounded-xl bg-[#C8102E] py-3 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
-            style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.3)" }}
+            onClick={() => dismiss("tour")}
+            className="group w-full rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/5 p-4 text-left transition-colors hover:bg-[#C8102E]/10"
           >
-            Start the Setup Guide →
+            <div className="flex items-center gap-3">
+              <span className="text-xl">🗺️</span>
+              <div>
+                <p className="text-sm font-bold text-white">Take the platform tour</p>
+                <p className="text-xs text-gray-400">A quick walkthrough of every section — takes 2 minutes</p>
+              </div>
+              <svg className="ml-auto h-4 w-4 shrink-0 text-[#C8102E] opacity-0 transition-opacity group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </div>
           </button>
+
           <button
-            onClick={() => dismiss(false)}
-            className="w-full rounded-xl border border-white/10 py-2.5 text-sm font-medium text-gray-400 hover:border-white/20 hover:text-gray-200 transition-colors"
+            onClick={() => dismiss("guide")}
+            className="group w-full rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:bg-white/10"
           >
-            Skip for now
+            <div className="flex items-center gap-3">
+              <span className="text-xl">✅</span>
+              <div>
+                <p className="text-sm font-bold text-white">Go to the setup checklist</p>
+                <p className="text-xs text-gray-400">Step-by-step guide to go live in 10 minutes</p>
+              </div>
+              <svg className="ml-auto h-4 w-4 shrink-0 text-gray-400 opacity-0 transition-opacity group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </div>
           </button>
         </div>
+
+        <button
+          onClick={() => dismiss("skip")}
+          className="w-full py-2 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          Skip for now — I&apos;ll explore on my own
+        </button>
       </div>
     </div>
   );
@@ -146,6 +163,7 @@ function CopilotWidget() {
       {/* Floating button */}
       <button
         onClick={() => setOpen(o => !o)}
+        data-tour="copilot-btn"
         className="fixed bottom-5 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#C8102E] text-white shadow-lg hover:bg-[#A50D25] transition-colors"
         style={{ boxShadow: "0 4px 20px rgba(200,16,46,0.4)" }}
         title="LUB Co-Pilot"
@@ -316,6 +334,7 @@ function HumanTakeoverBanner() {
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tourActive,  setTourActive]  = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8F9FA] dark:bg-[#0D0F17]">
@@ -352,7 +371,10 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
       <HumanTakeoverBanner />
 
       {/* First-login welcome modal */}
-      <WelcomeModal />
+      <WelcomeModal onStartTour={() => setTourActive(true)} />
+
+      {/* Platform tour */}
+      {tourActive && <PlatformTour onFinish={() => setTourActive(false)} />}
     </div>
   );
 }

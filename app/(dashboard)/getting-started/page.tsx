@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getOperatorEmail } from "@/lib/demo-auth";
+import { PlatformTour } from "@/components/app/PlatformTour";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -170,6 +171,7 @@ export default function GettingStartedPage() {
   const [manualDone,    setManualDone]    = useState<Set<string>>(new Set());
   const [loading,       setLoading]       = useState(true);
   const [operatorName,  setOperatorName]  = useState("");
+  const [tourActive,    setTourActive]    = useState(false);
 
   useEffect(() => {
     // Load manually-checked steps from localStorage
@@ -272,17 +274,27 @@ export default function GettingStartedPage() {
       <div className="mx-auto max-w-3xl">
 
         {/* Header */}
-        <div className="mb-10">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#C8102E] mb-2">Setup Guide</p>
-          <h1 className="text-3xl font-black mb-2">
-            {operatorName ? `Welcome, ${operatorName.split(" ")[0]}` : "Getting Started"}
-          </h1>
-          <p className="text-gray-400 text-sm">
-            Follow these steps to get LeaseUp Bulldog fully set up for your{" "}
-            <span className="text-white font-semibold capitalize">{plan}</span> plan
-            {hasMarketing && <span className="text-purple-400"> + Marketing Add-On</span>}.
-          </p>
+        <div className="mb-10 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-[#C8102E] mb-2">Setup Guide</p>
+            <h1 className="text-3xl font-black mb-2">
+              {operatorName ? `Welcome, ${operatorName.split(" ")[0]}` : "Getting Started"}
+            </h1>
+            <p className="text-gray-400 text-sm">
+              Follow these steps to get LeaseUp Bulldog fully set up for your{" "}
+              <span className="text-white font-semibold capitalize">{plan}</span> plan
+              {hasMarketing && <span className="text-purple-400"> + Marketing Add-On</span>}.
+            </p>
+          </div>
+          <button
+            onClick={() => setTourActive(true)}
+            className="shrink-0 flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
+          >
+            <span>🗺️</span> Take the Tour
+          </button>
         </div>
+
+        {tourActive && <PlatformTour onFinish={() => setTourActive(false)} />}
 
         {/* Progress bar */}
         <div className="mb-10 rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-6">

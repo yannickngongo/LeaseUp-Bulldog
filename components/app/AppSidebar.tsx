@@ -150,25 +150,26 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   badge?: number;
+  tourId?: string;
 }
 
 const NAV_PRIMARY: NavItem[] = [
-  { href: "/dashboard",       label: "Dashboard",      icon: <IconDashboard /> },
-  { href: "/getting-started", label: "Getting Started", icon: <IconGettingStarted /> },
+  { href: "/dashboard",       label: "Dashboard",      icon: <IconDashboard />,      tourId: "nav-dashboard" },
+  { href: "/getting-started", label: "Getting Started", icon: <IconGettingStarted />, tourId: "nav-getting-started" },
   { href: "/portfolio",       label: "Portfolio",      icon: <IconPortfolio /> },
-  { href: "/leads",           label: "Leads",          icon: <IconLeads /> },
-  { href: "/properties",      label: "Properties",     icon: <IconProperties /> },
+  { href: "/leads",           label: "Leads",          icon: <IconLeads />,          tourId: "nav-leads" },
+  { href: "/properties",      label: "Properties",     icon: <IconProperties />,     tourId: "nav-properties" },
 ];
 
 const NAV_SECONDARY: NavItem[] = [
-{ href: "/renewals",     label: "Renewals",     icon: <IconRenewals /> },
-  { href: "/calendar",     label: "Calendar",     icon: <IconCalendar /> },
-  { href: "/marketing",    label: "Marketing",    icon: <IconMarketing /> },
+  { href: "/renewals",     label: "Renewals",     icon: <IconRenewals /> },
+  { href: "/calendar",     label: "Calendar",     icon: <IconCalendar />,     tourId: "nav-calendar" },
+  { href: "/marketing",    label: "Marketing",    icon: <IconMarketing />,    tourId: "nav-marketing" },
   { href: "/competitors",  label: "Competitors",  icon: <IconCompetitors /> },
-  { href: "/automations",  label: "Automations",  icon: <IconAutomations /> },
+  { href: "/automations",  label: "Automations",  icon: <IconAutomations />,  tourId: "nav-automations" },
   { href: "/integrations", label: "Integrations", icon: <IconIntegrations /> },
   { href: "/reports",      label: "Reports",      icon: <IconReports /> },
-  { href: "/insights",     label: "Insights",     icon: <IconInsights /> },
+  { href: "/insights",     label: "Insights",     icon: <IconInsights />,     tourId: "nav-insights" },
 ];
 
 // ─── NavLink ──────────────────────────────────────────────────────────────────
@@ -178,6 +179,7 @@ function NavLink({ item, active, onClose }: { item: NavItem; active: boolean; on
     <Link
       href={item.href}
       onClick={onClose}
+      {...(item.tourId ? { "data-tour": item.tourId } : {})}
       className={cn(
         "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
         active
@@ -315,7 +317,7 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
 
       {/* Bottom */}
       <div className="border-t border-gray-100 px-3 py-3 space-y-0.5 dark:border-white/5">
-        <NavLink item={{ href: "/settings", label: "Settings", icon: <IconSettings /> }} active={isActive("/settings")} onClose={onClose} />
+        <NavLink item={{ href: "/settings", label: "Settings", icon: <IconSettings />, tourId: "nav-settings" }} active={isActive("/settings")} onClose={onClose} />
 
         {/* Logout */}
         <button
