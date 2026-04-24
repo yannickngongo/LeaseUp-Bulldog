@@ -363,12 +363,25 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (a:
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-lg rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E]">
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6"
+      onClick={onClose}
+    >
+      <div
+        className="flex w-full max-w-lg flex-col rounded-2xl border border-gray-100 bg-white shadow-2xl dark:border-white/10 dark:bg-[#1C1F2E]"
+        style={{ maxHeight: "90vh" }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Sticky header — close button always visible */}
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/5">
           <h2 className="font-bold text-gray-900 dark:text-gray-100">Create Automation</h2>
-          <button onClick={onClose} className="text-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">×</button>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/10 dark:hover:text-gray-200 transition-colors text-xl leading-none"
+          >×</button>
         </div>
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto">
         <div className="space-y-5 p-6">
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-300">Name</label>
@@ -430,7 +443,9 @@ function CreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (a:
             </div>
           )}
         </div>
-        <div className="flex gap-3 border-t border-gray-100 px-6 py-4 dark:border-white/5">
+        </div>
+        {/* Sticky footer */}
+        <div className="flex shrink-0 gap-3 border-t border-gray-100 px-6 py-4 dark:border-white/5">
           <button onClick={handleCreate} disabled={!name.trim()}
             className="flex-1 rounded-xl bg-[#C8102E] py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors">
             Create Automation
