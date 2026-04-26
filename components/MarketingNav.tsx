@@ -25,8 +25,8 @@ export function MarketingNav() {
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
           <Link href="/login" className="text-sm text-gray-400 hover:text-white transition-colors">Log In</Link>
-          <Link href="/signup" className="rounded-lg bg-[#C8102E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#A50D25] transition-colors">
-            Get Started
+          <Link href="/waitlist" className="rounded-lg bg-[#C8102E] px-4 py-2 text-sm font-semibold text-white hover:bg-[#A50D25] transition-colors">
+            Join the Waitlist
           </Link>
         </div>
 
@@ -71,11 +71,11 @@ export function MarketingNav() {
             ))}
             <div className="mt-3 pt-3 border-t border-[#1E1E2E]">
               <Link
-                href="/signup"
+                href="/waitlist"
                 onClick={() => setOpen(false)}
                 className="block w-full rounded-xl bg-[#C8102E] px-4 py-3 text-center text-sm font-bold text-white hover:bg-[#A50D25] transition-colors"
               >
-                Get Started →
+                Join the Waitlist →
               </Link>
             </div>
           </nav>

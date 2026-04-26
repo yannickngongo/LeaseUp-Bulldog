@@ -34,10 +34,10 @@ export default function LandingPage() {
 
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
-              href="/free-trial"
+              href="/waitlist"
               className="w-full sm:w-auto rounded-xl bg-[#C8102E] px-8 py-4 text-base font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25"
             >
-              Start Free Trial →
+              Join the Waitlist →
             </Link>
             <Link
               href="/how-it-works"
@@ -308,8 +308,8 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/free-trial" className="block w-full rounded-xl border border-[#1E1E2E] py-3 text-center text-sm font-bold text-white hover:bg-white/5 transition-colors">
-                Start Pilot →
+              <Link href="/waitlist" className="block w-full rounded-xl border border-[#1E1E2E] py-3 text-center text-sm font-bold text-white hover:bg-white/5 transition-colors">
+                Join the Waitlist →
               </Link>
             </div>
 
@@ -330,8 +330,8 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/free-trial" className="block w-full rounded-xl bg-[#C8102E] py-3 text-center text-sm font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25">
-                Start Pilot →
+              <Link href="/waitlist" className="block w-full rounded-xl bg-[#C8102E] py-3 text-center text-sm font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25">
+                Join the Waitlist →
               </Link>
             </div>
 
@@ -463,10 +463,10 @@ export default function LandingPage() {
             Join operators who never miss a lead. Start your 14-day pilot — $1,000 setup, no platform fee during trial.
           </p>
           <Link
-            href="/free-trial"
+            href="/waitlist"
             className="inline-flex items-center gap-2 rounded-xl bg-[#C8102E] px-10 py-4 text-base font-bold text-white hover:bg-[#A50D25] transition-colors shadow-xl shadow-[#C8102E]/30"
           >
-            Start Free Trial →
+            Join the Waitlist →
           </Link>
         </div>
       </section>
