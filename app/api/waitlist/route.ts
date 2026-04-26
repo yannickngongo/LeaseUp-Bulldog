@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { sendWaitlistConfirmationEmail } from "@/lib/email";
+import { sendWaitlistWelcomeEmail, sendWaitlistEnrollEmail } from "@/lib/email";
 
 const schema = z.object({
   name: z.string().min(1).max(100).trim(),
@@ -42,7 +42,8 @@ export async function POST(req: NextRequest) {
   }
 
   const firstName = parsed.data.name.split(" ")[0];
-  await sendWaitlistConfirmationEmail({ to: parsed.data.email, firstName });
+  await sendWaitlistWelcomeEmail({ to: parsed.data.email, firstName });
+  await sendWaitlistEnrollEmail({ to: parsed.data.email, firstName });
 
   return NextResponse.json({ ok: true });
 }

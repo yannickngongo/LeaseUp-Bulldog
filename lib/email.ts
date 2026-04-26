@@ -150,29 +150,86 @@ export async function sendTourRequestedAlert({
 
 // ─── Waitlist ─────────────────────────────────────────────────────────────────
 
-export async function sendWaitlistConfirmationEmail({
+export async function sendWaitlistWelcomeEmail({
   to, firstName,
 }: {
   to: string; firstName: string;
 }) {
   await sendEmail(
     to,
-    "You're on the LeaseUp Bulldog waitlist",
+    "Welcome to the pack 🐾 — LeaseUp Bulldog",
     `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111">
       <div style="background:#C8102E;padding:24px 32px;border-radius:12px 12px 0 0">
         <h1 style="color:white;margin:0;font-size:22px">LeaseUp<span style="opacity:0.85">Bulldog</span></h1>
+        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:13px">Early Access Confirmation</p>
       </div>
       <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px">
         <p style="font-size:16px;margin-top:0">Hey ${firstName},</p>
-        <p style="font-size:15px;color:#444">You're on the list. We review every application personally and reach out within 48 hours.</p>
-        <p style="font-size:15px;color:#444">Here's what happens next:</p>
-        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:20px;margin:20px 0">
-          <p style="margin:0 0 12px;font-size:14px"><span style="color:#C8102E;font-weight:700">01 &mdash;</span> <strong>We review your application</strong><br><span style="color:#666">We look at your portfolio size and make sure LeaseUp Bulldog is the right fit for where you&apos;re at.</span></p>
-          <p style="margin:0 0 12px;font-size:14px"><span style="color:#C8102E;font-weight:700">02 &mdash;</span> <strong>You&apos;ll get a call from our team</strong><br><span style="color:#666">We&apos;ll walk through your properties, configure your AI agent, and answer any questions.</span></p>
-          <p style="margin:0;font-size:14px"><span style="color:#C8102E;font-weight:700">03 &mdash;</span> <strong>Your pilot goes live</strong><br><span style="color:#666">Within 24 hours of your call, your AI agent is responding to leads. No setup headaches.</span></p>
+        <p style="font-size:15px;color:#444">Welcome to the pack. 🐾🎉</p>
+        <p style="font-size:15px;color:#444">You just joined as one of LeaseUp Bulldog&apos;s founding members &mdash; and that means a lot to us. We&apos;re not opening the doors to everyone. We&apos;re starting with a small group of operators we can actually serve well.</p>
+        <p style="font-size:15px;color:#444">You&apos;re one of them.</p>
+        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:20px;margin:24px 0;text-align:center">
+          <p style="margin:0 0 4px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.08em;font-weight:600">Your Access</p>
+          <p style="margin:0;font-size:28px;font-weight:900;color:#C8102E">30 Days Free</p>
+          <p style="margin:4px 0 0;font-size:13px;color:#888">Founding member &mdash; white-glove setup included</p>
         </div>
-        <p style="font-size:14px;color:#555">In the meantime, if you have any questions just reply to this email &mdash; we read every one.</p>
-        <p style="font-size:13px;color:#888;margin-top:24px;margin-bottom:0">Talk soon,<br><strong>— The LeaseUp Bulldog Team</strong></p>
+        <p style="font-size:15px;color:#444">We&apos;ll reach out within 48 hours &mdash; call or text, whatever works for you &mdash; to introduce ourselves and get things moving.</p>
+        <p style="font-size:15px;color:#444">Can&apos;t wait to show you what Bulldog can do.</p>
+        <p style="font-size:13px;color:#888;margin-top:28px;margin-bottom:4px">Talk soon,</p>
+        <p style="font-size:13px;color:#555;margin:0"><strong>&mdash; The LeaseUp Bulldog Team</strong></p>
+        <p style="font-size:12px;color:#C8102E;margin-top:8px;font-style:italic">No lead left behind. 🐶</p>
+      </div>
+      <p style="font-size:11px;color:#bbb;text-align:center;margin-top:16px">LeaseUp Bulldog &middot; AI-powered leasing for multifamily operators</p>
+    </div>`
+  );
+}
+
+export async function sendWaitlistEnrollEmail({
+  to, firstName,
+}: {
+  to: string; firstName: string;
+}) {
+  const signupUrl = `${APP_URL}/signup?ref=founding`;
+  await sendEmail(
+    to,
+    "🐶 Bulldog is ready for you — create your account",
+    `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111">
+      <div style="background:#C8102E;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:white;margin:0;font-size:22px">LeaseUp<span style="opacity:0.85">Bulldog</span></h1>
+        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:13px">Get Enrolled &mdash; Your Account Is Ready</p>
+      </div>
+      <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:16px;margin-top:0">Hey ${firstName},</p>
+        <p style="font-size:15px;color:#444">🐶 Bulldog is ready for you. Time to get your account set up.</p>
+        <a href="${signupUrl}" style="display:block;background:#C8102E;color:white;text-decoration:none;padding:16px 28px;border-radius:10px;font-size:16px;font-weight:700;text-align:center;margin:24px 0">
+          Create Your Account &mdash; It&apos;s Free &rarr;
+        </a>
+        <p style="font-size:14px;color:#555;margin-bottom:20px">Once you&apos;re in, here&apos;s what to do:</p>
+        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden;margin-bottom:20px">
+          <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0">
+            <p style="margin:0 0 4px;font-size:13px"><span style="color:#C8102E;font-weight:700">01 &mdash;</span> <strong>Add your first property</strong></p>
+            <p style="margin:0;font-size:13px;color:#666">Name, address, unit count. Bulldog gets assigned a dedicated SMS number instantly &mdash; that&apos;s the number your leads will text and Bulldog will respond from.</p>
+          </div>
+          <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0">
+            <p style="margin:0 0 4px;font-size:13px"><span style="color:#C8102E;font-weight:700">02 &mdash;</span> <strong>Connect your lead sources</strong></p>
+            <p style="margin:0;font-size:13px;color:#666">Point Zillow, Apartments.com, or your website form to your property&apos;s webhook URL. Every lead that hits that URL gets an AI reply in under 60 seconds.</p>
+          </div>
+          <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0">
+            <p style="margin:0 0 4px;font-size:13px"><span style="color:#C8102E;font-weight:700">03 &mdash;</span> <strong>Configure your AI</strong></p>
+            <p style="margin:0;font-size:13px;color:#666">Set your unit types, price range, and any active specials. This is what makes Bulldog sound like YOUR leasing agent &mdash; not a robot.</p>
+          </div>
+          <div style="padding:16px 20px">
+            <p style="margin:0 0 4px;font-size:13px"><span style="color:#C8102E;font-weight:700">04 &mdash;</span> <strong>Send a test text</strong></p>
+            <p style="margin:0;font-size:13px;color:#666">Text your property&apos;s number from your own phone. Watch Bulldog reply in under 60 seconds. That&apos;s when it clicks.</p>
+          </div>
+        </div>
+        <div style="background:#fff8f8;border:1px solid #ffd5d5;border-radius:8px;padding:16px 20px;margin-bottom:24px">
+          <p style="margin:0;font-size:13px;color:#444">You have <strong style="color:#C8102E">30 days free</strong> to put Bulldog to work. After that, it&apos;s the normal plan &mdash; but by then you&apos;ll have seen exactly what it can do.</p>
+        </div>
+        <p style="font-size:14px;color:#555">Any questions? Reply here or call or text us directly &mdash; we&apos;ll walk you through it live.</p>
+        <p style="font-size:13px;color:#888;margin-top:28px;margin-bottom:4px">Talk soon,</p>
+        <p style="font-size:13px;color:#555;margin:0"><strong>&mdash; The LeaseUp Bulldog Team</strong></p>
+        <p style="font-size:12px;color:#C8102E;margin-top:8px;font-style:italic">Bark. Qualify. Close. 🐾</p>
       </div>
       <p style="font-size:11px;color:#bbb;text-align:center;margin-top:16px">LeaseUp Bulldog &middot; AI-powered leasing for multifamily operators</p>
     </div>`
