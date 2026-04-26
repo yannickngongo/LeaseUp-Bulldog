@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { sendWaitlistConfirmationEmail } from "@/lib/email";
 
 const schema = z.object({
   name: z.string().min(1).max(100).trim(),
@@ -39,6 +40,9 @@ export async function POST(req: NextRequest) {
     console.error("[waitlist] insert error:", error);
     return NextResponse.json({ error: "Failed to save. Please try again." }, { status: 500 });
   }
+
+  const firstName = parsed.data.name.split(" ")[0];
+  await sendWaitlistConfirmationEmail({ to: parsed.data.email, firstName });
 
   return NextResponse.json({ ok: true });
 }
