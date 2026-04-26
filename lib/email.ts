@@ -167,14 +167,14 @@ export async function sendWaitlistConfirmationEmail({
         <p style="font-size:15px;color:#444">You're on the list. We review every application personally and reach out within 48 hours.</p>
         <p style="font-size:15px;color:#444">Here's what happens next:</p>
         <div style="background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:20px;margin:20px 0">
-          <p style="margin:0 0 12px;font-size:14px"><span style="color:#C8102E;font-weight:700">01 —</span> <strong>We review your application</strong><br><span style="color:#666">We look at your portfolio size and make sure LeaseUp Bulldog is the right fit for where you're at.</span></p>
-          <p style="margin:0 0 12px;font-size:14px"><span style="color:#C8102E;font-weight:700">02 —</span> <strong>You'll get a call from our team</strong><br><span style="color:#666">We'll walk through your properties, configure your AI agent, and answer any questions.</span></p>
-          <p style="margin:0;font-size:14px"><span style="color:#C8102E;font-weight:700">03 —</span> <strong>Your pilot goes live</strong><br><span style="color:#666">Within 24 hours of your call, your AI agent is responding to leads. No setup headaches.</span></p>
+          <p style="margin:0 0 12px;font-size:14px"><span style="color:#C8102E;font-weight:700">01 &mdash;</span> <strong>We review your application</strong><br><span style="color:#666">We look at your portfolio size and make sure LeaseUp Bulldog is the right fit for where you&apos;re at.</span></p>
+          <p style="margin:0 0 12px;font-size:14px"><span style="color:#C8102E;font-weight:700">02 &mdash;</span> <strong>You&apos;ll get a call from our team</strong><br><span style="color:#666">We&apos;ll walk through your properties, configure your AI agent, and answer any questions.</span></p>
+          <p style="margin:0;font-size:14px"><span style="color:#C8102E;font-weight:700">03 &mdash;</span> <strong>Your pilot goes live</strong><br><span style="color:#666">Within 24 hours of your call, your AI agent is responding to leads. No setup headaches.</span></p>
         </div>
-        <p style="font-size:14px;color:#555">In the meantime, if you have any questions just reply to this email — we read every one.</p>
+        <p style="font-size:14px;color:#555">In the meantime, if you have any questions just reply to this email &mdash; we read every one.</p>
         <p style="font-size:13px;color:#888;margin-top:24px;margin-bottom:0">Talk soon,<br><strong>— The LeaseUp Bulldog Team</strong></p>
       </div>
-      <p style="font-size:11px;color:#bbb;text-align:center;margin-top:16px">LeaseUp Bulldog · AI-powered leasing for multifamily operators</p>
+      <p style="font-size:11px;color:#bbb;text-align:center;margin-top:16px">LeaseUp Bulldog &middot; AI-powered leasing for multifamily operators</p>
     </div>`
   );
 }
