@@ -47,7 +47,7 @@ export default function WaitlistPage() {
               {[
                 "Founding member pricing — locked for life",
                 "White-glove onboarding with our team",
-                "Direct line to Yannick for feedback & support",
+                "Direct line to the founding team for feedback & support",
               ].map((perk) => (
                 <li key={perk} className="flex items-center gap-3 text-sm text-gray-300">
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/15 text-xs text-[#C8102E]">
@@ -136,7 +136,7 @@ export default function WaitlistPage() {
               {
                 icon: "🎯",
                 title: "Direct Founder Access",
-                desc: "Yannick reviews every application personally. As a founding member, you have a direct line for feedback, requests, and support.",
+                desc: "Every application is reviewed personally. As a founding member, you have a direct line for feedback, requests, and support.",
               },
             ].map((perk) => (
               <div
@@ -285,7 +285,7 @@ export default function WaitlistPage() {
               {
                 step: "02",
                 title: "We reach out within 48 hours",
-                desc: "You'll get a call from Yannick to walk through your portfolio and configure your Bulldog.",
+                desc: "You'll get a call from our team to walk through your portfolio and configure your Bulldog.",
               },
               {
                 step: "03",

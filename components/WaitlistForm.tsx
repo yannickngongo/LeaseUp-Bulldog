@@ -53,7 +53,7 @@ export function WaitlistForm() {
         </p>
         <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/20 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-medium text-[#F87171]">
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#C8102E]" />
-          Expect a call from Yannick
+          Expect a call from our team
         </div>
       </div>
     );
