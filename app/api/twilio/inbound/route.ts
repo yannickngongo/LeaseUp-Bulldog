@@ -63,14 +63,24 @@ export async function POST(req: NextRequest) {
     params[k] = v;
   }
 
-  if (authToken && twilioSig) {
-    const valid = twilio.validateRequest(authToken, twilioSig, webhookUrl, params);
-    if (!valid) {
-      console.warn("[twilio/inbound] invalid Twilio signature — rejected");
-      return new NextResponse("Forbidden", { status: 403 });
-    }
-  } else if (!authToken) {
-    console.warn("[twilio/inbound] TWILIO_AUTH_TOKEN not set — skipping signature check");
+  if (!authToken) {
+    console.error("[twilio/inbound] TWILIO_AUTH_TOKEN not set — rejecting request");
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  // Try the configured URL, then also the www/non-www variant in case of redirects
+  const altUrl = webhookUrl.includes("://www.")
+    ? webhookUrl.replace("://www.", "://")
+    : webhookUrl.replace("://", "://www.");
+  const valid =
+    twilio.validateRequest(authToken, twilioSig, webhookUrl, params) ||
+    twilio.validateRequest(authToken, twilioSig, altUrl, params);
+
+  console.log("[twilio/inbound] sig check:", { webhookUrl, altUrl, valid, hasSig: !!twilioSig, hasToken: !!authToken });
+
+  if (!valid) {
+    console.warn("[twilio/inbound] invalid Twilio signature — rejected");
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   const from       = params["From"] ?? "";
