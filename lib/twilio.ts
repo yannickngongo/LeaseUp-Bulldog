@@ -29,6 +29,12 @@ export interface ProvisionResult {
   sid: string;         // Twilio IncomingPhoneNumber SID e.g. "PNxxx" — store this to release later
 }
 
+export interface ProvisionOptions {
+  city?: string;       // e.g. "Las Vegas" — Twilio searches for a local number in this city
+  state?: string;      // e.g. "NV"
+  areaCode?: string;   // fallback: 3-digit area code if city search yields nothing
+}
+
 // ─── Client ───────────────────────────────────────────────────────────────────
 
 let _client: Twilio | null = null;
@@ -52,7 +58,7 @@ function getClient(): Twilio {
 // ─── provisionPhoneNumber ─────────────────────────────────────────────────────
 
 export async function provisionPhoneNumber(
-  areaCode: string,
+  options: ProvisionOptions,
   webhookBaseUrl?: string
 ): Promise<ProvisionResult | null> {
   const client = getClient();
@@ -60,20 +66,36 @@ export async function provisionPhoneNumber(
   const smsUrl = `${appUrl}/api/twilio/inbound`;
 
   try {
-    const parsedAreaCode = parseInt(areaCode, 10);
-    const searchParams = parsedAreaCode > 0 ? { areaCode: parsedAreaCode, limit: 1 } : { limit: 1 };
+    let available: Awaited<ReturnType<typeof client.availablePhoneNumbers>>["local"] extends never
+      ? never[]
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      : any[] = [];
 
-    const available = await client
-      .availablePhoneNumbers("US")
-      .local.list(searchParams);
+    // 1. Try city + state search first (most accurate)
+    if (options.city && options.state) {
+      available = await client
+        .availablePhoneNumbers("US")
+        .local.list({ inLocality: options.city, inRegion: options.state, limit: 1 });
+    }
 
+    // 2. Fall back to area code if provided
+    if (!available.length && options.areaCode) {
+      const parsedAreaCode = parseInt(options.areaCode, 10);
+      if (parsedAreaCode > 0) {
+        available = await client
+          .availablePhoneNumbers("US")
+          .local.list({ areaCode: parsedAreaCode, limit: 1 });
+      }
+    }
+
+    // 3. Last resort: any available US local number
     if (!available.length) {
-      const fallback = await client
+      available = await client
         .availablePhoneNumbers("US")
         .local.list({ limit: 1 });
-      if (!fallback.length) return null;
-      available.push(...fallback);
     }
+
+    if (!available.length) return null;
 
     const purchased = await client.incomingPhoneNumbers.create({
       phoneNumber:  available[0].phoneNumber,

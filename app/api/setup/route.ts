@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
     operatorName, email, propertyName, address, city, state, zip,
-    neighborhood, areaCode, activeSpecial, websiteUrl, totalUnits, tourBookingUrl,
+    neighborhood, activeSpecial, websiteUrl, totalUnits, tourBookingUrl,
   } = body;
 
   if (!operatorName || !email || !propertyName || !address || !city || !state || !zip) {
@@ -73,9 +73,8 @@ export async function POST(req: NextRequest) {
     operatorId = created.id;
   }
 
-  // Auto-provision a Twilio number using the provided area code (or any available US number)
-  const targetAreaCode = areaCode?.trim() || "";
-  const provisioned = await provisionPhoneNumber(targetAreaCode);
+  // Auto-provision a local number in the same city as the property
+  const provisioned = await provisionPhoneNumber({ city, state });
 
   if (!provisioned) {
     return NextResponse.json(

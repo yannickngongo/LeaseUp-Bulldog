@@ -227,7 +227,7 @@ export default function NewPropertyPage() {
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", zip: "",
     neighborhood: "",
-    areaCode: "", activeSpecial: "", websiteUrl: "",
+    activeSpecial: "", websiteUrl: "",
     totalUnits: "", tourBookingUrl: "",
   });
 
@@ -261,7 +261,6 @@ export default function NewPropertyPage() {
           state:          form.state,
           zip:            form.zip,
           neighborhood:   form.neighborhood || null,
-          areaCode:       form.areaCode || null,
           activeSpecial:  form.activeSpecial,
           websiteUrl:     form.websiteUrl,
           totalUnits:     form.totalUnits,
@@ -349,19 +348,8 @@ export default function NewPropertyPage() {
           {/* AI Setup */}
           <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-6">
             <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">AI Setup</h2>
-            <p className="mb-5 text-xs text-gray-400">A dedicated SMS number will be automatically assigned to this property.</p>
+            <p className="mb-5 text-xs text-gray-400">A local SMS number will be automatically assigned based on the property&apos;s city.</p>
             <div className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Preferred Area Code</label>
-                <input
-                  value={form.areaCode}
-                  onChange={e => set("areaCode", e.target.value.replace(/\D/g, "").slice(0, 3))}
-                  placeholder="702"
-                  maxLength={3}
-                  className={inputCls}
-                />
-                <p className="mt-1 text-xs text-gray-400">3-digit area code for the AI line (e.g. 702 for Las Vegas). Leave blank to use your ZIP code area.</p>
-              </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Current Special / Promotion</label>
                 <input value={form.activeSpecial} onChange={e => set("activeSpecial", e.target.value)} placeholder="1 month free on 12-month leases" className={inputCls} />
