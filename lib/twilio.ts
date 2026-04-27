@@ -60,9 +60,12 @@ export async function provisionPhoneNumber(
   const smsUrl = `${appUrl}/api/twilio/inbound`;
 
   try {
+    const parsedAreaCode = parseInt(areaCode, 10);
+    const searchParams = parsedAreaCode > 0 ? { areaCode: parsedAreaCode, limit: 1 } : { limit: 1 };
+
     const available = await client
       .availablePhoneNumbers("US")
-      .local.list({ areaCode: parseInt(areaCode, 10), limit: 1 });
+      .local.list(searchParams);
 
     if (!available.length) {
       const fallback = await client

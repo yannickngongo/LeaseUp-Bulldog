@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
     operatorId = created.id;
   }
 
-  // Auto-provision a Twilio number using the provided area code (or ZIP prefix as fallback)
-  const targetAreaCode = areaCode?.trim() || zip?.slice(0, 3) || "800";
+  // Auto-provision a Twilio number using the provided area code (or any available US number)
+  const targetAreaCode = areaCode?.trim() || "";
   const provisioned = await provisionPhoneNumber(targetAreaCode);
 
   if (!provisioned) {
