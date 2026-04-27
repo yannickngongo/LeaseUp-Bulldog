@@ -20,3 +20,96 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Landing page background animations ───────────────────────────────────── */
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%       { transform: translate(24px, -28px) scale(1.04); }
+  50%       { transform: translate(-18px, 18px) scale(0.97); }
+  75%       { transform: translate(28px, 12px) scale(1.02); }
+}
+
+@keyframes orb-drift-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%       { transform: translate(-22px, 22px) scale(1.03); }
+  50%       { transform: translate(16px, -16px) scale(0.98); }
+  75%       { transform: translate(-28px, -10px) scale(1.01); }
+}
+
+@keyframes orb-drift-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(18px, 20px) scale(1.05); }
+  66%       { transform: translate(-22px, -14px) scale(0.96); }
+}
+
+@keyframes grid-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 0.65; }
+}
+
+@keyframes particle-rise {
+  0%   { transform: translateY(0) scale(1);   opacity: 0; }
+  12%  { opacity: 0.9; }
+  88%  { opacity: 0.25; }
+  100% { transform: translateY(-220px) scale(0); opacity: 0; }
+}
+
+/* Orbs */
+.lub-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(90px);
+}
+.lub-orb-a {
+  width: 700px; height: 700px;
+  background: rgba(200,16,46,0.13);
+  top: -220px; left: 50%; margin-left: -350px;
+  animation: orb-drift 16s ease-in-out infinite;
+}
+.lub-orb-b {
+  width: 420px; height: 420px;
+  background: rgba(200,16,46,0.08);
+  top: 15%; right: -120px;
+  animation: orb-drift-b 20s ease-in-out infinite;
+  animation-delay: -6s;
+}
+.lub-orb-c {
+  width: 320px; height: 320px;
+  background: rgba(120,0,20,0.09);
+  bottom: 5%; left: -80px;
+  animation: orb-drift-c 22s ease-in-out infinite;
+  animation-delay: -12s;
+}
+
+/* Dot grid overlay */
+.lub-grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(200,16,46,0.14) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events: none;
+  animation: grid-pulse 5s ease-in-out infinite;
+}
+
+/* Rising particles */
+.lub-particle {
+  position: absolute;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: #C8102E;
+  pointer-events: none;
+  animation: particle-rise 7s ease-in-out infinite;
+  opacity: 0;
+}
+.lub-p1  { left:  8%; bottom: 8%;  animation-delay: 0s;    animation-duration: 7s; }
+.lub-p2  { left: 18%; bottom: 4%;  animation-delay: 1.2s;  animation-duration: 8s; }
+.lub-p3  { left: 30%; bottom: 12%; animation-delay: 2.4s;  animation-duration: 6s; }
+.lub-p4  { left: 44%; bottom: 6%;  animation-delay: 0.6s;  animation-duration: 9s; }
+.lub-p5  { left: 57%; bottom: 10%; animation-delay: 3.1s;  animation-duration: 7s; }
+.lub-p6  { left: 68%; bottom: 3%;  animation-delay: 1.8s;  animation-duration: 8s; }
+.lub-p7  { left: 79%; bottom: 14%; animation-delay: 4.2s;  animation-duration: 6s; }
+.lub-p8  { left: 88%; bottom: 7%;  animation-delay: 2.9s;  animation-duration: 9s; }
+.lub-p9  { left: 23%; bottom: 18%; animation-delay: 5.0s;  animation-duration: 7s; }
+.lub-p10 { left: 62%; bottom: 20%; animation-delay: 0.3s;  animation-duration: 8s; }

@@ -12,8 +12,25 @@ export default function LandingPage() {
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden px-5 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20">
-        {/* Background glow */}
-        <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/4 h-[600px] w-[900px] rounded-full bg-[#C8102E]/10 blur-[120px]" />
+        {/* Animated orbs */}
+        <div className="lub-orb lub-orb-a" />
+        <div className="lub-orb lub-orb-b" />
+        <div className="lub-orb lub-orb-c" />
+
+        {/* Dot grid */}
+        <div className="lub-grid" />
+
+        {/* Rising particles */}
+        <div className="lub-particle lub-p1" />
+        <div className="lub-particle lub-p2" />
+        <div className="lub-particle lub-p3" />
+        <div className="lub-particle lub-p4" />
+        <div className="lub-particle lub-p5" />
+        <div className="lub-particle lub-p6" />
+        <div className="lub-particle lub-p7" />
+        <div className="lub-particle lub-p8" />
+        <div className="lub-particle lub-p9" />
+        <div className="lub-particle lub-p10" />
 
         <div className="relative mx-auto max-w-5xl text-center">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/30 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-medium text-[#F87171]">
