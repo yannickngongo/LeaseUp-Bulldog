@@ -26,7 +26,7 @@ export default function FreeTrialPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#08080F] text-white font-sans flex flex-col">
+    <div className="min-h-screen text-white font-sans flex flex-col">
       <header className="border-b border-[#1E1E2E] px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="text-xl font-black tracking-tight">

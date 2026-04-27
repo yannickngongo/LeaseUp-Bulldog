@@ -39,7 +39,7 @@ function Check() {
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-[#08080F] text-white font-sans">
+    <div className="min-h-screen text-white font-sans">
       <MarketingNav />
 
       {/* Hero */}

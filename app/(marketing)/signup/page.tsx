@@ -90,7 +90,7 @@ function SignupForm() {
   }
 
   return (
-    <div className="min-h-screen bg-[#08080F] text-white font-sans flex flex-col">
+    <div className="min-h-screen text-white font-sans flex flex-col">
       {verified && (
         <div className="flex min-h-screen items-center justify-center px-6">
           <div className="w-full max-w-md rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-10 text-center">
