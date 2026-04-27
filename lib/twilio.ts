@@ -4,19 +4,16 @@
 // Required env vars (set in .env.local):
 //   TWILIO_ACCOUNT_SID   — from console.twilio.com
 //   TWILIO_AUTH_TOKEN    — from console.twilio.com
-//   TWILIO_PHONE_NUMBER  — your Twilio number in E.164 format e.g. +17025550100
-//
-// Safe testing: set TWILIO_TEST_MODE=true to log messages instead of sending them.
-// In Twilio's own test environment, use SID=ACtest... and Token=test... credentials.
+//   TWILIO_PHONE_NUMBER  — fallback sender number in E.164 format e.g. +17025550100
 
 import twilio, { Twilio } from "twilio";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface SendSmsParams {
-  to: string;   // recipient's phone in E.164 format e.g. "+17025550101"
-  body: string; // message text (max 1600 chars; over 160 splits into segments)
-  from?: string; // override sender — defaults to TWILIO_PHONE_NUMBER env var
+  to: string;
+  body: string;
+  from?: string;
 }
 
 export interface SmsResult {
@@ -27,6 +24,11 @@ export interface SmsResult {
   body: string;
 }
 
+export interface ProvisionResult {
+  phoneNumber: string; // E.164 e.g. "+17025551234"
+  sid: string;         // Twilio IncomingPhoneNumber SID e.g. "PNxxx" — store this to release later
+}
+
 // ─── Client ───────────────────────────────────────────────────────────────────
 
 let _client: Twilio | null = null;
@@ -35,7 +37,7 @@ function getClient(): Twilio {
   if (_client) return _client;
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const authToken  = process.env.TWILIO_AUTH_TOKEN;
 
   if (!accountSid || !authToken) {
     throw new Error(
@@ -49,27 +51,20 @@ function getClient(): Twilio {
 
 // ─── provisionPhoneNumber ─────────────────────────────────────────────────────
 
-/**
- * Searches for an available local US number near the given area code and purchases it.
- * Configures the SMS webhook to point at /api/twilio/inbound.
- * Returns the provisioned E.164 number, or null if none available.
- */
 export async function provisionPhoneNumber(
   areaCode: string,
   webhookBaseUrl?: string
-): Promise<string | null> {
+): Promise<ProvisionResult | null> {
   const client = getClient();
   const appUrl = webhookBaseUrl ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
   const smsUrl = `${appUrl}/api/twilio/inbound`;
 
   try {
-    // Search for an available local number with the given area code
     const available = await client
       .availablePhoneNumbers("US")
       .local.list({ areaCode: parseInt(areaCode, 10), limit: 1 });
 
     if (!available.length) {
-      // Fallback: search without area code constraint
       const fallback = await client
         .availablePhoneNumbers("US")
         .local.list({ limit: 1 });
@@ -78,16 +73,28 @@ export async function provisionPhoneNumber(
     }
 
     const purchased = await client.incomingPhoneNumbers.create({
-      phoneNumber:     available[0].phoneNumber,
+      phoneNumber:  available[0].phoneNumber,
       smsUrl,
-      smsMethod:       "POST",
-      friendlyName:    "LeaseUp Bulldog",
+      smsMethod:    "POST",
+      friendlyName: "LeaseUp Bulldog",
     });
 
-    return purchased.phoneNumber;
+    return { phoneNumber: purchased.phoneNumber, sid: purchased.sid };
   } catch (err) {
     console.error("[twilio] provisionPhoneNumber failed:", err);
     return null;
+  }
+}
+
+// ─── releasePhoneNumber ───────────────────────────────────────────────────────
+
+export async function releasePhoneNumber(sid: string): Promise<void> {
+  try {
+    const client = getClient();
+    await client.incomingPhoneNumbers(sid).remove();
+    console.log("[twilio] released number:", sid);
+  } catch (err) {
+    console.error("[twilio] releasePhoneNumber failed:", sid, err);
   }
 }
 
@@ -102,7 +109,6 @@ export async function sendSms({ to, body, from }: SendSmsParams): Promise<SmsRes
     );
   }
 
-  // Test mode — log instead of sending. Set TWILIO_TEST_MODE=true in .env.local.
   if (process.env.TWILIO_TEST_MODE === "true") {
     const mock: SmsResult = {
       sid: `MOCK_${Date.now()}`,
@@ -121,7 +127,6 @@ export async function sendSms({ to, body, from }: SendSmsParams): Promise<SmsRes
   try {
     message = await client.messages.create({ to, from: fromNumber, body });
   } catch (err: unknown) {
-    // Twilio errors have a `code` and `message` field
     const twilioErr = err as { code?: number; message?: string };
     throw new Error(
       `Twilio send failed (code ${twilioErr.code ?? "unknown"}): ${twilioErr.message ?? String(err)}`
@@ -129,10 +134,10 @@ export async function sendSms({ to, body, from }: SendSmsParams): Promise<SmsRes
   }
 
   return {
-    sid: message.sid,
+    sid:    message.sid,
     status: message.status,
-    to: message.to,
-    from: message.from,
-    body: message.body,
+    to:     message.to,
+    from:   message.from,
+    body:   message.body,
   };
 }

@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { releasePhoneNumber } from "@/lib/twilio";
 
 export async function DELETE(
   _req: NextRequest,
@@ -9,6 +10,13 @@ export async function DELETE(
 ) {
   const { id } = await params;
   const db = getSupabaseAdmin();
+
+  // Fetch the property's Twilio SID before deleting so we can release the number
+  const { data: property } = await db
+    .from("properties")
+    .select("twilio_number_sid")
+    .eq("id", id)
+    .single();
 
   // Delete child records first
   await db.from("units").delete().eq("property_id", id);
@@ -21,6 +29,11 @@ export async function DELETE(
 
   const { error } = await db.from("properties").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Release the Twilio number so billing stops
+  if (property?.twilio_number_sid) {
+    await releasePhoneNumber(property.twilio_number_sid);
+  }
 
   return NextResponse.json({ ok: true });
 }

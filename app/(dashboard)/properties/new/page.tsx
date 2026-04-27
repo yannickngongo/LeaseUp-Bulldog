@@ -227,7 +227,7 @@ export default function NewPropertyPage() {
   const [form, setForm] = useState({
     name: "", address: "", city: "", state: "", zip: "",
     neighborhood: "",
-    phoneNumber: "", activeSpecial: "", websiteUrl: "",
+    areaCode: "", activeSpecial: "", websiteUrl: "",
     totalUnits: "", tourBookingUrl: "",
   });
 
@@ -239,7 +239,7 @@ export default function NewPropertyPage() {
     e.preventDefault();
     const email = await getOperatorEmail();
     if (!email) { setError("No account found — please complete setup first."); return; }
-    if (!form.name || !form.address || !form.city || !form.state || !form.zip || !form.phoneNumber) {
+    if (!form.name || !form.address || !form.city || !form.state || !form.zip) {
       setError("All required fields must be filled in."); return;
     }
     setLoading(true);
@@ -261,7 +261,7 @@ export default function NewPropertyPage() {
           state:          form.state,
           zip:            form.zip,
           neighborhood:   form.neighborhood || null,
-          phoneNumber:    form.phoneNumber,
+          areaCode:       form.areaCode || null,
           activeSpecial:  form.activeSpecial,
           websiteUrl:     form.websiteUrl,
           totalUnits:     form.totalUnits,
@@ -346,14 +346,21 @@ export default function NewPropertyPage() {
             </div>
           </div>
 
-          {/* Twilio & AI Setup */}
+          {/* AI Setup */}
           <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-6">
-            <h2 className="mb-5 text-xs font-semibold uppercase tracking-wide text-gray-500">Twilio & AI Setup</h2>
+            <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">AI Setup</h2>
+            <p className="mb-5 text-xs text-gray-400">A dedicated SMS number will be automatically assigned to this property.</p>
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Twilio Phone Number <span className="text-red-500">*</span></label>
-                <input value={form.phoneNumber} onChange={e => set("phoneNumber", e.target.value)} placeholder="+17025551234" className={inputCls} />
-                <p className="mt-1 text-xs text-gray-400">Format: +1XXXXXXXXXX — purchase this number in your Twilio console first.</p>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Preferred Area Code</label>
+                <input
+                  value={form.areaCode}
+                  onChange={e => set("areaCode", e.target.value.replace(/\D/g, "").slice(0, 3))}
+                  placeholder="702"
+                  maxLength={3}
+                  className={inputCls}
+                />
+                <p className="mt-1 text-xs text-gray-400">3-digit area code for the AI line (e.g. 702 for Las Vegas). Leave blank to use your ZIP code area.</p>
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Current Special / Promotion</label>
@@ -394,7 +401,7 @@ export default function NewPropertyPage() {
               disabled={loading}
               className="rounded-xl bg-[#C8102E] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#A50D25] disabled:opacity-40 transition-colors"
             >
-              {loading ? "Creating…" : "Add Property →"}
+              {loading ? "Getting AI line…" : "Add Property →"}
             </button>
           </div>
         </form>

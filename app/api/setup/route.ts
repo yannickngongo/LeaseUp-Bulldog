@@ -45,7 +45,10 @@ export async function PATCH(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { operatorName, email, propertyName, address, city, state, zip, neighborhood, phoneNumber, activeSpecial, websiteUrl, totalUnits, tourBookingUrl } = body;
+  const {
+    operatorName, email, propertyName, address, city, state, zip,
+    neighborhood, areaCode, activeSpecial, websiteUrl, totalUnits, tourBookingUrl,
+  } = body;
 
   if (!operatorName || !email || !propertyName || !address || !city || !state || !zip) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -70,31 +73,30 @@ export async function POST(req: NextRequest) {
     operatorId = created.id;
   }
 
-  // Auto-provision a Twilio number if none supplied
-  let resolvedPhone = phoneNumber || null;
-  if (!resolvedPhone) {
-    const areaCode = zip?.slice(0, 3) ?? "800";
-    resolvedPhone = await provisionPhoneNumber(areaCode);
-    if (!resolvedPhone) {
-      return NextResponse.json(
-        { error: "Could not provision a phone number. Please try again or contact support." },
-        { status: 503 }
-      );
-    }
+  // Auto-provision a Twilio number using the provided area code (or ZIP prefix as fallback)
+  const targetAreaCode = areaCode?.trim() || zip?.slice(0, 3) || "800";
+  const provisioned = await provisionPhoneNumber(targetAreaCode);
+
+  if (!provisioned) {
+    return NextResponse.json(
+      { error: "Could not provision a phone number. Please try again or contact support." },
+      { status: 503 }
+    );
   }
 
   // Create property
   const { data: property, error: propError } = await db
     .from("properties")
     .insert({
-      operator_id:    operatorId,
+      operator_id:       operatorId,
       name:              propertyName,
       address,
       city,
       state,
       zip,
       neighborhood:      neighborhood || null,
-      phone_number:      resolvedPhone,
+      phone_number:      provisioned.phoneNumber,
+      twilio_number_sid: provisioned.sid,
       active_special:    activeSpecial || null,
       website_url:       websiteUrl || null,
       total_units:       totalUnits ? parseInt(totalUnits, 10) : null,
@@ -104,9 +106,6 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (propError) {
-    if (propError.code === "23505") {
-      return NextResponse.json({ error: "That phone number is already registered to another property." }, { status: 409 });
-    }
     return NextResponse.json({ error: "Failed to create property" }, { status: 500 });
   }
 
