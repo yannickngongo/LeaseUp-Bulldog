@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -65,8 +65,8 @@ export default function CalendarPage() {
       if (!email) return;
 
       const [setupRes, propRes] = await Promise.all([
-        fetch(`/api/setup?email=${encodeURIComponent(email)}`),
-        fetch(`/api/properties?email=${encodeURIComponent(email)}`),
+        authFetch(`/api/setup`),
+        authFetch(`/api/properties`),
       ]);
       const setupJson = await setupRes.json();
       const propJson  = await propRes.json();
@@ -74,6 +74,29 @@ export default function CalendarPage() {
 
       if (!setupJson.operator || props.length === 0) return;
 
+      // Fetch tours from the tours table (actual scheduled_at date) per property
+      const allTourRows: Array<{
+        id: string; scheduled_at: string; status: string; notes?: string;
+        lead_id: string; property_id: string;
+        leads: { name: string; phone: string };
+        properties: { name: string };
+      }> = [];
+      await Promise.all(props.map(async (p) => {
+        const res  = await fetch(`/api/tours?propertyId=${p.id}`);
+        const json = await res.json();
+        allTourRows.push(...(json.tours ?? []));
+      }));
+
+      const tourEvents: TourEvent[] = allTourRows.map((t) => ({
+        leadId:       t.lead_id,
+        leadName:     t.leads?.name ?? "Unknown",
+        propertyName: t.properties?.name ?? "Unknown Property",
+        propertyId:   t.property_id,
+        date:         new Date(t.scheduled_at),
+        status:       "tour",
+      }));
+
+      // Follow-ups: leads with follow_up_at set in the future
       const allLeads: Lead[] = [];
       await Promise.all(props.map(async (p) => {
         const res  = await fetch(`/api/leads?propertyId=${p.id}`);
@@ -83,20 +106,6 @@ export default function CalendarPage() {
         allLeads.push(...rows);
       }));
 
-      // Tours: leads with tour_scheduled status — use follow_up_at or created_at as the date
-      const tourEvents: TourEvent[] = allLeads
-        .filter((l) => l.status === "tour_scheduled")
-        .map((l) => ({
-          leadId:       l.id,
-          leadName:     l.name,
-          propertyName: l.property_name ?? "Unknown Property",
-          propertyId:   l.property_id,
-          date:         new Date(l.follow_up_at ?? l.last_contacted_at ?? l.created_at),
-          source:       l.source,
-          status:       "tour",
-        }));
-
-      // Follow-ups: leads with follow_up_at set in the future
       const now = new Date();
       const fuEvents: TourEvent[] = allLeads
         .filter((l) => l.follow_up_at && new Date(l.follow_up_at) > now && l.status !== "tour_scheduled")
