@@ -53,7 +53,7 @@ export async function getAccessToken(): Promise<string | null> {
  */
 export async function authFetch(
   url: string,
-  init: RequestInit & { body?: BodyInit | Record<string, unknown> | null } = {}
+  init: Omit<RequestInit, "body"> & { body?: BodyInit | Record<string, unknown> | null } = {}
 ): Promise<Response> {
   const token = await getAccessToken();
   const headers: Record<string, string> = {
