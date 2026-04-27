@@ -1,26 +1,17 @@
 import Link from "next/link";
 import { MarketingNav } from "@/components/MarketingNav";
 import { MarketingFooter } from "@/components/MarketingFooter";
-import { ParticleNetwork } from "@/components/ParticleNetwork";
 
 // Brand tokens: #C8102E red | #08080F bg | #10101A mid | #16161F surface | #1E1E2E border
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#08080F] text-white font-sans">
+    <div className="min-h-screen text-white font-sans">
 
       <MarketingNav />
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden px-5 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20">
-        {/* Aurora layers */}
-        <div className="lub-aurora lub-aurora-a" />
-        <div className="lub-aurora lub-aurora-b" />
-        <div className="lub-aurora lub-aurora-c" />
-        <div className="lub-aurora lub-aurora-d" />
-
-        {/* Particle network */}
-        <ParticleNetwork />
 
         <div className="relative mx-auto max-w-5xl text-center">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/30 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-medium text-[#F87171]">
