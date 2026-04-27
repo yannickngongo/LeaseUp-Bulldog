@@ -17,6 +17,7 @@ interface Message {
   body: string;
   created_at: string;
   ai_generated: boolean;
+  failed?: boolean;
 }
 
 interface Lead {
@@ -626,12 +627,19 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
                           )}
                           <div className={cn("flex max-w-[70%] flex-col", isOut ? "items-end" : "items-start")}>
                             <div className={cn("rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
-                              isOut ? "rounded-tr-sm bg-gray-900 text-white" : "rounded-tl-sm border border-gray-100 dark:border-white/10 bg-white dark:bg-white/10 text-gray-800 dark:text-gray-200")}>
+                              isOut && msg.failed
+                                ? "rounded-tr-sm bg-red-900/80 text-white/80 border border-red-700/50"
+                                : isOut
+                                ? "rounded-tr-sm bg-gray-900 text-white"
+                                : "rounded-tl-sm border border-gray-100 dark:border-white/10 bg-white dark:bg-white/10 text-gray-800 dark:text-gray-200")}>
                               {msg.body}
                             </div>
                             <div className={cn("mt-1 flex items-center gap-1.5", isOut ? "flex-row-reverse" : "flex-row")}>
                               <span className="text-[10px] text-gray-400 dark:text-gray-500">{msgTime(msg.created_at)}</span>
-                              {isOut && msg.ai_generated && (
+                              {isOut && msg.failed && (
+                                <span className="text-[10px] font-semibold text-red-400">Failed to send</span>
+                              )}
+                              {isOut && msg.ai_generated && !msg.failed && (
                                 <span className="rounded-md bg-violet-50 dark:bg-violet-900/30 px-1.5 py-0.5 text-[9px] font-bold text-violet-600 dark:text-violet-400 border border-violet-100 dark:border-violet-800/30">AI</span>
                               )}
                             </div>
@@ -1126,21 +1134,38 @@ export default function LeadsPage() {
   const handleSend = useCallback(async () => {
     if (!replyText.trim() || !selectedId || sending) return;
     setSending(true);
+
+    const optimistic: Message = {
+      id: `pending-${Date.now()}`,
+      direction: "outbound",
+      body: replyText.trim(),
+      created_at: new Date().toISOString(),
+      ai_generated: false,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setReplyText("");
+
     try {
       const res = await fetch("/api/sms/outbound", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lead_id: selectedId, message: replyText.trim() }),
+        body: JSON.stringify({ lead_id: selectedId, message: optimistic.body }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(`SMS failed: ${data.error ?? "Unknown error. Check Vercel logs."}`);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === optimistic.id ? { ...m, failed: true } : m))
+        );
         return;
       }
-      setReplyText("");
       const msgRes = await fetch(`/api/conversations?leadId=${selectedId}`);
       setMessages((await msgRes.json()).messages ?? []);
-    } finally { setSending(false); }
+    } catch {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimistic.id ? { ...m, failed: true } : m))
+      );
+    } finally {
+      setSending(false);
+    }
   }, [replyText, selectedId, sending]);
 
   const handleAdded = useCallback(async () => {
