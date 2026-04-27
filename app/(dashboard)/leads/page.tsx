@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 import { createBrowserClient } from "@supabase/ssr";
@@ -1083,6 +1083,7 @@ function DetailPanel({ lead, onSchedule, onDelete, onUnsubscribe }: { lead: Lead
 
 export default function LeadsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [leads, setLeads]               = useState<Lead[]>([]);
   const [properties, setProperties]     = useState<Property[]>([]);
   const [selectedId, setSelectedId]     = useState<string>("");
@@ -1123,7 +1124,10 @@ export default function LeadsPage() {
         setProperties(props);
         const all = await loadLeads(props);
         setLeads(all);
-        if (all.length) setSelectedId(all[0].id);
+        const preselect = searchParams.get("lead");
+        const target = preselect && all.find((l) => l.id === preselect);
+        if (target) setSelectedId(target.id);
+        else if (all.length) setSelectedId(all[0].id);
       } finally { setLeadsLoading(false); }
     }
     init();

@@ -14,6 +14,7 @@ const MAX_TOKENS = 350; // SMS replies are short but objection handling needs ro
 
 export interface GenerateLeadReplyInput {
   propertyName: string;
+  propertyAddress?: string;    // full address — share when lead asks for location/directions
   activeSpecial?: string;      // only passed if one exists — never invent one
   tourBookingUrl?: string;     // self-service tour scheduling link
   leadName: string;
@@ -78,9 +79,13 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
       ? `Up to $${input.budgetMax}/mo`
       : "Unknown";
 
+  const addressLine = input.propertyAddress
+    ? `Property address: ${input.propertyAddress} — share this when the lead asks for the location, address, or directions.\n`
+    : "";
+
   const contextBlock = input.propertyContext
-    ? `${input.propertyContext}\n`
-    : `Active special: ${input.activeSpecial ?? "None — do not mention any specials"}\n`;
+    ? `${input.propertyContext}\n${addressLine}`
+    : `Active special: ${input.activeSpecial ?? "None — do not mention any specials"}\n${addressLine}`;
 
   const tourLine = input.tourBookingUrl
     ? `Tour booking link: ${input.tourBookingUrl} — share this link when offering a tour so the lead can self-schedule.\n`

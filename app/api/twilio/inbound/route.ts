@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
   // ── 1. Match To → property ────────────────────────────────────────────────
   const { data: property } = await db
     .from("properties")
-    .select("id, name, phone_number, active_special, notify_email, timezone")
+    .select("id, name, phone_number, active_special, notify_email, timezone, address, city, state, zip")
     .eq("phone_number", to)
     .single();
 
@@ -311,10 +311,13 @@ export async function POST(req: NextRequest) {
   let aiMessage: string;
   let tourBookingAt: string | undefined;
   try {
+    const p = property as Record<string, unknown>;
+    const addressParts = [p.address, p.city, p.state, p.zip].filter(Boolean);
     const result = await generateLeadReply({
       propertyName:        property.name,
+      propertyAddress:     addressParts.length ? addressParts.join(", ") : undefined,
       activeSpecial:       property.active_special ?? undefined,
-      tourBookingUrl:      (property as Record<string, unknown>).tour_booking_url as string | undefined,
+      tourBookingUrl:      p.tour_booking_url as string | undefined,
       leadName:            lead.name,
       moveInDate:          lead.move_in_date ?? undefined,
       bedrooms:            lead.bedrooms ?? undefined,
@@ -352,8 +355,14 @@ export async function POST(req: NextRequest) {
     ai_generated: true,
   });
 
-  // ── 12. If AI confirmed a tour, create the tour record ────────────────────
+  // ── 12. If AI confirmed a tour, cancel any existing and create a new record ─
   if (tourBookingAt) {
+    // Cancel any previously scheduled tours for this lead (rescheduling case)
+    await db.from("tours")
+      .update({ status: "cancelled" })
+      .eq("lead_id", lead.id)
+      .eq("status", "scheduled");
+
     const { error: tourErr } = await db.from("tours").insert({
       lead_id:      lead.id,
       property_id:  property.id,
