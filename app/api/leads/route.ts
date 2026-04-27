@@ -12,7 +12,7 @@ import { z } from "zod";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateLeadReply } from "@/lib/anthropic";
-import { sendSms } from "@/lib/twilio";
+import { sendSms, normalizePhone } from "@/lib/twilio";
 
 // ─── Input schema (camelCase from caller) ─────────────────────────────────────
 
@@ -23,7 +23,8 @@ const CreateLeadSchema = z.object({
   phone: z
     .string()
     .min(10, "phone must be at least 10 digits")
-    .regex(/^\+?[\d\s\-().]+$/, "phone contains invalid characters"),
+    .regex(/^\+?[\d\s\-().]+$/, "phone contains invalid characters")
+    .transform((val) => normalizePhone(val)),
   email: z.string().email("invalid email address").optional(),
   preferredContactMethod: z.enum(["sms", "email", "call"]).default("sms"),
   source: z.string().default("manual"),

@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateLeadReply } from "@/lib/anthropic";
-import { sendSms } from "@/lib/twilio";
+import { sendSms, normalizePhone } from "@/lib/twilio";
 
 // ─── Field normalization ──────────────────────────────────────────────────────
 
@@ -25,9 +25,8 @@ function normalizePayload(body: Record<string, unknown>) {
   const firstName = str(body.first_name || body.firstName || fullName.split(" ")[0] || "");
   const lastName  = str(body.last_name  || body.lastName  || fullName.split(" ").slice(1).join(" ") || "");
 
-  // Phone normalization: strip everything but digits and leading +
   const rawPhone = str(body.phone || body.phone_number || body.phoneNumber || body.mobile || "");
-  const phone = rawPhone.startsWith("+") ? rawPhone : rawPhone.replace(/\D/g, "");
+  const phone = rawPhone ? normalizePhone(rawPhone) : "";
 
   const email = str(body.email || body.email_address || body.emailAddress || "");
 
@@ -141,7 +140,7 @@ export async function POST(req: NextRequest) {
     .insert({
       property_id:       propertyId,
       name,
-      phone:             phone.startsWith("+") ? phone : `+1${phone}`,
+      phone,
       email:             email || null,
       status:            "new",
       source,

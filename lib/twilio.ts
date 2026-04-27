@@ -35,6 +35,18 @@ export interface ProvisionOptions {
   areaCode?: string;   // fallback: 3-digit area code if city search yields nothing
 }
 
+// ─── normalizePhone ───────────────────────────────────────────────────────────
+
+// Converts any US phone input to E.164 format (+1XXXXXXXXXX).
+// Strips spaces, dashes, parentheses, dots. Handles 10-digit and 11-digit inputs.
+export function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  if (digits.length === 10) return `+1${digits}`;
+  if (raw.trim().startsWith("+")) return raw.trim();
+  return `+1${digits}`;
+}
+
 // ─── Client ───────────────────────────────────────────────────────────────────
 
 let _client: Twilio | null = null;
