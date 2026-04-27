@@ -1139,39 +1139,31 @@ export default function LeadsPage() {
       .finally(() => setMsgLoading(false));
   }, [selectedId]);
 
-  // Real-time: append new messages as they arrive in the DB.
-  // No server-side filter — client filters by lead_id to avoid replication config issues.
+  // Poll every 3 s for new messages — reliable fallback that works regardless of
+  // Supabase realtime / RLS config. Deduplicates by message id.
   useEffect(() => {
     if (!selectedId) return;
-    const supabase = getSupabase();
-    const channel = supabase
-      .channel("conversations-all")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "conversations" },
-        (payload) => {
-          console.log("[realtime] payload received:", payload.new);
-          const incoming = payload.new as Message & { lead_id: string };
-          console.log("[realtime] lead_id match?", incoming.lead_id, "===", selectedId, incoming.lead_id === selectedId);
-          if (incoming.lead_id !== selectedId) return;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === incoming.id)) return prev;
-            const optimisticIdx = prev.findIndex(
-              (m) => m.id.startsWith("pending-") && m.body === incoming.body && m.direction === incoming.direction
-            );
-            if (optimisticIdx !== -1) {
-              const next = [...prev];
-              next[optimisticIdx] = incoming;
-              return next;
-            }
-            return [...prev, incoming];
-          });
+    const interval = setInterval(async () => {
+      const r = await fetch(`/api/conversations?leadId=${selectedId}`);
+      const j = await r.json();
+      const fresh: Message[] = j.messages ?? [];
+      setMessages((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const added = fresh.filter((m) => !existingIds.has(m.id));
+        if (!added.length) return prev;
+        // Replace any matching optimistic placeholders first
+        let next = [...prev];
+        for (const m of added) {
+          const idx = next.findIndex(
+            (p) => p.id.startsWith("pending-") && p.body === m.body && p.direction === m.direction
+          );
+          if (idx !== -1) next[idx] = m;
+          else next = [...next, m];
         }
-      )
-      .subscribe((status, err) => {
-        console.log("[realtime] conversations subscription:", status, err ?? "");
+        return next;
       });
-    return () => { supabase.removeChannel(channel); };
+    }, 3000);
+    return () => clearInterval(interval);
   }, [selectedId]);
 
   const handleSend = useCallback(async () => {
