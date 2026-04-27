@@ -1139,20 +1139,21 @@ export default function LeadsPage() {
       .finally(() => setMsgLoading(false));
   }, [selectedId]);
 
-  // Real-time: append new messages as they arrive in the DB
+  // Real-time: append new messages as they arrive in the DB.
+  // No server-side filter — client filters by lead_id to avoid replication config issues.
   useEffect(() => {
     if (!selectedId) return;
     const supabase = getSupabase();
     const channel = supabase
-      .channel(`conversations:${selectedId}`)
+      .channel("conversations-all")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "conversations", filter: `lead_id=eq.${selectedId}` },
+        { event: "INSERT", schema: "public", table: "conversations" },
         (payload) => {
-          const incoming = payload.new as Message;
+          const incoming = payload.new as Message & { lead_id: string };
+          if (incoming.lead_id !== selectedId) return;
           setMessages((prev) => {
             if (prev.some((m) => m.id === incoming.id)) return prev;
-            // Replace matching optimistic message if present
             const optimisticIdx = prev.findIndex(
               (m) => m.id.startsWith("pending-") && m.body === incoming.body && m.direction === incoming.direction
             );

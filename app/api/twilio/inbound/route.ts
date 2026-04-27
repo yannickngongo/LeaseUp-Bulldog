@@ -309,6 +309,7 @@ export async function POST(req: NextRequest) {
 
   // ── 9. Generate AI reply ──────────────────────────────────────────────────
   let aiMessage: string;
+  let tourBookingAt: string | undefined;
   try {
     const result = await generateLeadReply({
       propertyName:        property.name,
@@ -323,7 +324,8 @@ export async function POST(req: NextRequest) {
       conversationHistory,
       propertyContext,
     });
-    aiMessage = result.message;
+    aiMessage     = result.message;
+    tourBookingAt = result.tourBookingAt;
   } catch (err) {
     console.error("[twilio/inbound] AI generation failed:", err);
     return TWIML_OK;
@@ -349,6 +351,23 @@ export async function POST(req: NextRequest) {
     twilio_sid:   twilioSid,
     ai_generated: true,
   });
+
+  // ── 12. If AI confirmed a tour, create the tour record ────────────────────
+  if (tourBookingAt) {
+    const { error: tourErr } = await db.from("tours").insert({
+      lead_id:      lead.id,
+      property_id:  property.id,
+      scheduled_at: tourBookingAt,
+      status:       "scheduled",
+      notes:        "Booked via AI SMS",
+    });
+    if (tourErr) {
+      console.error("[twilio/inbound] failed to create tour record:", tourErr);
+    } else {
+      await db.from("leads").update({ status: "tour_scheduled" }).eq("id", lead.id);
+      console.log("[twilio/inbound] tour record created for:", tourBookingAt);
+    }
+  }
 
   // Set first_contact_date if not already set (e.g. lead was created manually)
   await setFirstContactDate(lead.id);

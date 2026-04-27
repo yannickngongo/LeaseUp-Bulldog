@@ -29,7 +29,8 @@ export interface GenerateLeadReplyInput {
 }
 
 export interface GenerateLeadReplyOutput {
-  message: string; // plain SMS text, ready to send
+  message: string;      // plain SMS text, ready to send (booking tag stripped)
+  tourBookingAt?: string; // ISO datetime string if the AI confirmed a tour, else undefined
   model: string;
   inputTokens: number;
   outputTokens: number;
@@ -90,8 +91,11 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
       ? `Follow-up phase: ${input.followUpPhase} (attempt ${input.attemptNumber})\n`
       : "";
 
+  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in server local time
+
   return `
 ${contextBlock}${tourLine}${phaseBlock}
+Today's date: ${today}
 Property: ${input.propertyName}
 Lead name: ${input.leadName}
 Trigger: ${input.trigger}
@@ -133,11 +137,16 @@ export async function generateLeadReply(
     throw new Error("Unexpected response type from Claude: " + block.type);
   }
 
-  // Strip any accidental surrounding quotes or whitespace Claude may add
-  const message = block.text.trim().replace(/^["']|["']$/g, "");
+  const raw = block.text.trim().replace(/^["']|["']$/g, "");
+
+  // Extract [TOUR_BOOKED:YYYY-MM-DDTHH:MM] tag if present, then strip it from SMS text
+  const tourTagMatch = raw.match(/\[TOUR_BOOKED:(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})\]/);
+  const tourBookingAt = tourTagMatch ? `${tourTagMatch[1]}:00` : undefined;
+  const message = raw.replace(/\s*\[TOUR_BOOKED:[^\]]+\]\s*/g, "").trim();
 
   return {
     message,
+    tourBookingAt,
     model: response.model,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
