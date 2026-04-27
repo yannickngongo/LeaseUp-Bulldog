@@ -3,7 +3,15 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
+import { createBrowserClient } from "@supabase/ssr";
+
+function getSupabase() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -165,7 +173,7 @@ function AddLeadModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
     async function load() {
       const email = await getOperatorEmail();
       if (!email) { router.push("/setup"); return; }
-      const res = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
+      const res = await authFetch(`/api/properties`);
       const json = await res.json();
       if (json.properties?.length) { setProperties(json.properties); setPropertyId(json.properties[0].id); }
     }
@@ -1109,7 +1117,7 @@ export default function LeadsPage() {
       try {
         const email = await getOperatorEmail();
         if (!email) { router.push("/setup"); return; }
-        const propRes = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
+        const propRes = await authFetch(`/api/properties`);
         const propJson = await propRes.json();
         const props: Property[] = propJson.properties ?? [];
         setProperties(props);
@@ -1129,6 +1137,36 @@ export default function LeadsPage() {
       .then((r) => r.json())
       .then((j) => setMessages(j.messages ?? []))
       .finally(() => setMsgLoading(false));
+  }, [selectedId]);
+
+  // Real-time: append new messages as they arrive in the DB
+  useEffect(() => {
+    if (!selectedId) return;
+    const supabase = getSupabase();
+    const channel = supabase
+      .channel(`conversations:${selectedId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "conversations", filter: `lead_id=eq.${selectedId}` },
+        (payload) => {
+          const incoming = payload.new as Message;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === incoming.id)) return prev;
+            // Replace matching optimistic message if present
+            const optimisticIdx = prev.findIndex(
+              (m) => m.id.startsWith("pending-") && m.body === incoming.body && m.direction === incoming.direction
+            );
+            if (optimisticIdx !== -1) {
+              const next = [...prev];
+              next[optimisticIdx] = incoming;
+              return next;
+            }
+            return [...prev, incoming];
+          });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [selectedId]);
 
   const handleSend = useCallback(async () => {
