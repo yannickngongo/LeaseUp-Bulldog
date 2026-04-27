@@ -1151,14 +1151,19 @@ export default function LeadsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lead_id: selectedId, message: optimistic.body }),
       });
+      const msgRes = await fetch(`/api/conversations?leadId=${selectedId}`);
+      const refreshed = (await msgRes.json()).messages ?? [];
       if (!res.ok) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === optimistic.id ? { ...m, failed: true } : m))
-        );
+        // Message was saved to DB but Twilio failed — show it as failed
+        setMessages(refreshed.map((m: Message) =>
+          m.body === optimistic.body && m.direction === "outbound" &&
+          new Date(m.created_at).getTime() >= Date.now() - 10000
+            ? { ...m, failed: true }
+            : m
+        ));
         return;
       }
-      const msgRes = await fetch(`/api/conversations?leadId=${selectedId}`);
-      setMessages((await msgRes.json()).messages ?? []);
+      setMessages(refreshed);
     } catch {
       setMessages((prev) =>
         prev.map((m) => (m.id === optimistic.id ? { ...m, failed: true } : m))

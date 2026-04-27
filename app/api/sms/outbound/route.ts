@@ -32,32 +32,45 @@ export async function POST(req: NextRequest) {
     .eq("id", lead.property_id)
     .single();
 
-  let twilioMessage;
-  try {
-    twilioMessage = await sendSms({
-      to: lead.phone,
-      body: message,
-      from: property?.phone_number ?? undefined,
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[sms/outbound] send failed:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-
-  await db.from("conversations").insert({
-    lead_id:     lead.id,
-    property_id: lead.property_id,
-    direction:   "outbound",
-    channel:     "sms",
-    body:        message,
-    twilio_sid:  twilioMessage.sid,
-  });
+  // Persist the message first so it survives regardless of Twilio outcome
+  const { data: savedMsg } = await db
+    .from("conversations")
+    .insert({
+      lead_id:     lead.id,
+      property_id: lead.property_id,
+      direction:   "outbound",
+      channel:     "sms",
+      body:        message,
+    })
+    .select("id")
+    .single();
 
   await db
     .from("leads")
     .update({ last_contacted_at: new Date().toISOString() })
     .eq("id", lead.id);
 
-  return NextResponse.json({ success: true, sid: twilioMessage.sid });
+  // Now attempt to send via Twilio
+  try {
+    const twilioMessage = await sendSms({
+      to:   lead.phone,
+      body: message,
+      from: property?.phone_number ?? undefined,
+    });
+
+    // Stamp the SID on the saved record
+    if (savedMsg) {
+      await db
+        .from("conversations")
+        .update({ twilio_sid: twilioMessage.sid })
+        .eq("id", savedMsg.id);
+    }
+
+    return NextResponse.json({ success: true, sid: twilioMessage.sid });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[sms/outbound] send failed:", msg);
+    // Message is already in DB — return error so UI can mark it failed
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 }
