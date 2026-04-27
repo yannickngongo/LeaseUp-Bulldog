@@ -1150,7 +1150,9 @@ export default function LeadsPage() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "conversations" },
         (payload) => {
+          console.log("[realtime] payload received:", payload.new);
           const incoming = payload.new as Message & { lead_id: string };
+          console.log("[realtime] lead_id match?", incoming.lead_id, "===", selectedId, incoming.lead_id === selectedId);
           if (incoming.lead_id !== selectedId) return;
           setMessages((prev) => {
             if (prev.some((m) => m.id === incoming.id)) return prev;
