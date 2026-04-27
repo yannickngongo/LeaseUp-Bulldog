@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
   const { data: lead, error: leadError } = await db
     .from("leads")
-    .select("id, name, phone")
+    .select("id, name, phone, property_id")
     .eq("id", lead_id)
     .single();
 
@@ -25,14 +25,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   }
 
-  const twilioMessage = await sendSms({ to: lead.phone, body: message });
+  // Use the property's dedicated Twilio number as the sender
+  const { data: property } = await db
+    .from("properties")
+    .select("phone_number")
+    .eq("id", lead.property_id)
+    .single();
+
+  let twilioMessage;
+  try {
+    twilioMessage = await sendSms({
+      to: lead.phone,
+      body: message,
+      from: property?.phone_number ?? undefined,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[sms/outbound] send failed:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
 
   await db.from("conversations").insert({
-    lead_id: lead.id,
-    direction: "outbound",
-    channel: "sms",
-    body: message,
-    twilio_sid: twilioMessage.sid,
+    lead_id:     lead.id,
+    property_id: lead.property_id,
+    direction:   "outbound",
+    channel:     "sms",
+    body:        message,
+    twilio_sid:  twilioMessage.sid,
   });
 
   await db

@@ -1127,10 +1127,19 @@ export default function LeadsPage() {
     if (!replyText.trim() || !selectedId || sending) return;
     setSending(true);
     try {
-      await fetch("/api/sms/outbound", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: selectedId, message: replyText.trim() }) });
+      const res = await fetch("/api/sms/outbound", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lead_id: selectedId, message: replyText.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(`SMS failed: ${data.error ?? "Unknown error. Check Vercel logs."}`);
+        return;
+      }
       setReplyText("");
-      const res = await fetch(`/api/conversations?leadId=${selectedId}`);
-      setMessages((await res.json()).messages ?? []);
+      const msgRes = await fetch(`/api/conversations?leadId=${selectedId}`);
+      setMessages((await msgRes.json()).messages ?? []);
     } finally { setSending(false); }
   }, [replyText, selectedId, sending]);
 
