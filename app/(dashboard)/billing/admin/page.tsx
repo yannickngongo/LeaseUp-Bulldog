@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -239,11 +239,9 @@ export default function BillingAdminPage() {
 
   const expectedAdmin = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
-  const load = useCallback(async (email: string) => {
+  const load = useCallback(async (_email: string) => {
     setLoading(true);
-    const res = await fetch("/api/billing/admin-summary", {
-      headers: { "x-admin-email": email },
-    });
+    const res = await authFetch("/api/billing/admin-summary");
     if (res.status === 401) { setForbidden(true); setLoading(false); return; }
     const json = await res.json();
     setSummary(json.summary ?? []);

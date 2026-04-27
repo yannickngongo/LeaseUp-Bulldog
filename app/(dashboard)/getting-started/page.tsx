@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 import { PlatformTour } from "@/components/app/PlatformTour";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -183,8 +183,8 @@ export default function GettingStartedPage() {
     getOperatorEmail().then(async (email) => {
       if (!email) return;
       const [setupRes, leadsRes] = await Promise.all([
-        fetch(`/api/setup?email=${encodeURIComponent(email)}`),
-        fetch(`/api/leads?email=${encodeURIComponent(email)}&limit=1`),
+        authFetch(`/api/setup`),
+        authFetch(`/api/leads?limit=1`),
       ]);
       const setup = await setupRes.json();
       const leadsJson = await leadsRes.json();
@@ -200,7 +200,7 @@ export default function GettingStartedPage() {
 
       if (op?.marketing_addon) {
         try {
-          const campRes = await fetch(`/api/campaigns?email=${encodeURIComponent(email)}&limit=1`);
+          const campRes = await authFetch(`/api/campaigns?limit=1`);
           const campJson = await campRes.json();
           setCampaignCount(campJson.campaigns?.length ?? 0);
         } catch { /* ignore */ }

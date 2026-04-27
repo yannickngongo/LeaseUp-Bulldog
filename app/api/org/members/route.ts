@@ -7,10 +7,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext, requirePermission } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
-  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
-
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const denied = requirePermission(ctx, "manage_users");
@@ -44,10 +41,10 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const body = await req.json();
-  const { email: callerEmail, memberId, role, status } = body;
-  if (!callerEmail || !memberId) return NextResponse.json({ error: "email and memberId required" }, { status: 400 });
+  const { memberId, role, status } = body;
+  if (!memberId) return NextResponse.json({ error: "memberId required" }, { status: 400 });
 
-  const ctx = await resolveCallerContext(callerEmail);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const denied = requirePermission(ctx, "manage_users");
@@ -71,7 +68,7 @@ export async function PATCH(req: NextRequest) {
   await db.from("activity_logs").insert({
     action:   "member_updated",
     actor:    "agent",
-    metadata: { changed_by: callerEmail, member_id: memberId, updates, operator_id: ctx.operatorId },
+    metadata: { changed_by: ctx.email, member_id: memberId, updates, operator_id: ctx.operatorId },
   });
 
   return NextResponse.json({ ok: true });
@@ -79,10 +76,10 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const body = await req.json();
-  const { email: callerEmail, memberId } = body;
-  if (!callerEmail || !memberId) return NextResponse.json({ error: "email and memberId required" }, { status: 400 });
+  const { memberId } = body;
+  if (!memberId) return NextResponse.json({ error: "memberId required" }, { status: 400 });
 
-  const ctx = await resolveCallerContext(callerEmail);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const denied = requirePermission(ctx, "manage_users");
@@ -102,7 +99,7 @@ export async function DELETE(req: NextRequest) {
   await db.from("activity_logs").insert({
     action:   "member_deactivated",
     actor:    "agent",
-    metadata: { deactivated_by: callerEmail, member_id: memberId, operator_id: ctx.operatorId },
+    metadata: { deactivated_by: ctx.email, member_id: memberId, operator_id: ctx.operatorId },
   });
 
   return NextResponse.json({ ok: true });

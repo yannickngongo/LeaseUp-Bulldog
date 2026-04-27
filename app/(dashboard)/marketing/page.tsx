@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1464,7 +1464,7 @@ function NewCampaignModal({
 
   useEffect(() => {
     if (!operatorEmail) return;
-    fetch(`/api/properties?email=${encodeURIComponent(operatorEmail)}`)
+    authFetch(`/api/properties`)
       .then(r => r.json())
       .then(d => setProperties(d.properties ?? []))
       .catch(() => {});
@@ -1891,7 +1891,7 @@ export default function MarketingPage() {
         const email = await getOperatorEmail();
         if (!email) { router.push("/setup"); return; }
         setOperatorEmail(email);
-        const setupRes = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
+        const setupRes = await authFetch(`/api/setup`);
         const setupJson = await setupRes.json();
         const opId: string = setupJson.operator?.id;
         if (!opId) return;

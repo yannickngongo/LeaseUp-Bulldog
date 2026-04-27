@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -132,13 +132,13 @@ export default function ReportsPage() {
       if (!email) { setLoading(false); return; }
       try {
         // Load operator name
-        fetch(`/api/setup?email=${encodeURIComponent(email)}`)
+        authFetch(`/api/setup`)
           .then(r => r.json())
           .then(d => setOperatorName(d.operator?.name ?? ""))
           .catch(() => {});
 
         // Properties use email auth
-        const propsJson = await fetch(`/api/properties?email=${encodeURIComponent(email)}`).then(r => r.json());
+        const propsJson = await authFetch(`/api/properties`).then(r => r.json());
         const props: RawProperty[] = propsJson.properties ?? [];
         setAllProperties(props);
 

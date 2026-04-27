@@ -8,12 +8,11 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const email       = req.nextUrl.searchParams.get("email");
   const property_id = req.nextUrl.searchParams.get("property_id");
-  if (!email || !property_id)
-    return NextResponse.json({ error: "email and property_id required" }, { status: 400 });
+  if (!property_id)
+    return NextResponse.json({ error: "property_id required" }, { status: 400 });
 
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getSupabaseAdmin();
@@ -31,14 +30,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const {
-    email, property_id, name, address, their_low, their_high,
+    property_id, name, address, their_low, their_high,
     concession, units_available, threat_level, notes,
     distance_miles, website_url, property_name,
   } = body;
-  if (!email || !property_id || !name || their_low == null || their_high == null)
+  if (!property_id || !name || their_low == null || their_high == null)
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
 
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getSupabaseAdmin();
@@ -69,10 +68,10 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   const body = await req.json();
-  const { email, id, ...fields } = body;
-  if (!email || !id) return NextResponse.json({ error: "email and id required" }, { status: 400 });
+  const { id, ...fields } = body;
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const allowed = ["name", "address", "their_low", "their_high", "concession", "units_available", "threat_level", "notes", "property_name", "website_url", "distance_miles"];
@@ -99,11 +98,10 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
-  const id    = req.nextUrl.searchParams.get("id");
-  if (!email || !id) return NextResponse.json({ error: "email and id required" }, { status: 400 });
+  const id = req.nextUrl.searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getSupabaseAdmin();

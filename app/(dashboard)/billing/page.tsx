@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 interface BillingInfo {
   plan: string;
@@ -78,7 +78,7 @@ function BillingContent() {
   useEffect(() => {
     getOperatorEmail().then(async email => {
       if (!email) { setLoading(false); return; }
-      const res = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
+      const res = await authFetch(`/api/setup`);
       const json = await res.json();
       const op = json.operator;
       if (op) {
@@ -93,7 +93,7 @@ function BillingContent() {
         // Fetch invoices if they have a Stripe customer
         if (op.stripe_customer_id) {
           setInvLoading(true);
-          fetch(`/api/billing/invoices?email=${encodeURIComponent(email)}`)
+          authFetch(`/api/billing/invoices`)
             .then(r => r.json())
             .then(d => setInvoices(d.invoices ?? []))
             .catch(() => {})

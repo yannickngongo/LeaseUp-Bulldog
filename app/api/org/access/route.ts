@@ -6,11 +6,9 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext, requirePermission } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const callerEmail = req.nextUrl.searchParams.get("email");
-  const memberId    = req.nextUrl.searchParams.get("memberId");
-  if (!callerEmail) return NextResponse.json({ error: "email required" }, { status: 400 });
+  const memberId = req.nextUrl.searchParams.get("memberId");
 
-  const ctx = await resolveCallerContext(callerEmail);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const denied = requirePermission(ctx, "manage_users");
@@ -32,13 +30,13 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { email: callerEmail, memberId, propertyIds } = body;
+  const { memberId, propertyIds } = body;
 
-  if (!callerEmail || !memberId || !Array.isArray(propertyIds)) {
-    return NextResponse.json({ error: "email, memberId, and propertyIds[] required" }, { status: 400 });
+  if (!memberId || !Array.isArray(propertyIds)) {
+    return NextResponse.json({ error: "memberId and propertyIds[] required" }, { status: 400 });
   }
 
-  const ctx = await resolveCallerContext(callerEmail);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const denied = requirePermission(ctx, "manage_users");
@@ -72,7 +70,7 @@ export async function PUT(req: NextRequest) {
     action:   "property_access_updated",
     actor:    "agent",
     metadata: {
-      updated_by:   callerEmail,
+      updated_by:   ctx.email,
       member_id:    memberId,
       property_ids: propertyIds,
       operator_id:  ctx.operatorId,

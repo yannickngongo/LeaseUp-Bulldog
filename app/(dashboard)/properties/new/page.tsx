@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -245,7 +245,7 @@ export default function NewPropertyPage() {
     setLoading(true);
     setError(null);
     try {
-      const setupRes = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
+      const setupRes = await authFetch(`/api/setup`);
       const setupJson = await setupRes.json();
       const operatorName = setupJson.operator?.name ?? email.split("@")[0];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -171,13 +171,11 @@ function FollowUpSequencePanel({ canManage }: { canManage: boolean }) {
     setSaving(true);
     try {
       localStorage.setItem(FOLLOWUP_STORAGE_KEY, window_);
-      const { getOperatorEmail } = await import("@/lib/demo-auth");
-      const email = await getOperatorEmail();
-      if (email) {
-        await fetch("/api/operators/settings", {
+      const { authFetch: aFetch } = await import("@/lib/demo-auth");
+      if (await getOperatorEmail()) {
+        await aFetch("/api/operators/settings", {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, settings: { no_reply_window_hours: Number(window_) } }),
+          body: { settings: { no_reply_window_hours: Number(window_) } },
         }).catch(() => {});
       }
       setSaved(true);
@@ -561,7 +559,7 @@ export default function AutomationsPage() {
   useEffect(() => {
     getOperatorEmail().then(async (email) => {
       if (!email) return;
-      const res = await fetch(`/api/org/members?email=${encodeURIComponent(email)}`);
+      const res = await authFetch(`/api/org/members`);
       if (!res.ok) return;
       const json = await res.json();
       const members: { email: string; role: string }[] = json.members ?? [];

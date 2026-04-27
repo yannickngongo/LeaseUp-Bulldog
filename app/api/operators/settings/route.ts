@@ -2,11 +2,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { resolveCallerContext } from "@/lib/auth";
 
 export async function PATCH(req: NextRequest) {
-  const { email, settings } = await req.json();
-  if (!email || typeof settings !== "object") {
-    return NextResponse.json({ error: "email and settings required" }, { status: 400 });
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { settings } = await req.json();
+  if (typeof settings !== "object") {
+    return NextResponse.json({ error: "settings required" }, { status: 400 });
   }
 
   const db = getSupabaseAdmin();
@@ -14,7 +18,7 @@ export async function PATCH(req: NextRequest) {
   const { data: op, error: fetchErr } = await db
     .from("operators")
     .select("id, settings")
-    .eq("email", email)
+    .eq("email", ctx.email)
     .single();
 
   if (fetchErr || !op) {

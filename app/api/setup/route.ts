@@ -4,10 +4,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { provisionPhoneNumber } from "@/lib/twilio";
+import { resolveCallerContext } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
-  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const email = ctx.email;
 
   const db = getSupabaseAdmin();
   const { data: operator } = await db
@@ -33,24 +35,31 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
-  const { email, name } = body;
-  if (!email || !name) return NextResponse.json({ error: "email and name required" }, { status: 400 });
+  const { name } = body;
+  if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
   const db = getSupabaseAdmin();
-  const { error } = await db.from("operators").update({ name }).eq("email", email);
+  const { error } = await db.from("operators").update({ name }).eq("email", ctx.email);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
 
 export async function POST(req: NextRequest) {
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
   const {
-    operatorName, email, propertyName, address, city, state, zip,
+    operatorName, propertyName, address, city, state, zip,
     neighborhood, activeSpecial, websiteUrl, totalUnits, tourBookingUrl,
   } = body;
+  const email = ctx.email;
 
-  if (!operatorName || !email || !propertyName || !address || !city || !state || !zip) {
+  if (!operatorName || !propertyName || !address || !city || !state || !zip) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 

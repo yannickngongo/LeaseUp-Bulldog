@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 interface Property { id: string; name: string; }
 
@@ -22,7 +22,7 @@ export default function NewLeadPage() {
   useEffect(() => {
     getOperatorEmail().then(async (email) => {
       if (!email) { router.push("/setup"); return; }
-      const res = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
+      const res = await authFetch(`/api/properties`);
       const json = await res.json();
       const props: Property[] = json.properties ?? [];
       setProperties(props);

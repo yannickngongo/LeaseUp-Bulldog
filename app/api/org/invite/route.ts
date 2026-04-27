@@ -36,13 +36,13 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { email: callerEmail, inviteEmail, role = "viewer", propertyIds = [] } = body;
+  const { inviteEmail, role = "viewer", propertyIds = [] } = body;
 
-  if (!callerEmail || !inviteEmail) {
-    return NextResponse.json({ error: "callerEmail and inviteEmail required" }, { status: 400 });
+  if (!inviteEmail) {
+    return NextResponse.json({ error: "inviteEmail required" }, { status: 400 });
   }
 
-  const ctx = await resolveCallerContext(callerEmail);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const denied = requirePermission(ctx, "manage_users");
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     const rawName = operatorRow?.name ?? "";
     const orgName = rawName.includes("@")
       ? rawName.split("@")[0]
-      : (rawName || callerEmail.split("@")[0]);
+      : (rawName || ctx.email.split("@")[0]);
 
     const { data: newOrg, error: orgErr } = await db
       .from("organizations")
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     // Add the owner as a member
     await db.from("organization_members").insert({
       organization_id: orgId,
-      email:           callerEmail,
+      email:           ctx.email,
       role:            "owner",
       status:          "active",
       accepted_at:     new Date().toISOString(),
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
   await db.from("activity_logs").insert({
     action:   "member_invited",
     actor:    "agent",
-    metadata: { invited_by: callerEmail, invite_email: inviteEmail, role, operator_id: ctx.operatorId },
+    metadata: { invited_by: ctx.email, invite_email: inviteEmail, role, operator_id: ctx.operatorId },
   });
 
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/accept-invite?token=${invitation.token}`;
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       inviteUrl,
       orgName:   org?.name ?? "your team",
       role,
-      invitedBy: callerEmail,
+      invitedBy: ctx.email,
     });
   } catch (emailErr) {
     console.error("Failed to send invite email:", emailErr);
@@ -146,10 +146,10 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   const body = await req.json();
-  const { email: callerEmail, invitationId } = body;
-  if (!callerEmail || !invitationId) return NextResponse.json({ error: "email and invitationId required" }, { status: 400 });
+  const { invitationId } = body;
+  if (!invitationId) return NextResponse.json({ error: "invitationId required" }, { status: 400 });
 
-  const ctx = await resolveCallerContext(callerEmail);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const denied = requirePermission(ctx, "manage_users");

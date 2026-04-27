@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://lease-up-bulldog.vercel.app";
 
@@ -101,7 +101,7 @@ function Step2({ onNext }: { onNext: (propertyId: string) => void }) {
       if (!email) { setError("Session expired — please refresh."); setSaving(false); return; }
 
       // Get operator ID
-      const setupRes = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
+      const setupRes = await authFetch(`/api/setup`);
       const { operator } = await setupRes.json();
       if (!operator?.id) { setError("Operator not found."); setSaving(false); return; }
 

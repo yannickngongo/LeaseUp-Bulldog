@@ -4,16 +4,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-
-function isAdmin(req: NextRequest): boolean {
-  const adminEmail  = process.env.ADMIN_EMAIL;
-  const callerEmail = req.headers.get("x-admin-email") ?? "";
-  return !!adminEmail && callerEmail === adminEmail;
-}
+import { resolveCallerContext } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  if (!isAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail || ctx.email !== adminEmail) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const db = getSupabaseAdmin();

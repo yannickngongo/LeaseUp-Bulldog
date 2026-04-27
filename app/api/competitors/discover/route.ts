@@ -129,11 +129,11 @@ async function fetchListingsRaw(url: string, apiKey: string): Promise<RentcastLi
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { email, property_id } = body;
-  if (!email || !property_id)
-    return NextResponse.json({ error: "email and property_id required" }, { status: 400 });
+  const { property_id } = body;
+  if (!property_id)
+    return NextResponse.json({ error: "property_id required" }, { status: 400 });
 
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const rentcastKey = process.env.RENTCAST_API_KEY;

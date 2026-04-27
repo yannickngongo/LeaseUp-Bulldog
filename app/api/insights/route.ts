@@ -2,17 +2,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { resolveCallerContext } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
-  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getSupabaseAdmin();
 
   const { data: op } = await db
     .from("operators")
     .select("id, name")
-    .eq("email", email)
+    .eq("email", ctx.email)
     .single();
   if (!op) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

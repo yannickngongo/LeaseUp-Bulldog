@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 import { createBrowserClient } from "@supabase/ssr";
 
 function getSupabase() {
@@ -137,7 +137,7 @@ export default function SettingsPage() {
         if (!email) { router.push("/setup"); return; }
         setEmail(email);
 
-        const res = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
+        const res = await authFetch(`/api/setup`);
         const json = await res.json();
 
         if (json.operator) {
@@ -158,7 +158,7 @@ export default function SettingsPage() {
         setLeads(allLeads);
 
         // Load team members
-        const teamRes = await fetch(`/api/org/members?email=${encodeURIComponent(email)}`);
+        const teamRes = await authFetch(`/api/org/members`);
         if (teamRes.ok) {
           const teamJson = await teamRes.json();
           setMembers(teamJson.members ?? []);
@@ -196,10 +196,9 @@ export default function SettingsPage() {
     if (!email || !name.trim()) return;
     setSaving(true);
     try {
-      await fetch("/api/setup", {
+      await authFetch("/api/setup", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, name: name.trim() }),
+        body: { name: name.trim() },
       });
       setOperator(prev => prev ? { ...prev, name: name.trim() } : prev);
       setSaved(true);
@@ -216,15 +215,13 @@ export default function SettingsPage() {
     setInviteSuccess("");
     setInviteUrl("");
     try {
-      const res = await fetch("/api/org/invite", {
+      const res = await authFetch("/api/org/invite", {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email,
+        body: {
           inviteEmail: inviteEmail.trim(),
           role: inviteRole,
           propertyIds: invitePropertyIds,
-        }),
+        },
       });
       const json = await res.json();
       if (!res.ok) {
@@ -234,7 +231,7 @@ export default function SettingsPage() {
         setInviteUrl(json.inviteUrl ?? "");
         setInviteEmail("");
         // Refresh members list
-        const teamRes = await fetch(`/api/org/members?email=${encodeURIComponent(email)}`);
+        const teamRes = await authFetch(`/api/org/members`);
         if (teamRes.ok) {
           const tj = await teamRes.json();
           setMembers(tj.members ?? []);
@@ -252,7 +249,7 @@ export default function SettingsPage() {
     await fetch("/api/org/members", {
       method: "DELETE",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, memberId }),
+      body: JSON.stringify({ memberId }),
     });
     setMembers(prev => prev.map(m => m.id === memberId ? { ...m, status: "deactivated" } : m));
   }

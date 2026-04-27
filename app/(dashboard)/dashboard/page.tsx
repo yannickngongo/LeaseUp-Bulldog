@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import IntelligenceSection from "./IntelligenceSection";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -136,8 +136,8 @@ export default function DashboardPage() {
         if (!email) { router.push("/setup"); return; }
 
         const [setupRes, propRes] = await Promise.all([
-          fetch(`/api/setup?email=${encodeURIComponent(email)}`),
-          fetch(`/api/properties?email=${encodeURIComponent(email)}`),
+          authFetch(`/api/setup`),
+          authFetch(`/api/properties`),
         ]);
         const setupJson = await setupRes.json();
         const propJson  = await propRes.json();

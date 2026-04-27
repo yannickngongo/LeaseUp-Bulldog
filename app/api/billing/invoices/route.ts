@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { resolveCallerContext } from "@/lib/auth";
 
 function getStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -12,15 +13,15 @@ function getStripe() {
 }
 
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
-  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const db = getSupabaseAdmin();
     const { data: op } = await db
       .from("operators")
       .select("stripe_customer_id")
-      .eq("email", email)
+      .eq("email", ctx.email)
       .maybeSingle();
 
     if (!op?.stripe_customer_id) {

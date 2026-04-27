@@ -93,31 +93,22 @@ export interface CallerContext {
 }
 
 // ─── Resolve context from request ─────────────────────────────────────────────
-// Pass the email from the request body/query (client already calls getSupabase().auth.getUser()).
-// For full server-side cookie auth, swap to verifying the JWT from the Authorization header.
+// Requires Authorization: Bearer <supabase-jwt> on every request.
+// Returns null (→ 401) if the token is missing, invalid, or not tied to a known operator.
 
 export async function resolveCallerContext(
-  emailOrReq: string | NextRequest
+  req: NextRequest
 ): Promise<CallerContext | null> {
   const db = getSupabaseAdmin();
-  let email: string;
 
-  if (typeof emailOrReq === "string") {
-    email = emailOrReq;
-  } else {
-    // Try Authorization: Bearer <token> → verify Supabase JWT
-    const auth = emailOrReq.headers.get("authorization") ?? "";
-    if (auth.startsWith("Bearer ")) {
-      const token = auth.slice(7);
-      const { data, error } = await db.auth.getUser(token);
-      if (error || !data.user?.email) return null;
-      email = data.user.email;
-    } else {
-      // Fallback: email from query / body (less secure, fine for v1 internal use)
-      email = emailOrReq.nextUrl.searchParams.get("email") ?? "";
-      if (!email) return null;
-    }
-  }
+  const auth = req.headers.get("authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) return null;
+
+  const token = auth.slice(7);
+  const { data, error } = await db.auth.getUser(token);
+  if (error || !data.user?.email) return null;
+
+  const email = data.user.email;
 
   // Find operator by email
   const { data: operator } = await db

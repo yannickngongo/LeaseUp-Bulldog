@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 interface PortfolioProperty {
   id: string;
@@ -121,9 +121,9 @@ export default function PortfolioPage() {
       try {
         const enc = encodeURIComponent(email);
         const [propsRes, unitsRes, renewalsRes] = await Promise.all([
-          fetch(`/api/properties?email=${enc}`),
-          fetch(`/api/units?email=${enc}`),
-          fetch(`/api/renewals?email=${enc}`),
+          authFetch(`/api/properties`),
+          authFetch(`/api/units`),
+          authFetch(`/api/renewals`),
         ]);
         const propsData    = await propsRes.json();
         const unitsData    = await unitsRes.json();

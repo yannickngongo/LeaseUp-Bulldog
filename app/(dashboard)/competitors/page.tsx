@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -759,9 +759,9 @@ export default function CompetitorsPage() {
   const [showDiscover, setShowDiscover]     = useState(false);
   const [editing, setEditing]               = useState<Competitor | null>(null);
 
-  const loadCompetitors = useCallback(async (propId: string, em: string) => {
+  const loadCompetitors = useCallback(async (propId: string) => {
     setCompLoading(true);
-    const res  = await fetch(`/api/competitors?email=${encodeURIComponent(em)}&property_id=${propId}`);
+    const res  = await authFetch(`/api/competitors?property_id=${propId}`);
     const json = await res.json();
     setCompetitors(json.competitors ?? []);
     setCompLoading(false);
@@ -773,10 +773,9 @@ export default function CompetitorsPage() {
       if (!em) { setLoading(false); return; }
       setEmail(em);
 
-      const enc = encodeURIComponent(em);
       const [propsRes, unitsRes] = await Promise.all([
-        fetch(`/api/properties?email=${enc}`),
-        fetch(`/api/units?email=${enc}`),
+        authFetch(`/api/properties`),
+        authFetch(`/api/units`),
       ]);
       const propsData = await propsRes.json();
       const unitsData = await unitsRes.json();
@@ -790,7 +789,7 @@ export default function CompetitorsPage() {
 
       if (props.length > 0) {
         setSelectedId(props[0].id);
-        await loadCompetitors(props[0].id, em);
+        await loadCompetitors(props[0].id);
       }
       setLoading(false);
     })();
@@ -798,7 +797,7 @@ export default function CompetitorsPage() {
 
   async function handleSelectProperty(id: string) {
     setSelectedId(id);
-    if (email) await loadCompetitors(id, email);
+    await loadCompetitors(id);
   }
 
   async function handleEnrich(id: string) {
@@ -822,10 +821,9 @@ export default function CompetitorsPage() {
       const website_url:   string | null = checkJson.website_url   ?? comp.website_url ?? null;
       const concession:    string | null = checkJson.concession    ?? comp.concession  ?? null;
 
-      await fetch("/api/competitors", {
+      await authFetch("/api/competitors", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, id, property_name, website_url, concession }),
+        body: { id, property_name, website_url, concession },
       });
 
       setCompetitors(prev =>
@@ -844,8 +842,7 @@ export default function CompetitorsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!email) return;
-    await fetch(`/api/competitors?email=${encodeURIComponent(email)}&id=${id}`, { method: "DELETE" });
+    await authFetch(`/api/competitors?id=${id}`, { method: "DELETE" });
     setCompetitors(prev => prev.filter(c => c.id !== id));
   }
 

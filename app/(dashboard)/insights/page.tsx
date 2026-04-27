@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -140,7 +140,7 @@ export default function InsightsPage() {
       const em = await getOperatorEmail();
       if (!em) return;
       setEmail(em);
-      const res  = await fetch(`/api/insights?email=${encodeURIComponent(em)}`);
+      const res  = await authFetch(`/api/insights`);
       const json = await res.json();
       if (json.ok) setData(json);
     } finally {

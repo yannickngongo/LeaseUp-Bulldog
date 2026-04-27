@@ -6,10 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
-  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
-
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ avgRentByProperty: {} });
 
   const db = getSupabaseAdmin();

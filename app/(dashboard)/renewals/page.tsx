@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 interface Renewal {
   id: string;
@@ -302,7 +302,7 @@ export default function RenewalsPage() {
       try {
         const email = await getOperatorEmail();
         if (!email) { router.push("/setup"); return; }
-        const res = await fetch(`/api/renewals?email=${encodeURIComponent(email)}`);
+        const res = await authFetch(`/api/renewals`);
         const json = await res.json();
         const enriched: Renewal[] = (json.renewals ?? []).map((r: Renewal) => {
           const { risk, score } = computeFlightRisk(r);

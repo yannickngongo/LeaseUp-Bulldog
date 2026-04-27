@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 interface Property {
   id: string;
@@ -41,7 +41,7 @@ export default function PropertiesPage() {
         const email = await getOperatorEmail();
         if (!email) { router.push("/setup"); return; }
 
-        const propRes = await fetch(`/api/properties?email=${encodeURIComponent(email)}`);
+        const propRes = await authFetch(`/api/properties`);
         const propJson = await propRes.json();
         const props: Property[] = propJson.properties ?? [];
 

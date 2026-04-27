@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 interface Property {
   id: string;
@@ -32,7 +32,7 @@ export default function IntegrationsPage() {
     getOperatorEmail().then(async (e) => {
       if (!e) return;
       setEmail(e);
-      const res  = await fetch(`/api/properties?email=${encodeURIComponent(e)}`);
+      const res  = await authFetch(`/api/properties`);
       const json = await res.json();
       if (json.properties?.length) {
         setProperties(json.properties);

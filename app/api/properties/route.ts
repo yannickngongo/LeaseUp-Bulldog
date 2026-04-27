@@ -8,11 +8,8 @@ import { resolveCallerContext, filterAllowedProperties } from "@/lib/auth";
 import { canAddProperty, getPlanConfig, getPlanLabel } from "@/lib/plans";
 
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
-  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
-
   const db  = getSupabaseAdmin();
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
 
   if (!ctx) {
     return NextResponse.json({ properties: [] });
@@ -36,11 +33,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { email } = body as { email?: string };
-  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
-
   const db  = getSupabaseAdmin();
-  const ctx = await resolveCallerContext(email);
+  const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   // Enforce plan property limit

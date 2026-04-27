@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getOperatorEmail, saveOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, saveOperatorEmail, authFetch } from "@/lib/demo-auth";
 
 type Step = "account" | "property" | "rentroll" | "webhook" | "done";
 
@@ -59,7 +59,7 @@ export default function SetupPage() {
   useEffect(() => {
     getOperatorEmail().then(async (email) => {
       if (!email) { setChecking(false); return; }
-      const res = await fetch(`/api/setup?email=${encodeURIComponent(email)}`);
+      const res = await authFetch(`/api/setup`);
       const data = await res.json();
       if (data.operator) {
         setAccount({ name: data.operator.name ?? "", email });
@@ -95,12 +95,10 @@ export default function SetupPage() {
     const email = account.email;
 
     try {
-      const res = await fetch("/api/setup", {
+      const res = await authFetch("/api/setup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: {
           operatorName:    account.name,
-          email,
           propertyName:    property.name,
           address:         property.address,
           city:            property.city,
@@ -112,7 +110,7 @@ export default function SetupPage() {
           websiteUrl:      property.websiteUrl,
           totalUnits:      property.totalUnits,
           tourBookingUrl:  property.tourBookingUrl,
-        }),
+        },
       });
 
       const data = await res.json();

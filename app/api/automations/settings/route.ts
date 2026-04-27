@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { resolveCallerContext } from "@/lib/auth";
 
 const DEFAULT_SETTINGS = {
   instantEnabled:    true,
@@ -36,14 +37,14 @@ const DEFAULT_PROPERTY_SETTINGS = {
 };
 
 export async function GET(req: NextRequest) {
-  const email = req.nextUrl.searchParams.get("email");
-  if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getSupabaseAdmin();
   const { data: operator } = await db
     .from("operators")
     .select("id, settings")
-    .eq("email", email)
+    .eq("email", ctx.email)
     .single();
 
   if (!operator) return NextResponse.json({ error: "Operator not found" }, { status: 404 });
@@ -74,12 +75,15 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
-  const { email, settings } = body;
-  if (!email || !settings) return NextResponse.json({ error: "email and settings required" }, { status: 400 });
+  const { settings } = body;
+  if (!settings) return NextResponse.json({ error: "settings required" }, { status: 400 });
 
   const db = getSupabaseAdmin();
-  const { data: operator } = await db.from("operators").select("id").eq("email", email).single();
+  const { data: operator } = await db.from("operators").select("id").eq("email", ctx.email).single();
   if (!operator) return NextResponse.json({ error: "Operator not found" }, { status: 404 });
 
   const { error } = await db
