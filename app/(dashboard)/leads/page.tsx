@@ -1166,7 +1166,9 @@ export default function LeadsPage() {
           });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        console.log("[realtime] conversations subscription:", status, err ?? "");
+      });
     return () => { supabase.removeChannel(channel); };
   }, [selectedId]);
 
