@@ -338,27 +338,14 @@ function HotLeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
   const sc = STATUS[lead.status];
   return (
     <button onClick={onClick}
-      className="shrink-0 w-44 rounded-2xl p-4 text-left transition-transform hover:scale-[1.02] active:scale-[0.99]"
-      style={{ background: theme.bg, boxShadow: `0 4px 20px ${theme.bg}60` }}>
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: theme.sub }}>
-          {relativeTime(lead.created_at)}
-        </span>
-        <span className="rounded-full px-2 py-0.5 text-[9px] font-bold"
-          style={{ background: "rgba(255,255,255,0.2)", color: theme.text }}>
-          {sc.label}
-        </span>
-      </div>
-      <p className="text-sm font-bold leading-tight" style={{ color: theme.text }}>{lead.name}</p>
-      <p className="mt-0.5 text-[11px]" style={{ color: theme.sub }}>{lead.property_name}</p>
-      {lead.ai_score != null && (
-        <div className="mt-3 flex items-center gap-1.5">
-          <div className="flex-1 h-1 rounded-full" style={{ background: "rgba(255,255,255,0.2)" }}>
-            <div className="h-full rounded-full" style={{ width: `${lead.ai_score * 10}%`, background: theme.text }} />
-          </div>
-          <span className="text-[10px] font-bold" style={{ color: theme.text }}>{lead.ai_score}/10</span>
-        </div>
-      )}
+      className="shrink-0 flex items-center gap-2 rounded-full px-3 py-1.5 text-left transition-opacity hover:opacity-90 active:opacity-75"
+      style={{ background: theme.bg, boxShadow: `0 2px 10px ${theme.bg}50` }}>
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "rgba(255,255,255,0.6)" }} />
+      <span className="text-xs font-bold whitespace-nowrap" style={{ color: theme.text }}>{lead.name}</span>
+      <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap"
+        style={{ background: "rgba(255,255,255,0.2)", color: theme.text }}>
+        {sc.label}
+      </span>
     </button>
   );
 }
@@ -1429,7 +1416,7 @@ function LeadsPageInner() {
       )}
 
       {/* Stats bar — scrollable on mobile */}
-      <div className="shrink-0 border-b border-white/80 dark:border-white/5 bg-white/70 dark:bg-[#12141E]/80 px-4 py-3 backdrop-blur-sm sm:px-6 sm:py-3.5">
+      <div className="shrink-0 border-b border-white/80 dark:border-white/5 bg-white/70 dark:bg-[#12141E]/80 px-4 py-2 backdrop-blur-sm sm:px-6 sm:py-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide sm:gap-8">
             <StatChip label="Total" value={filteredLeads.length.toString()} color="#6366F1" />
@@ -1467,7 +1454,7 @@ function LeadsPageInner() {
         </div>
 
         {hotLeads.length > 0 && (
-          <div className="mt-3 flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+          <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-hide">
             {hotLeads.map((lead) => (
               <HotLeadCard key={lead.id} lead={lead} onClick={() => handleSelectLead(lead.id)} />
             ))}
