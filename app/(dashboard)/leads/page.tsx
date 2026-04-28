@@ -791,41 +791,40 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
 
       {/* Reply */}
       <div className="shrink-0 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E]">
-        <div className="flex items-center gap-2 overflow-x-auto border-b border-gray-50 dark:border-white/5 px-4 py-2 scrollbar-hide">
-          <button onClick={onSchedule} className="shrink-0 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-            Schedule Tour
+        {/* Quick actions — icon+label on desktop, icon-only on mobile */}
+        <div className="flex items-center gap-1.5 overflow-x-auto border-b border-gray-50 dark:border-white/5 px-3 py-1.5 scrollbar-hide sm:gap-2 sm:px-4 sm:py-2">
+          <button onClick={onSchedule} className="shrink-0 flex items-center gap-1 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-2.5 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={2}><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M5 1v2M11 1v2M2 7h12"/></svg>
+            <span className="hidden sm:inline">Tour</span>
           </button>
-          <button onClick={() => onReplyChange("Hi! Here's your rental application link: [link]")} className="shrink-0 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-            Send Application
+          <button onClick={() => onReplyChange("Hi! Here's your rental application link: [link]")} className="shrink-0 flex items-center gap-1 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-2.5 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={2}><path d="M2 4h12v8a2 2 0 01-2 2H4a2 2 0 01-2-2V4z"/><path d="M2 4l6 5 6-5"/></svg>
+            <span className="hidden sm:inline">Application</span>
           </button>
-          <button onClick={() => onAdvance(lead.id, "engaged")} className="shrink-0 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-3 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-white/20 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
-            Follow Up
+          <button onClick={() => onAdvance(lead.id, "won")} className="shrink-0 flex items-center gap-1 rounded-full border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={2}><path d="M3 8l3 3 7-7"/></svg>
+            <span className="hidden sm:inline">Won</span>
           </button>
-          <button onClick={() => onAdvance(lead.id, "won")} className="shrink-0 rounded-full border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50 dark:bg-emerald-900/10 px-3 py-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/20 transition-colors">
-            Mark Won
-          </button>
-          <button onClick={() => onAdvance(lead.id, "lost")} className="ml-auto shrink-0 rounded-full border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 px-3 py-1 text-[11px] font-semibold text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
-            Mark Lost
+          <button onClick={() => onAdvance(lead.id, "lost")} className="shrink-0 flex items-center gap-1 rounded-full border border-red-100 dark:border-red-900/30 bg-red-50 dark:bg-red-900/10 px-2.5 py-1 text-[11px] font-semibold text-red-400 hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors">
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={2}><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            <span className="hidden sm:inline">Lost</span>
           </button>
         </div>
-        <div className="px-4 pb-4 pt-3">
+        <div className="flex items-end gap-2 px-3 py-2.5 sm:px-4 sm:py-3">
           <textarea value={replyText} onChange={(e) => onReplyChange(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSend(); }}
-            placeholder="Type a reply… (⌘ + Enter to send)"
-            rows={3}
-            className="w-full resize-none rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-4 py-3 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:border-gray-300 dark:focus:border-white/20 focus:bg-white dark:focus:bg-white/10 focus:outline-none transition-all" />
-          <div className="mt-2.5 flex items-center justify-between">
-            <span className="text-[11px] text-gray-400 dark:text-gray-500">{replyText.length} chars</span>
-            <button onClick={onSend} disabled={!replyText.trim() || sending}
-              className={cn("rounded-xl px-5 py-2 text-sm font-bold transition-all",
-                replyText.trim() && !sending
-                  ? "bg-[#C8102E] text-white hover:bg-[#A50D25]"
-                  : "cursor-not-allowed bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-600"
-              )}
-              style={replyText.trim() && !sending ? { boxShadow: "0 4px 16px rgba(200,16,46,0.25)" } : {}}>
-              {sending ? "Sending…" : "Send SMS →"}
-            </button>
-          </div>
+            placeholder="Reply…"
+            rows={2}
+            className="flex-1 resize-none rounded-2xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 px-3.5 py-2.5 text-sm text-gray-800 dark:text-gray-200 placeholder-gray-400 focus:border-gray-300 dark:focus:border-white/20 focus:bg-white dark:focus:bg-white/10 focus:outline-none transition-all" />
+          <button onClick={onSend} disabled={!replyText.trim() || sending}
+            className={cn("shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold transition-all",
+              replyText.trim() && !sending
+                ? "bg-[#C8102E] text-white hover:bg-[#A50D25]"
+                : "cursor-not-allowed bg-gray-100 dark:bg-white/10 text-gray-400 dark:text-gray-600"
+            )}
+            style={replyText.trim() && !sending ? { boxShadow: "0 4px 16px rgba(200,16,46,0.25)" } : {}}>
+            {sending ? "…" : "Send"}
+          </button>
         </div>
       </div>
     </div>
@@ -1416,7 +1415,7 @@ function LeadsPageInner() {
       )}
 
       {/* Stats bar — scrollable on mobile */}
-      <div className="shrink-0 border-b border-white/80 dark:border-white/5 bg-white/70 dark:bg-[#12141E]/80 px-4 py-2 backdrop-blur-sm sm:px-6 sm:py-2.5">
+      <div className={cn("shrink-0 border-b border-white/80 dark:border-white/5 bg-white/70 dark:bg-[#12141E]/80 px-4 py-2 backdrop-blur-sm sm:px-6 sm:py-2.5", mobileView === "conversation" && "hidden sm:block")}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide sm:gap-8">
             <StatChip label="Total" value={filteredLeads.length.toString()} color="#6366F1" />
