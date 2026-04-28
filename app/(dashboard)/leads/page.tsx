@@ -1455,7 +1455,10 @@ function LeadsPageInner() {
         {hotLeads.length > 0 && (
           <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-hide">
             {hotLeads.map((lead) => (
-              <HotLeadCard key={lead.id} lead={lead} onClick={() => handleSelectLead(lead.id)} />
+              <HotLeadCard key={lead.id} lead={lead} onClick={() => {
+                handleSelectLead(lead.id);
+                if (lead.status === "tour_scheduled") setShowTourPrep(true);
+              }} />
             ))}
           </div>
         )}
