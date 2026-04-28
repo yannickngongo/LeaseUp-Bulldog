@@ -96,17 +96,47 @@ export interface CallerContext {
 // Requires Authorization: Bearer <supabase-jwt> on every request.
 // Returns null (→ 401) if the token is missing, invalid, or not tied to a known operator.
 
+// ─── Security event logging ───────────────────────────────────────────────────
+// Non-fatal — if the log insert fails, auth still proceeds/rejects normally.
+
+async function logAuthEvent(
+  db: ReturnType<typeof getSupabaseAdmin>,
+  event: "auth_missing_token" | "auth_invalid_token" | "auth_unknown_operator",
+  req: NextRequest,
+  extra?: Record<string, unknown>
+) {
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown";
+  await db.from("activity_logs").insert({
+    lead_id:     "00000000-0000-0000-0000-000000000000",
+    property_id: "00000000-0000-0000-0000-000000000000",
+    action:      event,
+    actor:       "system",
+    metadata:    { ip, path: req.nextUrl.pathname, ...extra },
+  }).then(({ error }) => {
+    if (error) console.error(`[auth] failed to log ${event}:`, error.message);
+  });
+}
+
 export async function resolveCallerContext(
   req: NextRequest
 ): Promise<CallerContext | null> {
   const db = getSupabaseAdmin();
 
   const auth = req.headers.get("authorization") ?? "";
-  if (!auth.startsWith("Bearer ")) return null;
+  if (!auth.startsWith("Bearer ")) {
+    logAuthEvent(db, "auth_missing_token", req);
+    return null;
+  }
 
   const token = auth.slice(7);
   const { data, error } = await db.auth.getUser(token);
-  if (error || !data.user?.email) return null;
+  if (error || !data.user?.email) {
+    logAuthEvent(db, "auth_invalid_token", req, { supabaseError: error?.message });
+    return null;
+  }
 
   const email = data.user.email;
 
@@ -117,7 +147,10 @@ export async function resolveCallerContext(
     .eq("email", email)
     .single();
 
-  if (!operator) return null;
+  if (!operator) {
+    logAuthEvent(db, "auth_unknown_operator", req, { email });
+    return null;
+  }
 
   // Check if this operator OWNS an organization
   const { data: ownedOrg } = await db

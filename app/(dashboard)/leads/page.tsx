@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
@@ -1081,7 +1081,7 @@ function DetailPanel({ lead, onSchedule, onDelete, onUnsubscribe }: { lead: Lead
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function LeadsPage() {
+function LeadsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [leads, setLeads]               = useState<Lead[]>([]);
@@ -1407,5 +1407,13 @@ export default function LeadsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LeadsPage() {
+  return (
+    <Suspense>
+      <LeadsPageInner />
+    </Suspense>
   );
 }

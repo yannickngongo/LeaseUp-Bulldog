@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { resolveCallerContext } from "@/lib/auth";
 import { sendSms } from "@/lib/twilio";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // POST /api/sms/outbound — send a manual SMS to a lead from the dashboard
 export async function POST(req: NextRequest) {
+  const ctx = await resolveCallerContext(req);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: 10 manual SMS per operator per minute to prevent blast abuse
+  if (!rateLimit(`sms:${ctx.operatorId}`, 10, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+  // Secondary per-IP guard
+  const ip = getClientIp(req);
+  if (!rateLimit(`sms-ip:${ip}`, 20, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { lead_id, message } = await req.json();
 
   if (!lead_id || !message) {

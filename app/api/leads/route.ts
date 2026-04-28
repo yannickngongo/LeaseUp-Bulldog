@@ -13,6 +13,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateLeadReply } from "@/lib/anthropic";
 import { sendSms, normalizePhone } from "@/lib/twilio";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // ─── Input schema (camelCase from caller) ─────────────────────────────────────
 
@@ -93,6 +94,12 @@ async function logConversation(
 // ─── POST /api/leads ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Rate limit: 20 lead creations per IP per minute
+  const ip = getClientIp(req);
+  if (!rateLimit(`leads:${ip}`, 20, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   // 1. Parse and validate input
   let body: unknown;
   try {
