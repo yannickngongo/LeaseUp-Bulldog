@@ -157,29 +157,50 @@ export async function sendWaitlistWelcomeEmail({
 }) {
   await sendEmail(
     to,
-    "Welcome to the pack 🐾 — LeaseUp Bulldog",
+    "You're in — Founding Member #confirmed 🐾",
     `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111">
-      <div style="background:#C8102E;padding:24px 32px;border-radius:12px 12px 0 0">
-        <h1 style="color:white;margin:0;font-size:22px">LeaseUp<span style="opacity:0.85">Bulldog</span></h1>
-        <p style="color:rgba(255,255,255,0.75);margin:6px 0 0;font-size:13px">Early Access Confirmation</p>
+      <div style="background:#111118;padding:28px 32px;border-radius:12px 12px 0 0">
+        <p style="color:rgba(255,255,255,0.5);margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;font-weight:600">Founding 100</p>
+        <h1 style="color:white;margin:0;font-size:24px;font-weight:900;letter-spacing:-0.02em">LeaseUp<span style="color:#C8102E">Bulldog</span></h1>
       </div>
       <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px">
         <p style="font-size:16px;margin-top:0">Hey ${firstName},</p>
-        <p style="font-size:15px;color:#444">Welcome to the pack. 🐾🎉</p>
-        <p style="font-size:15px;color:#444">You just joined as one of LeaseUp Bulldog&apos;s founding members &mdash; and that means a lot to us. We&apos;re not opening the doors to everyone. We&apos;re starting with a small group of operators we can actually serve well.</p>
-        <p style="font-size:15px;color:#444">You&apos;re one of them.</p>
-        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:20px;margin:24px 0;text-align:center">
-          <p style="margin:0 0 4px;font-size:12px;color:#888;text-transform:uppercase;letter-spacing:0.08em;font-weight:600">Your Access</p>
-          <p style="margin:0;font-size:28px;font-weight:900;color:#C8102E">30 Days Free</p>
-          <p style="margin:4px 0 0;font-size:13px;color:#888">Founding member &mdash; white-glove setup included</p>
+        <p style="font-size:15px;color:#444;line-height:1.65;">Your spot is locked. You just claimed one of the 100 founding member positions for LeaseUp Bulldog &mdash; and your rate is set for life.</p>
+
+        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;overflow:hidden;margin:24px 0;">
+          <div style="background:#C8102E;padding:12px 20px;">
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.8);font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Your Founding Member Terms</p>
+          </div>
+          <div style="padding:20px;">
+            <table style="width:100%;border-collapse:collapse;">
+              <tr style="border-bottom:1px solid #f0f0f0;">
+                <td style="padding:10px 0;font-size:14px;color:#888;">Monthly rate</td>
+                <td style="padding:10px 0;font-size:14px;font-weight:700;color:#111;text-align:right;"><span style="text-decoration:line-through;color:#ccc;font-weight:400;margin-right:8px;">$1,500</span><span style="color:#C8102E;">$999/mo — locked forever</span></td>
+              </tr>
+              <tr style="border-bottom:1px solid #f0f0f0;">
+                <td style="padding:10px 0;font-size:14px;color:#888;">Performance fee</td>
+                <td style="padding:10px 0;font-size:14px;font-weight:700;color:#111;text-align:right;">$0 for first 90 days</td>
+              </tr>
+              <tr style="border-bottom:1px solid #f0f0f0;">
+                <td style="padding:10px 0;font-size:14px;color:#888;">First month</td>
+                <td style="padding:10px 0;font-size:14px;font-weight:700;color:#111;text-align:right;">Free — no card needed</td>
+              </tr>
+              <tr>
+                <td style="padding:10px 0;font-size:14px;color:#888;">Guarantee</td>
+                <td style="padding:10px 0;font-size:14px;font-weight:700;color:#111;text-align:right;">30-day money back</td>
+              </tr>
+            </table>
+          </div>
         </div>
-        <p style="font-size:15px;color:#444">We&apos;ll reach out within 48 hours &mdash; call or text, whatever works for you &mdash; to introduce ourselves and get things moving.</p>
-        <p style="font-size:15px;color:#444">Can&apos;t wait to show you what Bulldog can do.</p>
-        <p style="font-size:13px;color:#888;margin-top:28px;margin-bottom:4px">Talk soon,</p>
-        <p style="font-size:13px;color:#555;margin:0"><strong>&mdash; The LeaseUp Bulldog Team</strong></p>
-        <p style="font-size:12px;color:#C8102E;margin-top:8px;font-style:italic">No lead left behind. 🐶</p>
+
+        <p style="font-size:15px;color:#444;line-height:1.65;">We&apos;re onboarding founding members personally. Expect a message from us within 48 hours &mdash; call, text, or email, whatever works for you &mdash; to get you set up.</p>
+        <p style="font-size:15px;color:#444;line-height:1.65;">Can&apos;t wait to show you what Bulldog does to a lead pipeline.</p>
+
+        <p style="font-size:13px;color:#888;margin-top:28px;margin-bottom:4px;">Talk soon,</p>
+        <p style="font-size:14px;color:#111;margin:0;font-weight:700;">Yannick &mdash; LeaseUp Bulldog</p>
+        <p style="font-size:12px;color:#C8102E;margin-top:8px;font-style:italic;">No lead left behind. 🐶</p>
       </div>
-      <p style="font-size:11px;color:#bbb;text-align:center;margin-top:16px">LeaseUp Bulldog &middot; AI-powered leasing for multifamily operators</p>
+      <p style="font-size:11px;color:#bbb;text-align:center;margin-top:16px;">LeaseUp Bulldog &middot; AI-powered leasing for multifamily operators</p>
     </div>`
   );
 }
