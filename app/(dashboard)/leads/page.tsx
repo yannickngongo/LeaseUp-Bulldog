@@ -532,11 +532,143 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
 // Center — Conversation
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ConversationPanel({ lead, messages, messagesLoading, replyText, sending, onReplyChange, onSend, onSchedule, onAdvance }: {
+// ─── Tour Prep Modal (for "Tour Booked" badge click) ─────────────────────────
+
+function TourPrepModal({ lead, messages, onClose }: {
+  lead: Lead; messages: Message[]; onClose: () => void;
+}) {
+  const [tour, setTour] = useState<{ scheduled_at: string; notes?: string } | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/tours?leadId=${lead.id}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const scheduled = (j.tours ?? []).find((t: { status: string }) => t.status === "scheduled");
+        if (scheduled) setTour(scheduled);
+      });
+  }, [lead.id]);
+
+  const fmtBudget = () => {
+    if (lead.budget_min && lead.budget_max) return `$${lead.budget_min.toLocaleString()}–$${lead.budget_max.toLocaleString()}/mo`;
+    if (lead.budget_max) return `Up to $${lead.budget_max.toLocaleString()}/mo`;
+    if (lead.budget_min) return `$${lead.budget_min.toLocaleString()}+/mo`;
+    return null;
+  };
+
+  const bedrooms = lead.bedrooms === undefined ? null : lead.bedrooms === 0 ? "Studio" : `${lead.bedrooms}BR`;
+  const moveIn   = lead.move_in_date ? new Date(lead.move_in_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+  const budget   = fmtBudget();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white dark:bg-[#1C1F2E] shadow-2xl">
+
+        {/* Handle bar on mobile */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="h-1 w-10 rounded-full bg-gray-200 dark:bg-white/20" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100 dark:border-white/5">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Tour Scheduled
+              </span>
+            </div>
+            <h2 className="text-base font-bold text-gray-900 dark:text-gray-100">{lead.name}</h2>
+            {tour && (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                {new Date(tour.scheduled_at).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} at {new Date(tour.scheduled_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl border border-gray-200 dark:border-white/10 text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-6 py-4 space-y-4">
+          {/* Contact */}
+          <a href={`tel:${lead.phone}`} className="flex items-center gap-3 rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/3 p-3.5 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-white/10 shadow-sm">
+              <svg className="h-4 w-4 text-[#C8102E]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Tap to Call</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{lead.phone}</p>
+            </div>
+          </a>
+
+          {/* What they need */}
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">What They Need</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: "Bedrooms", value: bedrooms ?? "Not specified", icon: "🛏" },
+                { label: "Budget",   value: budget ?? "Not specified",   icon: "💰" },
+                { label: "Move-In",  value: moveIn ?? "Not specified",   icon: "📅" },
+                { label: "Pets",     value: lead.pets === true ? "Yes" : lead.pets === false ? "No" : "Not specified", icon: "🐾" },
+              ].map((item) => (
+                <div key={item.label} className="rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/3 p-2.5 text-center">
+                  <p className="text-base">{item.icon}</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider text-gray-400">{item.label}</p>
+                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 leading-tight mt-0.5">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* AI summary */}
+          {lead.ai_summary && (
+            <div>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">AI Summary</p>
+              <div className="rounded-2xl border border-violet-100 dark:border-violet-800/30 bg-violet-50 dark:bg-violet-900/10 p-3.5">
+                <p className="text-sm leading-relaxed text-violet-900 dark:text-violet-200">{lead.ai_summary}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Last 6 messages */}
+          <div>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">Recent Conversation</p>
+            <div className="space-y-2">
+              {messages.slice(-6).map((m) => (
+                <div key={m.id} className={`flex ${m.direction === "outbound" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                    m.direction === "outbound"
+                      ? "bg-[#C8102E] text-white rounded-br-sm"
+                      : "bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-gray-200 rounded-bl-sm"
+                  }`}>{m.body}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-6 pb-6 pt-2">
+          <button onClick={onClose} className="w-full rounded-xl bg-gray-100 dark:bg-white/10 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/15 transition-colors">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ConversationPanel({ lead, messages, messagesLoading, replyText, sending, onReplyChange, onSend, onSchedule, onAdvance, onTourClick }: {
   lead: Lead; messages: Message[]; messagesLoading: boolean;
   replyText: string; sending: boolean;
   onReplyChange: (t: string) => void; onSend: () => void;
   onSchedule: () => void; onAdvance: (id: string, status: LeadStatus) => void;
+  onTourClick?: () => void;
 }) {
   const endRef = useRef<HTMLDivElement>(null);
   const av = avatarFor(lead.id);
@@ -554,46 +686,52 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden bg-gray-50/50 dark:bg-[#0D0F1A]/60">
-      {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E] px-6 py-3.5">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-bold"
-              style={{ background: av.bg, color: av.text }}>
-              {initials(lead.name)}
+      {/* Header — compact on mobile */}
+      <div className="shrink-0 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E] px-4 py-3 sm:px-6 sm:py-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="relative shrink-0">
+              <div className="flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-2xl text-xs sm:text-sm font-bold"
+                style={{ background: av.bg, color: av.text }}>
+                {initials(lead.name)}
+              </div>
+              <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full border-2 border-white dark:border-[#12141E]"
+                style={{ background: sc.dot }} />
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-[#12141E]"
-              style={{ background: sc.dot }} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900 dark:text-white">{lead.name}</span>
-              <span className="rounded-full px-2.5 py-0.5 text-[10px] font-bold"
-                style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
-                {sc.label}
-              </span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-sm sm:text-base text-gray-900 dark:text-white truncate">{lead.name}</span>
+                {lead.status === "tour_scheduled" && onTourClick ? (
+                  <button onClick={onTourClick}
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold hover:opacity-80 transition-opacity"
+                    style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
+                    {sc.label} →
+                  </button>
+                ) : (
+                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                    style={{ background: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
+                    {sc.label}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{lead.phone}<span className="hidden sm:inline"> · {lead.property_name}</span></p>
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500">{lead.phone} · {lead.property_name}</p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
+          {/* AI score — desktop only to save space on mobile */}
           {lead.ai_score != null && (
-            <div className="flex items-center gap-2 rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 px-3 py-1.5">
-              <span className="text-xs text-gray-400 dark:text-gray-500">AI Score</span>
+            <div className="hidden sm:flex items-center gap-2 rounded-xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/5 px-3 py-1.5 shrink-0">
+              <span className="text-xs text-gray-400 dark:text-gray-500">AI</span>
               <span className={cn("text-sm font-bold tabular-nums",
                 lead.ai_score >= 7 ? "text-emerald-600" : lead.ai_score >= 4 ? "text-amber-600" : "text-red-500")}>
                 {lead.ai_score}/10
               </span>
             </div>
           )}
-          <button className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors">
-            View Profile
-          </button>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-5">
+      <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-5">
         <div className="mx-auto max-w-2xl">
           {messagesLoading ? (
             <div className="space-y-4">
@@ -628,12 +766,12 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
                       return (
                         <div key={msg.id} className={cn("flex gap-2", isOut ? "flex-row-reverse" : "flex-row")}>
                           {!isOut && (
-                            <div className="flex h-7 w-7 shrink-0 self-end items-center justify-center rounded-full text-[10px] font-bold"
+                            <div className="hidden sm:flex h-7 w-7 shrink-0 self-end items-center justify-center rounded-full text-[10px] font-bold"
                               style={{ background: av.bg, color: av.text }}>
                               {initials(lead.name)[0]}
                             </div>
                           )}
-                          <div className={cn("flex max-w-[70%] flex-col", isOut ? "items-end" : "items-start")}>
+                          <div className={cn("flex max-w-[85%] sm:max-w-[70%] flex-col", isOut ? "items-end" : "items-start")}>
                             <div className={cn("rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
                               isOut && msg.failed
                                 ? "rounded-tr-sm bg-red-900/80 text-white/80 border border-red-700/50"
@@ -1227,7 +1365,8 @@ function LeadsPageInner() {
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
   }, []);
 
-  const [mobileView, setMobileView] = useState<"list" | "conversation">("list");
+  const [mobileView, setMobileView]   = useState<"list" | "conversation">("list");
+  const [showTourPrep, setShowTourPrep] = useState(false);
 
   const handleScheduled = useCallback((newStatus: LeadStatus) => {
     if (selectedId) setLeads(prev => prev.map(l => l.id === selectedId ? { ...l, status: newStatus } : l));
@@ -1278,6 +1417,9 @@ function LeadsPageInner() {
     <div className="flex h-full flex-col overflow-hidden [background:linear-gradient(135deg,#f8f7ff_0%,#f0f4ff_40%,#fdf8ff_100%)] dark:[background:none] dark:bg-[#0D0F1A]">
 
       {showAddModal && <AddLeadModal onClose={() => setShowAddModal(false)} onAdded={handleAdded} />}
+      {showTourPrep && selectedLead && (
+        <TourPrepModal lead={selectedLead} messages={messages} onClose={() => setShowTourPrep(false)} />
+      )}
       {showScheduleModal && selectedLead && (
         <ScheduleTourModal
           lead={selectedLead}
@@ -1384,6 +1526,7 @@ function LeadsPageInner() {
                 onReplyChange={setReplyText} onSend={handleSend}
                 onSchedule={() => setShowScheduleModal(true)}
                 onAdvance={handleAdvanceLead}
+                onTourClick={selectedLead.status === "tour_scheduled" ? () => setShowTourPrep(true) : undefined}
               />
               <div className="hidden xl:flex">
                 <DetailPanel lead={selectedLead} onSchedule={() => setShowScheduleModal(true)} onDelete={handleDeleteLead} onUnsubscribe={handleUnsubscribeLead} />
