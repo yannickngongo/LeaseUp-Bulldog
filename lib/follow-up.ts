@@ -273,9 +273,39 @@ export async function evaluateNextAction(
   return "monthly_touch";
 }
 
+// ─── Retry constants ──────────────────────────────────────────────────────────
+
+const MAX_RETRIES = 3;
+const RETRY_BACKOFF_HOURS = [1, 4, 12]; // delay before each retry attempt
+
+async function scheduleRetry(
+  db: ReturnType<typeof getSupabaseAdmin>,
+  taskId: string,
+  retryCount: number,
+  errorMessage: string
+): Promise<void> {
+  if (retryCount >= MAX_RETRIES) {
+    await db.from("follow_up_tasks").update({
+      status:        "failed",
+      error_message: `${errorMessage} (gave up after ${MAX_RETRIES} retries)`,
+    }).eq("id", taskId);
+    return;
+  }
+  const delayHours = RETRY_BACKOFF_HOURS[retryCount] ?? 12;
+  const retryAt = new Date();
+  retryAt.setHours(retryAt.getHours() + delayHours);
+  await db.from("follow_up_tasks").update({
+    status:        "pending",
+    retry_count:   retryCount + 1,
+    retry_at:      retryAt.toISOString(),
+    error_message: errorMessage,
+  }).eq("id", taskId);
+}
+
 // ─── executeFollowUp ──────────────────────────────────────────────────────────
 // Executes a single pending task: generates AI message, sends SMS, logs result.
 // Called by the cron route. Idempotent — marks "executing" first to prevent double-runs.
+// On failure, schedules a retry with exponential backoff (max 3 retries).
 
 export async function executeFollowUp(taskId: string): Promise<void> {
   const db = getSupabaseAdmin();
@@ -314,7 +344,7 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     await db.from("follow_up_tasks").update({
       status:        "failed",
       error_message: "Lead or property not found",
-    }).eq("id", taskId);
+    }).eq("id", taskId); // don't retry — data is genuinely missing
     return;
   }
 
@@ -392,10 +422,7 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     });
     aiMessage = result.message;
   } catch (err) {
-    await db.from("follow_up_tasks").update({
-      status:        "failed",
-      error_message: `AI generation failed: ${String(err)}`,
-    }).eq("id", taskId);
+    await scheduleRetry(db, taskId, (task.retry_count as number) ?? 0, `AI generation failed: ${String(err)}`);
     return;
   }
 
@@ -408,10 +435,7 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     });
     twilioSid = smsResult?.sid;
   } catch (err) {
-    await db.from("follow_up_tasks").update({
-      status:        "failed",
-      error_message: `SMS send failed: ${String(err)}`,
-    }).eq("id", taskId);
+    await scheduleRetry(db, taskId, (task.retry_count as number) ?? 0, `SMS send failed: ${String(err)}`);
     return;
   }
 

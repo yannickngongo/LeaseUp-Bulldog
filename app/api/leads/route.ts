@@ -119,6 +119,19 @@ export async function POST(req: NextRequest) {
   const input: ValidatedInput = parsed.data;
   const db = getSupabaseAdmin();
 
+  // 2a. Deduplication — return existing lead if same phone+property already exists
+  const { data: existing } = await db
+    .from("leads")
+    .select("*")
+    .eq("phone", input.phone)
+    .eq("property_id", input.propertyId)
+    .eq("opt_out", false)
+    .limit(1);
+
+  if (existing?.length) {
+    return NextResponse.json({ lead: existing[0], duplicate: true }, { status: 200 });
+  }
+
   // 2. Verify property exists and fetch fields needed for AI + SMS
   const { data: property, error: propertyError } = await db
     .from("properties")

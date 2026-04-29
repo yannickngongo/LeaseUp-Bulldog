@@ -16,12 +16,15 @@ export async function POST(req: NextRequest) {
 
   const db = getSupabaseAdmin();
 
-  // Fetch all pending tasks due now (up to 50 per invocation to stay within timeout)
+  const now = new Date().toISOString();
+
+  // Fetch all pending tasks due now — includes first-time tasks and retry-eligible tasks
   const { data: tasks, error } = await db
     .from("follow_up_tasks")
     .select("id, lead_id, property_id, trigger_reason")
     .eq("status", "pending")
-    .lte("scheduled_for", new Date().toISOString())
+    .lte("scheduled_for", now)
+    .or(`retry_count.eq.0,retry_at.lte.${now}`)
     .order("scheduled_for", { ascending: true })
     .limit(50);
 

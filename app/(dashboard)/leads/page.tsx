@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, Suspense } from "react";
+import { useState, useRef, useEffect, useCallback, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
@@ -364,14 +364,17 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "lost", label: "Lost" },
 ];
 
-function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, search, loading, onSelect, onFilterChange, onPropertyFilterChange, onSearchChange, onAddLead }: {
+function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, search, loading, selectedIds, onToggleSelect, onSelect, onFilterChange, onPropertyFilterChange, onSearchChange, onAddLead }: {
   leads: Lead[]; properties: Property[]; selectedId: string; filter: FilterKey; propertyFilter: PropertyFilter; search: string; loading: boolean;
+  selectedIds: Set<string>; onToggleSelect: (id: string) => void;
   onSelect: (id: string) => void; onFilterChange: (f: FilterKey) => void;
   onPropertyFilterChange: (p: PropertyFilter) => void;
   onSearchChange: (q: string) => void; onAddLead: () => void;
 }) {
-  const byProperty = applyPropertyFilter(leads, propertyFilter);
-  const filtered = applyFilter(byProperty.filter((l) => l.name.toLowerCase().includes(search.toLowerCase())), filter);
+  // When searching (server-side), leads are already filtered — skip client filtering
+  const isSearching = search.trim().length >= 2;
+  const byProperty  = isSearching ? leads : applyPropertyFilter(leads, propertyFilter);
+  const filtered    = isSearching ? byProperty : applyFilter(byProperty.filter((l) => l.name.toLowerCase().includes(search.toLowerCase())), filter);
 
   return (
     <div className="flex w-full flex-col sm:w-[280px]">
@@ -466,14 +469,32 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
             {filtered.map((lead) => {
               const av = avatarFor(lead.id);
               const sc = STATUS[lead.status];
-              const isSelected = lead.id === selectedId;
+              const isSelected   = lead.id === selectedId;
+              const isChecked    = selectedIds.has(lead.id);
               return (
-                <button key={lead.id} onClick={() => onSelect(lead.id)}
-                  className={cn("w-full rounded-2xl p-3 text-left transition-all",
-                    isSelected
-                      ? "bg-gradient-to-r from-[#C8102E]/8 to-[#C8102E]/3 ring-1 ring-[#C8102E]/15"
-                      : "hover:bg-gray-50 dark:hover:bg-white/5"
-                  )}>
+                <div key={lead.id} className={cn("relative w-full rounded-2xl transition-all",
+                  isSelected
+                    ? "bg-gradient-to-r from-[#C8102E]/8 to-[#C8102E]/3 ring-1 ring-[#C8102E]/15"
+                    : "hover:bg-gray-50 dark:hover:bg-white/5"
+                )}>
+                  {/* Checkbox — visible on hover or when checked */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onToggleSelect(lead.id); }}
+                    className={cn(
+                      "absolute left-2 top-1/2 -translate-y-1/2 z-10 flex h-4 w-4 items-center justify-center rounded border transition-all",
+                      isChecked
+                        ? "border-[#C8102E] bg-[#C8102E]"
+                        : "border-gray-300 dark:border-white/20 bg-white dark:bg-white/5 opacity-0 group-hover:opacity-100"
+                    )}
+                    aria-label="Select lead"
+                  >
+                    {isChecked && (
+                      <svg viewBox="0 0 10 8" fill="none" className="h-2.5 w-2.5">
+                        <path d="M1 4l3 3 5-6" stroke="white" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </button>
+                <button onClick={() => onSelect(lead.id)} className="w-full p-3 text-left">
                   <div className="flex items-center gap-3">
                     {/* Avatar */}
                     <div className="relative shrink-0">
@@ -506,6 +527,7 @@ function LeftPanel({ leads, properties, selectedId, filter, propertyFilter, sear
                     </div>
                   </div>
                 </button>
+                </div>
               );
             })}
           </div>
@@ -1214,6 +1236,9 @@ function LeadsPageInner() {
   const [filter, setFilter]             = useState<FilterKey>("all");
   const [propertyFilter, setPropertyFilter] = useState<PropertyFilter>("all");
   const [search, setSearch]             = useState("");
+  const [searchResults, setSearchResults] = useState<Lead[] | null>(null); // null = not searching
+  const [selectedIds, setSelectedIds]   = useState<Set<string>>(new Set());
+  const [bulkWorking, setBulkWorking]   = useState(false);
   const [leadsLoading, setLeadsLoading] = useState(true);
   const [messages, setMessages]         = useState<Message[]>([]);
   const [msgLoading, setMsgLoading]     = useState(false);
@@ -1293,6 +1318,84 @@ function LeadsPageInner() {
     }, 3000);
     return () => clearInterval(interval);
   }, [selectedId]);
+
+  // Debounced server-side search — fires 350ms after the user stops typing
+  useEffect(() => {
+    if (!search.trim() || search.length < 2) { setSearchResults(null); return; }
+    const t = setTimeout(async () => {
+      const prop = propertyFilter !== "all" ? `&propertyId=${propertyFilter}` : "";
+      const res  = await authFetch(`/api/leads/search?q=${encodeURIComponent(search)}${prop}`);
+      const json = await res.json();
+      const rows = (json.leads ?? []) as Lead[];
+      // Enrich with cached property info
+      rows.forEach((l) => {
+        const p = properties.find((pr) => pr.id === l.property_id);
+        if (p) { l.property_name = p.name; l.property_phone = p.phone_number; }
+      });
+      setSearchResults(rows);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [search, propertyFilter, properties]);
+
+  // Displayed lead list — use server search results when a query is active
+  const displayLeads = useMemo(
+    () => (searchResults !== null ? searchResults : leads),
+    [searchResults, leads]
+  );
+
+  // ── Bulk actions ──────────────────────────────────────────────────────────
+  function toggleSelectLead(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelectedIds(new Set(displayLeads.map((l) => l.id)));
+  }
+
+  function clearSelection() { setSelectedIds(new Set()); }
+
+  const handleBulkStatus = useCallback(async (status: LeadStatus) => {
+    if (!selectedIds.size || bulkWorking) return;
+    setBulkWorking(true);
+    await authFetch("/api/leads/bulk", {
+      method: "POST",
+      body:   { action: "status", leadIds: [...selectedIds], value: status },
+    });
+    setLeads((prev) => prev.map((l) => selectedIds.has(l.id) ? { ...l, status } : l));
+    setSelectedIds(new Set());
+    setBulkWorking(false);
+  }, [selectedIds, bulkWorking]);
+
+  const handleBulkDelete = useCallback(async () => {
+    if (!selectedIds.size || bulkWorking) return;
+    if (!confirm(`Permanently delete ${selectedIds.size} lead(s)? This cannot be undone.`)) return;
+    setBulkWorking(true);
+    await authFetch("/api/leads/bulk", {
+      method: "POST",
+      body:   { action: "delete", leadIds: [...selectedIds] },
+    });
+    setLeads((prev) => prev.filter((l) => !selectedIds.has(l.id)));
+    if (selectedIds.has(selectedId)) setSelectedId(leads.filter((l) => !selectedIds.has(l.id))[0]?.id ?? "");
+    setSelectedIds(new Set());
+    setBulkWorking(false);
+  }, [selectedIds, bulkWorking, leads, selectedId]);
+
+  function handleExportCsv() {
+    const prop = propertyFilter !== "all" ? `&propertyId=${propertyFilter}` : "";
+    const status = filter !== "all" ? `&status=${filter}` : "";
+    // Trigger browser download via a temporary auth-aware fetch
+    authFetch(`/api/leads/export?${prop}${status}`).then(async (res) => {
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click(); URL.revokeObjectURL(url);
+    });
+  }
 
   const handleSend = useCallback(async () => {
     if (!replyText.trim() || !selectedId || sending) return;
@@ -1440,6 +1543,13 @@ function LeadsPageInner() {
                 Pipeline
               </button>
             </div>
+            <button onClick={handleExportCsv} title="Export CSV"
+              className="hidden sm:flex items-center gap-1.5 rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-white/20 transition-colors">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-3.5 w-3.5">
+                <path d="M3 12.5h10M8 2v8m0 0l-3-3m3 3l3-3" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Export
+            </button>
             <button onClick={() => setShowAddModal(true)}
               className="flex items-center gap-1.5 rounded-2xl bg-[#C8102E] px-3 py-2 text-xs font-bold text-white hover:bg-[#A50D25] transition-colors sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm"
               style={{ boxShadow: "0 6px 20px rgba(200,16,46,0.3)" }}>
@@ -1464,6 +1574,27 @@ function LeadsPageInner() {
         )}
       </div>
 
+      {/* Bulk action toolbar — appears when leads are selected */}
+      {selectedIds.size > 0 && (
+        <div className="shrink-0 flex items-center gap-3 border-b border-[#C8102E]/20 bg-[#C8102E]/5 px-4 py-2.5">
+          <span className="text-xs font-bold text-[#C8102E]">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2 flex-1 flex-wrap">
+            {(["contacted", "engaged", "tour_scheduled", "applied", "won", "lost"] as LeadStatus[]).map((s) => (
+              <button key={s} disabled={bulkWorking} onClick={() => handleBulkStatus(s)}
+                className="rounded-lg border border-[#1E1E2E] bg-white dark:bg-[#12141E] px-2.5 py-1 text-[10px] font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 transition-colors disabled:opacity-50">
+                → {s.replace("_", " ")}
+              </button>
+            ))}
+            <button disabled={bulkWorking} onClick={handleBulkDelete}
+              className="rounded-lg border border-red-800/40 bg-red-950/20 px-2.5 py-1 text-[10px] font-semibold text-red-400 hover:bg-red-950/40 transition-colors disabled:opacity-50">
+              Delete
+            </button>
+          </div>
+          <button onClick={clearSelection} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">Clear</button>
+          <button onClick={selectAll} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">All</button>
+        </div>
+      )}
+
       {/* Pipeline kanban view */}
       {view === "pipeline" && (
         <PipelineView
@@ -1484,10 +1615,12 @@ function LeadsPageInner() {
           mobileView === "list" ? "flex w-full" : "hidden"
         )}>
           <LeftPanel
-            leads={leads} properties={properties} selectedId={selectedId} filter={filter}
+            leads={displayLeads} properties={properties} selectedId={selectedId} filter={filter}
             propertyFilter={propertyFilter} search={search} loading={leadsLoading}
+            selectedIds={selectedIds} onToggleSelect={toggleSelectLead}
             onSelect={handleSelectLead} onFilterChange={setFilter}
-            onPropertyFilterChange={setPropertyFilter} onSearchChange={setSearch}
+            onPropertyFilterChange={setPropertyFilter}
+            onSearchChange={(q) => { setSearch(q); if (!q.trim()) setSearchResults(null); }}
             onAddLead={() => setShowAddModal(true)}
           />
         </div>

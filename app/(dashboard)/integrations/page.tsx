@@ -8,7 +8,7 @@ interface Property {
   phone_number: string;
 }
 
-type Platform = "zillow" | "apartments_com" | "appfolio" | "facebook" | "website" | "manual";
+type Platform = "zillow" | "apartments_com" | "appfolio" | "facebook" | "website" | "manual" | "hubspot";
 
 const PLATFORMS: { id: Platform; name: string; logo: string }[] = [
   { id: "zillow",         name: "Zillow Rental Manager", logo: "Z"   },
@@ -17,6 +17,7 @@ const PLATFORMS: { id: Platform; name: string; logo: string }[] = [
   { id: "facebook",       name: "Facebook Lead Ads",      logo: "f"   },
   { id: "website",        name: "Website / Form",         logo: "W"   },
   { id: "manual",         name: "Manual / CSV",           logo: "CSV" },
+  { id: "hubspot",        name: "HubSpot CRM",            logo: "HS"  },
 ];
 
 export default function IntegrationsPage() {
@@ -25,6 +26,13 @@ export default function IntegrationsPage() {
   const [activePlatform, setActivePlatform] = useState<Platform>("zillow");
   const [email, setEmail]                   = useState<string>("");
   const [copied, setCopied]                 = useState(false);
+
+  // HubSpot state
+  const [hsConnected, setHsConnected]       = useState(false);
+  const [hsPortalId, setHsPortalId]         = useState<string | null>(null);
+  const [hsToken, setHsToken]               = useState("");
+  const [hsSaving, setHsSaving]             = useState(false);
+  const [hsError, setHsError]               = useState("");
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://lease-up-bulldog.vercel.app";
 
@@ -39,7 +47,36 @@ export default function IntegrationsPage() {
         setSelectedProperty(json.properties[0].id);
       }
     });
+    // Load HubSpot status
+    authFetch("/api/integrations/hubspot")
+      .then(r => r.json())
+      .then(j => { setHsConnected(j.connected); setHsPortalId(j.portalId); })
+      .catch(() => {});
   }, []);
+
+  async function connectHubSpot() {
+    setHsSaving(true);
+    setHsError("");
+    try {
+      const res  = await authFetch("/api/integrations/hubspot", {
+        method: "POST",
+        body:   { action: "connect", accessToken: hsToken },
+      });
+      const json = await res.json();
+      if (!res.ok) { setHsError(json.error ?? "Connection failed"); return; }
+      setHsConnected(true);
+      setHsPortalId(json.portalId);
+      setHsToken("");
+    } catch { setHsError("Network error — please try again."); }
+    finally  { setHsSaving(false); }
+  }
+
+  async function disconnectHubSpot() {
+    if (!confirm("Disconnect HubSpot? Lead status changes will no longer sync.")) return;
+    await authFetch("/api/integrations/hubspot", { method: "POST", body: { action: "disconnect" } });
+    setHsConnected(false);
+    setHsPortalId(null);
+  }
 
   const webhookUrl = selectedProperty
     ? `${appUrl}/api/leads/webhook?property_id=${selectedProperty}`
@@ -281,6 +318,97 @@ export default function IntegrationsPage() {
                   { field: "source",       type: "string",  req: false, desc: "Label, e.g. \"website\", \"instagram\"" },
                 ]} />
               </div>
+            </div>
+          )}
+
+          {activePlatform === "hubspot" && (
+            <div>
+              <h2 className="text-xl font-bold mb-2">HubSpot CRM</h2>
+              <p className="text-sm text-gray-400 mb-6">
+                Connect HubSpot to sync lead status changes automatically. Every time a lead moves through your pipeline — contacted, tour scheduled, applied, won — LUB pushes the update to HubSpot as a contact + deal.
+              </p>
+
+              {hsConnected ? (
+                <div>
+                  <div className="flex items-center gap-3 rounded-xl border border-green-800/40 bg-green-950/20 px-5 py-4 mb-6">
+                    <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-green-400">Connected</p>
+                      {hsPortalId && <p className="text-xs text-gray-500 mt-0.5">Portal ID: {hsPortalId}</p>}
+                    </div>
+                    <button
+                      onClick={disconnectHubSpot}
+                      className="ml-auto text-xs text-gray-500 hover:text-red-400 transition-colors"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+
+                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-3">What syncs</p>
+                  <div className="rounded-xl border border-[#1E1E2E] overflow-hidden mb-6">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[#1E1E2E] bg-[#0a0a12]">
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">LUB status</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">HubSpot deal stage</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { lub: "new / contacted",  hs: "Appointment Scheduled" },
+                          { lub: "engaged",          hs: "Qualified to Buy" },
+                          { lub: "tour_scheduled",   hs: "Presentation Scheduled" },
+                          { lub: "applied",          hs: "Decision Maker Bought-In" },
+                          { lub: "won",              hs: "Closed Won" },
+                          { lub: "lost",             hs: "Closed Lost" },
+                        ].map((row, i, arr) => (
+                          <tr key={i} className={i < arr.length - 1 ? "border-b border-[#1E1E2E]" : ""}>
+                            <td className="px-4 py-2.5 text-gray-400 font-mono text-xs">{row.lub}</td>
+                            <td className="px-4 py-2.5 text-green-400 font-mono text-xs">{row.hs}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="rounded-xl border border-[#1E1E2E] p-5 mb-6 space-y-5">
+                    {[
+                      { n: 1, title: "Create a Private App in HubSpot", desc: 'Go to HubSpot → Settings → Integrations → Private Apps → "Create a private app".' },
+                      { n: 2, title: "Set scopes", desc: "Enable: crm.objects.contacts.write, crm.objects.contacts.read, crm.objects.deals.write, crm.objects.deals.read." },
+                      { n: 3, title: "Copy the access token", desc: 'After creating the app, copy the access token (starts with "pat-...") and paste it below.' },
+                    ].map(step => (
+                      <div key={step.n} className="flex gap-4">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/20 text-xs font-bold text-[#C8102E]">{step.n}</div>
+                        <div>
+                          <p className="font-semibold text-white">{step.title}</p>
+                          <p className="text-sm text-gray-400 mt-0.5">{step.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-gray-400">HubSpot Private App Access Token</label>
+                    <input
+                      type="password"
+                      value={hsToken}
+                      onChange={e => setHsToken(e.target.value)}
+                      placeholder="pat-na1-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                      className="w-full rounded-xl border border-[#1E1E2E] bg-[#0a0a12] px-4 py-3 text-sm text-white font-mono placeholder-gray-600 focus:border-[#C8102E] focus:outline-none"
+                    />
+                    {hsError && <p className="text-xs text-red-400">{hsError}</p>}
+                    <button
+                      onClick={connectHubSpot}
+                      disabled={hsSaving || !hsToken.trim()}
+                      className="rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {hsSaving ? "Connecting…" : "Connect HubSpot"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
