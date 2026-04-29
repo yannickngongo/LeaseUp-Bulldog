@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -385,6 +389,111 @@ function BudgetForecastPanel({
   );
 }
 
+// ─── Stripe Payment Form ──────────────────────────────────────────────────────
+// Must be rendered inside <Elements> so it can use useStripe / useElements.
+
+function StripePaymentForm({
+  campaignId,
+  budget,
+  channel,
+  durationDays,
+  imageUrl,
+  onSuccess,
+  onError,
+}: {
+  campaignId:   string;
+  budget:       number;
+  channel:      AdChannel;
+  durationDays: number;
+  imageUrl?:    string;
+  onSuccess:    (warning?: string) => void;
+  onError:      (msg: string) => void;
+}) {
+  const stripe      = useStripe();
+  const elements    = useElements();
+  const [processing, setProcessing] = useState(false);
+
+  async function handleSubmit() {
+    if (!stripe || !elements) return;
+    setProcessing(true);
+
+    // 1. Validate Stripe Elements
+    const { error: submitError } = await elements.submit();
+    if (submitError) {
+      onError(submitError.message ?? "Payment validation failed");
+      setProcessing(false);
+      return;
+    }
+
+    // 2. Create PaymentIntent server-side
+    const piRes = await fetch("/api/campaigns/payment-intent", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ campaignId, amountCents: Math.round(budget * 100), platform: channel }),
+    });
+    const piData = await piRes.json() as { clientSecret?: string; error?: string };
+    if (!piRes.ok || !piData.clientSecret) {
+      onError(piData.error ?? "Failed to create payment");
+      setProcessing(false);
+      return;
+    }
+
+    // 3. Confirm payment (stays in-page for cards; redirects only for bank transfers)
+    const { error: paymentError, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      clientSecret:   piData.clientSecret,
+      confirmParams:  { return_url: `${window.location.origin}/dashboard/marketing` },
+      redirect:       "if_required",
+    });
+
+    if (paymentError) {
+      onError(paymentError.message ?? "Payment failed — please try again.");
+      setProcessing(false);
+      return;
+    }
+
+    // 4. Payment confirmed — launch campaign on ad platform
+    const launchRes = await fetch(`/api/campaigns/${campaignId}/launch`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        platform:        channel,
+        budgetCents:     Math.round(budget * 100),
+        durationDays,
+        imageUrl,
+        paymentIntentId: paymentIntent?.id,
+      }),
+    });
+    const launchData = await launchRes.json() as { ok?: boolean; warning?: string; error?: string };
+    if (!launchRes.ok) {
+      onError(launchData.error ?? "Campaign launch failed");
+      setProcessing(false);
+      return;
+    }
+
+    onSuccess(launchData.warning);
+  }
+
+  return (
+    <div>
+      <PaymentElement options={{ layout: "tabs" }} />
+      <button
+        onClick={handleSubmit}
+        disabled={processing || !stripe || !elements}
+        className="mt-4 w-full rounded-xl bg-[#C8102E] py-3.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
+      >
+        {processing ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+            Processing…
+          </span>
+        ) : `Pay $${budget.toFixed(2)} and Launch →`}
+      </button>
+    </div>
+  );
+}
+
 // ─── Launch Modal ─────────────────────────────────────────────────────────────
 
 function LaunchModal({
@@ -398,17 +507,13 @@ function LaunchModal({
   onClose: () => void;
   onLaunched: (campaignId: string) => void;
 }) {
-  const [step, setStep] = useState<"setup" | "payment">("setup");
-  const [budget, setBudget]           = useState(50);
+  const [budget, setBudget]             = useState(50);
   const [durationDays, setDurationDays] = useState(14);
-  const [channel, setChannel]         = useState<AdChannel>(campaign.recommended_channels[0] ?? "facebook");
-  const [property, setProperty]       = useState<{ city: string; state: string; total_units: number; occupied_units: number } | null>(null);
-  const [cardName, setCardName]       = useState("");
-  const [cardNumber, setCardNumber]   = useState("");
-  const [cardExpiry, setCardExpiry]   = useState("");
-  const [cardCvc, setCardCvc]         = useState("");
-  const [launching, setLaunching]     = useState(false);
-  const [launched, setLaunched]       = useState(false);
+  const [channel, setChannel]           = useState<AdChannel>(campaign.recommended_channels[0] ?? "facebook");
+  const [property, setProperty]         = useState<{ city: string; state: string; total_units: number; occupied_units: number } | null>(null);
+  const [launched, setLaunched]         = useState(false);
+  const [launchWarning, setLaunchWarning] = useState<string | undefined>(undefined);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/properties/${campaign.property_id}/details`)
@@ -425,13 +530,10 @@ function LaunchModal({
 
   const DURATION_OPTIONS = [7, 14, 30, 60];
 
-  async function handleLaunch() {
-    if (!cardName || !cardNumber || !cardExpiry || !cardCvc) return;
-    setLaunching(true);
-    await new Promise(r => setTimeout(r, 1800));
-    setLaunching(false);
+  function handlePaymentSuccess(warning?: string) {
+    setLaunchWarning(warning);
     setLaunched(true);
-    setTimeout(() => { onLaunched(campaign.id); onClose(); }, 1500);
+    setTimeout(() => { onLaunched(campaign.id); onClose(); }, 2500);
   }
 
   return (
@@ -447,10 +549,18 @@ function LaunchModal({
         </div>
 
         {launched ? (
-          <div className="flex flex-col items-center gap-4 px-6 py-16 text-center">
+          <div className="flex flex-col items-center gap-4 px-6 py-14 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600 text-2xl dark:bg-green-900/30 dark:text-green-400">✓</div>
-            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">Campaign Launched!</p>
-            <p className="text-sm text-gray-500">Your ad is now live on {channel}. LUB will qualify every lead automatically.</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+              {launchWarning ? "Payment Received!" : "Campaign Launched!"}
+            </p>
+            {launchWarning ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300 text-left">
+                {launchWarning}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Your ad is now live on {channel}. LUB will qualify every lead automatically.</p>
+            )}
           </div>
         ) : (
           <div className="p-6 space-y-6">
@@ -570,61 +680,13 @@ function LaunchModal({
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Name on Card</label>
-                  <input
-                    type="text"
-                    placeholder="Marcus Thompson"
-                    value={cardName}
-                    onChange={e => setCardName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Card Number</label>
-                  <input
-                    type="text"
-                    placeholder="1234 5678 9012 3456"
-                    value={cardNumber}
-                    onChange={e => setCardNumber(e.target.value.replace(/\D/g, "").replace(/(.{4})/g, "$1 ").trim().slice(0, 19))}
-                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">Expiry</label>
-                    <input
-                      type="text"
-                      placeholder="MM / YY"
-                      value={cardExpiry}
-                      onChange={e => {
-                        const v = e.target.value.replace(/\D/g, "");
-                        setCardExpiry(v.length > 2 ? `${v.slice(0,2)} / ${v.slice(2,4)}` : v);
-                      }}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-gray-700 dark:text-gray-300">CVC</label>
-                    <input
-                      type="text"
-                      placeholder="123"
-                      value={cardCvc}
-                      onChange={e => setCardCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono dark:border-white/10 dark:bg-white/5 dark:text-gray-100 placeholder-gray-400"
-                    />
-                  </div>
-                </div>
-              </div>
-
               {/* Order summary */}
-              <div className="mt-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 p-4">
+              <div className="mb-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 p-4">
                 <div className="space-y-2">
                   {[
                     { label: `${channel.charAt(0).toUpperCase() + channel.slice(1)} Ads (${durationDays} days)`, value: `$${budget.toFixed(2)}` },
-                    { label: "LUB AI Qualification",   value: "Included" },
-                    { label: "Platform Fee",            value: "$0.00"    },
+                    { label: "LUB AI Qualification", value: "Included" },
+                    { label: "Platform Fee",          value: "$0.00"   },
                   ].map(r => (
                     <div key={r.label} className="flex items-center justify-between text-sm">
                       <span className="text-gray-600 dark:text-gray-400">{r.label}</span>
@@ -638,19 +700,31 @@ function LaunchModal({
                 </div>
               </div>
 
-              <button
-                onClick={handleLaunch}
-                disabled={launching || !cardName || !cardNumber || !cardExpiry || !cardCvc}
-                className="mt-4 w-full rounded-xl bg-[#C8102E] py-3.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
+              {/* Stripe Payment Element */}
+              {paymentError && (
+                <div className="mb-3 rounded-xl border border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/10 px-4 py-2.5 text-sm text-red-600 dark:text-red-400">
+                  {paymentError}
+                </div>
+              )}
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  mode:       "payment",
+                  amount:     Math.round(budget * 100),
+                  currency:   "usd",
+                  appearance: { theme: "stripe", variables: { colorPrimary: "#C8102E" } },
+                }}
               >
-                {launching ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                    Launching…
-                  </span>
-                ) : `Launch for $${budget.toFixed(2)} →`}
-              </button>
+                <StripePaymentForm
+                  campaignId={campaign.id}
+                  budget={budget}
+                  channel={channel}
+                  durationDays={durationDays}
+                  imageUrl={imageUrl}
+                  onSuccess={handlePaymentSuccess}
+                  onError={msg => setPaymentError(msg)}
+                />
+              </Elements>
             </div>
           </div>
         )}
@@ -1162,12 +1236,14 @@ function CampaignDetail({
   const [previewChannel, setPreviewChannel] = useState<AdChannel | "all">("all");
   const fileRef = useRef<HTMLInputElement>(null);
 
-  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => { if (ev.target?.result) onImageChange(campaign.id, ev.target.result as string); };
-    reader.readAsDataURL(file);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/campaigns/${campaign.id}/image`, { method: "POST", body: formData });
+    const data = await res.json() as { url?: string; error?: string };
+    if (data.url) onImageChange(campaign.id, data.url);
   }
 
   function toggleVariation(id: string) {

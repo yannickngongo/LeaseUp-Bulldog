@@ -8,7 +8,7 @@ interface Property {
   phone_number: string;
 }
 
-type Platform = "zillow" | "apartments_com" | "appfolio" | "facebook" | "website" | "manual" | "hubspot";
+type Platform = "zillow" | "apartments_com" | "appfolio" | "facebook" | "website" | "manual" | "hubspot" | "meta_ads" | "google_ads";
 
 const PLATFORMS: { id: Platform; name: string; logo: string }[] = [
   { id: "zillow",         name: "Zillow Rental Manager", logo: "Z"   },
@@ -18,6 +18,8 @@ const PLATFORMS: { id: Platform; name: string; logo: string }[] = [
   { id: "website",        name: "Website / Form",         logo: "W"   },
   { id: "manual",         name: "Manual / CSV",           logo: "CSV" },
   { id: "hubspot",        name: "HubSpot CRM",            logo: "HS"  },
+  { id: "meta_ads",       name: "Meta Ads",               logo: "MA"  },
+  { id: "google_ads",     name: "Google Ads",             logo: "GA"  },
 ];
 
 export default function IntegrationsPage() {
@@ -33,6 +35,15 @@ export default function IntegrationsPage() {
   const [hsToken, setHsToken]               = useState("");
   const [hsSaving, setHsSaving]             = useState(false);
   const [hsError, setHsError]               = useState("");
+
+  // Meta Ads state
+  const [metaConnected, setMetaConnected]         = useState(false);
+  const [metaAdAccountId, setMetaAdAccountId]     = useState<string | null>(null);
+  const [metaToken, setMetaToken]                 = useState("");
+  const [metaAccountInput, setMetaAccountInput]   = useState("");
+  const [metaPageInput, setMetaPageInput]         = useState("");
+  const [metaSaving, setMetaSaving]               = useState(false);
+  const [metaError, setMetaError]                 = useState("");
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://lease-up-bulldog.vercel.app";
 
@@ -51,6 +62,11 @@ export default function IntegrationsPage() {
     authFetch("/api/integrations/hubspot")
       .then(r => r.json())
       .then(j => { setHsConnected(j.connected); setHsPortalId(j.portalId); })
+      .catch(() => {});
+    // Load Meta Ads status
+    authFetch("/api/integrations/meta")
+      .then(r => r.json())
+      .then(j => { setMetaConnected(j.connected); setMetaAdAccountId(j.adAccountId); })
       .catch(() => {});
   }, []);
 
@@ -76,6 +92,30 @@ export default function IntegrationsPage() {
     await authFetch("/api/integrations/hubspot", { method: "POST", body: { action: "disconnect" } });
     setHsConnected(false);
     setHsPortalId(null);
+  }
+
+  async function connectMeta() {
+    setMetaSaving(true);
+    setMetaError("");
+    try {
+      const res  = await authFetch("/api/integrations/meta", {
+        method: "POST",
+        body:   { action: "connect", accessToken: metaToken, adAccountId: metaAccountInput, pageId: metaPageInput },
+      });
+      const json = await res.json() as { connected?: boolean; adAccountId?: string; error?: string };
+      if (!res.ok) { setMetaError(json.error ?? "Connection failed"); return; }
+      setMetaConnected(true);
+      setMetaAdAccountId(json.adAccountId ?? null);
+      setMetaToken(""); setMetaAccountInput(""); setMetaPageInput("");
+    } catch { setMetaError("Network error — please try again."); }
+    finally  { setMetaSaving(false); }
+  }
+
+  async function disconnectMeta() {
+    if (!confirm("Disconnect Meta Ads? Campaigns already launched will keep running, but new launches won't publish ads.")) return;
+    await authFetch("/api/integrations/meta", { method: "POST", body: { action: "disconnect" } });
+    setMetaConnected(false);
+    setMetaAdAccountId(null);
   }
 
   const webhookUrl = selectedProperty
@@ -409,6 +449,152 @@ export default function IntegrationsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {activePlatform === "meta_ads" && (
+            <div>
+              <h2 className="text-xl font-bold mb-2">Meta Ads — Connect Your Ad Account</h2>
+              <p className="text-sm text-gray-400 mb-6">
+                Connect your Facebook Ad Account so LUB can publish Lead Generation campaigns directly and receive leads in real time. Requires a Facebook Page and a Meta Business Ad Account.
+              </p>
+
+              {metaConnected ? (
+                <div>
+                  <div className="flex items-center gap-3 rounded-xl border border-green-800/40 bg-green-950/20 px-5 py-4 mb-6">
+                    <div className="h-2.5 w-2.5 rounded-full bg-green-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-green-400">Connected</p>
+                      {metaAdAccountId && <p className="text-xs text-gray-500 mt-0.5">Ad Account: {metaAdAccountId}</p>}
+                    </div>
+                    <button onClick={disconnectMeta} className="ml-auto text-xs text-gray-500 hover:text-red-400 transition-colors">Disconnect</button>
+                  </div>
+
+                  <div className="rounded-xl border border-[#1E1E2E] p-5 mb-6 space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">Webhook for lead delivery</p>
+                    <p className="text-sm text-gray-400">Subscribe your Facebook Page to leadgen events at this URL:</p>
+                    <code className="block rounded-lg bg-[#0a0a12] border border-[#1E1E2E] px-4 py-3 text-xs text-green-400 font-mono break-all">
+                      {appUrl}/api/webhooks/meta
+                    </code>
+                    <p className="text-[11px] text-gray-500">
+                      In Meta App Dashboard → Webhooks → Subscribe to <strong className="text-gray-400">leadgen</strong> on your Page.
+                      Set Verify Token to your <code className="text-green-400">META_VERIFY_TOKEN</code> env var.
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-blue-900/30 bg-blue-950/20 px-4 py-3 text-sm text-blue-300">
+                    <strong>What happens now:</strong> When you launch a campaign from the Marketing tab, LUB automatically creates the Lead Ad on your Facebook Page, collects leads via the webhook above, and starts the AI qualification sequence within 60 seconds.
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="rounded-xl border border-[#1E1E2E] p-5 mb-6 space-y-5">
+                    {[
+                      { n: 1, title: "Create a Facebook App", desc: "Go to developers.facebook.com → My Apps → Create App. Choose Business type." },
+                      { n: 2, title: "Request Marketing API access", desc: "In your App Dashboard → App Review → Permissions. Request ads_management and leads_retrieval. For testing, these work with your own accounts without review." },
+                      { n: 3, title: "Generate a long-lived Page Access Token", desc: "In Graph API Explorer, select your app, get a User Token, then exchange for a long-lived token. Use /{page-id}?fields=access_token to get the Page token." },
+                      { n: 4, title: "Find your Ad Account ID", desc: 'In Meta Business Suite → Settings → Ad Accounts. Looks like "1234567890" (without "act_" — LUB adds that).' },
+                      { n: 5, title: "Find your Page ID", desc: "In Meta Business Suite → Pages → your page → About. Or in Graph API Explorer: GET /me/accounts." },
+                    ].map(step => (
+                      <div key={step.n} className="flex gap-4">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/20 text-xs font-bold text-[#C8102E]">{step.n}</div>
+                        <div>
+                          <p className="font-semibold text-white">{step.title}</p>
+                          <p className="text-sm text-gray-400 mt-0.5">{step.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { label: "Page Access Token", value: metaToken, setter: setMetaToken, placeholder: "EAAxxxxxxxxxxxxxxx", type: "password" as const },
+                      { label: "Ad Account ID", value: metaAccountInput, setter: setMetaAccountInput, placeholder: "1234567890 (without act_)", type: "text" as const },
+                      { label: "Facebook Page ID", value: metaPageInput, setter: setMetaPageInput, placeholder: "112233445566778", type: "text" as const },
+                    ].map(f => (
+                      <div key={f.label}>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">{f.label}</label>
+                        <input
+                          type={f.type}
+                          value={f.value}
+                          onChange={e => f.setter(e.target.value)}
+                          placeholder={f.placeholder}
+                          className="w-full rounded-xl border border-[#1E1E2E] bg-[#0a0a12] px-4 py-3 text-sm text-white font-mono placeholder-gray-600 focus:border-[#C8102E] focus:outline-none"
+                        />
+                      </div>
+                    ))}
+                    {metaError && <p className="text-xs text-red-400">{metaError}</p>}
+                    <button
+                      onClick={connectMeta}
+                      disabled={metaSaving || !metaToken.trim() || !metaAccountInput.trim() || !metaPageInput.trim()}
+                      className="rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {metaSaving ? "Connecting…" : "Connect Meta Ads"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activePlatform === "google_ads" && (
+            <div>
+              <h2 className="text-xl font-bold mb-2">Google Ads — Lead Form Webhook</h2>
+              <p className="text-sm text-gray-400 mb-6">
+                Connect Google Lead Form Extensions so every lead submitted in a Google Ad flows into LUB and triggers immediate AI follow-up.
+                Full Google Ads API campaign creation requires a developer token (apply at ads.google.com/developer-token). The webhook below works independently of that.
+              </p>
+
+              <div className="rounded-xl border border-amber-800/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-400 mb-6">
+                <strong>Developer token note:</strong> Programmatic campaign creation requires a Google Ads API developer token, which requires an application to Google. The webhook integration below works for any existing Google Ads campaign with a Lead Form Extension.
+              </div>
+
+              <div className="space-y-5">
+                <div className="rounded-xl border border-[#1E1E2E] p-5 space-y-5">
+                  {[
+                    { n: 1, title: "Open Google Ads Manager", desc: "Go to ads.google.com → select your account." },
+                    { n: 2, title: "Create a Lead Form Asset", desc: "Assets → Lead forms → + → fill in your form fields (Name, Phone, Email)." },
+                    { n: 3, title: "Set the Webhook URL", desc: "In the Lead Form, scroll to Webhook → paste the URL below.", code: `${appUrl}/api/webhooks/google` },
+                    { n: 4, title: "Set the Webhook Key", desc: "Enter any secret string in the Key field. Add the same value to your server as GOOGLE_WEBHOOK_KEY env var." },
+                    { n: 5, title: "Attach to your campaign", desc: "Add the Lead Form Asset to your Search, Display, or Demand Gen campaign. Google will test the webhook automatically." },
+                    { n: 6, title: "Set google_campaign_id in LUB", desc: "When a lead comes in, LUB matches it by Google campaign ID. Copy your campaign ID from Google Ads and paste it into the corresponding LUB campaign (in Marketing → campaign detail → Settings)." },
+                  ].map(step => (
+                    <div key={step.n} className="flex gap-4">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/20 text-xs font-bold text-[#C8102E]">{step.n}</div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-white">{step.title}</p>
+                        <p className="text-sm text-gray-400 mt-0.5">{step.desc}</p>
+                        {"code" in step && step.code && (
+                          <code className="mt-2 block rounded-lg bg-[#0a0a12] border border-[#1E1E2E] px-3 py-2 text-xs text-green-400 font-mono break-all">{step.code}</code>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-xl border border-[#1E1E2E] overflow-hidden">
+                  <p className="px-4 py-2.5 text-xs font-semibold text-gray-500 bg-[#0a0a12] border-b border-[#1E1E2E]">Google lead payload → LUB field mapping</p>
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {[
+                        { g: "GIVEN_NAME + FAMILY_NAME", lub: "name" },
+                        { g: "PHONE_NUMBER",             lub: "phone" },
+                        { g: "EMAIL",                    lub: "email" },
+                        { g: "campaign_id",              lub: "google_campaign_id (matches LUB campaign)" },
+                      ].map((row, i, arr) => (
+                        <tr key={i} className={i < arr.length - 1 ? "border-b border-[#1E1E2E]" : ""}>
+                          <td className="px-4 py-2.5 text-gray-400 font-mono text-xs">{row.g}</td>
+                          <td className="px-4 py-2.5 text-green-400 font-mono text-xs">{row.lub}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="rounded-xl border border-blue-900/30 bg-blue-950/20 px-4 py-3 text-sm text-blue-300">
+                  <strong>Required env vars:</strong> <code className="text-green-400">GOOGLE_WEBHOOK_KEY</code> — the secret key you enter in Google Ads Lead Form settings.
+                </div>
+              </div>
             </div>
           )}
 
