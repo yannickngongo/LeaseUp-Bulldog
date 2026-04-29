@@ -22,7 +22,9 @@ export interface GenerateLeadReplyInput {
   bedrooms?: number;           // 0 = studio
   budgetMin?: number;
   budgetMax?: number;
-  trigger: "new_lead" | "inbound_sms" | "follow_up";
+  trigger: "new_lead" | "inbound_sms" | "follow_up" | "post_tour" | "application_nudge";
+  tourScheduledAt?: string;   // ISO datetime — passed for post_tour / application_nudge
+  applicationLink?: string;   // passed for application_nudge
   conversationHistory: string; // pre-formatted prior messages, oldest first
   propertyContext?: string;    // formatted output of formatPropertyAIContext()
   attemptNumber?: number;      // total outbound attempts so far (1 = first contact)
@@ -96,10 +98,26 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
       ? `Follow-up phase: ${input.followUpPhase} (attempt ${input.attemptNumber})\n`
       : "";
 
+  let triggerInstructions = "";
+  if (input.trigger === "post_tour") {
+    triggerInstructions =
+      "\nTRIGGER CONTEXT: The lead just toured the property a couple of hours ago. " +
+      "Reach out warmly to ask how they felt about it and whether they have any questions. " +
+      "Express genuine enthusiasm. If they seemed interested, gently move them toward applying. " +
+      "Keep it conversational — one or two sentences max.\n";
+  } else if (input.trigger === "application_nudge") {
+    const appLink = input.applicationLink ? ` Application link: ${input.applicationLink}` : "";
+    triggerInstructions =
+      "\nTRIGGER CONTEXT: The lead toured yesterday and hasn't submitted an application yet. " +
+      "Encourage them to take the next step and apply. Mention any active special if relevant." +
+      appLink +
+      " Be warm but create a gentle sense of urgency (availability, specials ending soon, etc.).\n";
+  }
+
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in server local time
 
   return `
-${contextBlock}${tourLine}${phaseBlock}
+${contextBlock}${tourLine}${phaseBlock}${triggerInstructions}
 Today's date: ${today}
 Property: ${input.propertyName}
 Lead name: ${input.leadName}

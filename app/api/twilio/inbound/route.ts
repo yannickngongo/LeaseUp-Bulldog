@@ -21,7 +21,7 @@ import twilio from "twilio";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { generateLeadReply } from "@/lib/anthropic";
 import { sendSms } from "@/lib/twilio";
-import { isOptOut, cancelFollowUps, evaluateNextAction } from "@/lib/follow-up";
+import { isOptOut, cancelFollowUps, evaluateNextAction, scheduleTourFollowUps } from "@/lib/follow-up";
 import { detectEscalation, createHandoffEvent } from "@/lib/human-takeover";
 import { getPropertyAIContext, formatPropertyAIContext } from "@/lib/property-ai-context";
 import { setFirstContactDate } from "@/lib/billing";
@@ -375,6 +375,10 @@ export async function POST(req: NextRequest) {
     } else {
       await db.from("leads").update({ status: "tour_scheduled" }).eq("id", lead.id);
       console.log("[twilio/inbound] tour record created for:", tourBookingAt);
+      // Queue post-tour check-in and application nudge (non-fatal)
+      scheduleTourFollowUps(lead.id, property.id, new Date(tourBookingAt)).catch((err) =>
+        console.error("[twilio/inbound] scheduleTourFollowUps failed:", err)
+      );
     }
   }
 

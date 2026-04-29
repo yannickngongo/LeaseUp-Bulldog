@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { sendSms } from "@/lib/twilio";
+import { scheduleTourFollowUps } from "@/lib/follow-up";
 
 const CreateTourSchema = z.object({
   lead_id:      z.string().uuid(),
@@ -73,6 +74,11 @@ export async function POST(req: NextRequest) {
       console.error("Tour SMS error:", e);
     }
   }
+
+  // Queue post-tour check-in and application nudge (non-fatal)
+  scheduleTourFollowUps(lead_id, property_id, new Date(scheduled_at)).catch((err) =>
+    console.error("[tours] scheduleTourFollowUps failed:", err)
+  );
 
   // Log activity
   await db.from("activity_logs").insert({

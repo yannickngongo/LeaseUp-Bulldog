@@ -287,7 +287,9 @@ export type FollowUpTrigger =
   | "follow_up_2"
   | "follow_up_3"
   | "follow_up_4"
-  | "monthly_touch";
+  | "monthly_touch"
+  | "post_tour"
+  | "application_nudge";
 
 export type FollowUpPhase = "burst" | "nurture";
 

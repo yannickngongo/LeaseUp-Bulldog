@@ -131,6 +131,66 @@ export async function queueFollowUp(
   return task.id;
 }
 
+// ─── scheduleTourFollowUps ────────────────────────────────────────────────────
+// Queues post-tour check-in (2h after tour) and application nudge (26h after tour).
+// Call whenever a tour is created or rescheduled.
+
+export async function scheduleTourFollowUps(
+  leadId: string,
+  propertyId: string,
+  scheduledAt: Date
+): Promise<void> {
+  // Cancel any previously queued tour follow-ups (rescheduling guard)
+  await cancelTourFollowUps(leadId);
+
+  const stopReason = await getStopReason(leadId);
+  if (stopReason) return;
+
+  const nextAttempt = await getNextAttemptNumber(leadId);
+
+  const postTourAt = new Date(scheduledAt.getTime() + 2 * 60 * 60 * 1000);   // +2h
+  const appNudgeAt = new Date(scheduledAt.getTime() + 26 * 60 * 60 * 1000);  // +26h
+
+  const db = getSupabaseAdmin();
+
+  await db.from("follow_up_tasks").insert([
+    {
+      lead_id:        leadId,
+      property_id:    propertyId,
+      scheduled_for:  postTourAt.toISOString(),
+      trigger_reason: "post_tour",
+      attempt_number: nextAttempt,
+      status:         "pending",
+    },
+    {
+      lead_id:        leadId,
+      property_id:    propertyId,
+      scheduled_for:  appNudgeAt.toISOString(),
+      trigger_reason: "application_nudge",
+      attempt_number: nextAttempt + 1,
+      status:         "pending",
+    },
+  ]);
+}
+
+// ─── cancelTourFollowUps ──────────────────────────────────────────────────────
+// Cancels any pending post_tour / application_nudge tasks for a lead.
+// Used when a tour is rescheduled or cancelled.
+
+export async function cancelTourFollowUps(leadId: string): Promise<void> {
+  const db = getSupabaseAdmin();
+  await db
+    .from("follow_up_tasks")
+    .update({
+      status:           "cancelled",
+      cancelled_reason: "lead_lost" as CancelReason,
+      cancelled_at:     new Date().toISOString(),
+    })
+    .eq("lead_id", leadId)
+    .eq("status", "pending")
+    .in("trigger_reason", ["post_tour", "application_nudge"]);
+}
+
 // ─── cancelFollowUps ──────────────────────────────────────────────────────────
 
 export async function cancelFollowUps(leadId: string, reason: CancelReason): Promise<void> {
@@ -165,6 +225,11 @@ export async function evaluateNextAction(
   const stopReason = await getStopReason(leadId);
   if (stopReason) {
     await cancelFollowUps(leadId, stopReason);
+    return null;
+  }
+
+  // Tour-specific triggers are standalone — they don't advance the burst sequence
+  if (completedTrigger === "post_tour" || completedTrigger === "application_nudge") {
     return null;
   }
 
@@ -239,7 +304,7 @@ export async function executeFollowUp(taskId: string): Promise<void> {
 
   const [leadResult, propertyResult] = await Promise.all([
     db.from("leads").select("*").eq("id", task.lead_id).single(),
-    db.from("properties").select("*").eq("id", task.property_id).single(),
+    db.from("properties").select("id, name, phone_number, active_special, address, city, state, zip, tour_booking_url").eq("id", task.property_id).single(),
   ]);
 
   const lead = leadResult.data;
@@ -249,6 +314,19 @@ export async function executeFollowUp(taskId: string): Promise<void> {
     await db.from("follow_up_tasks").update({
       status:        "failed",
       error_message: "Lead or property not found",
+    }).eq("id", taskId);
+    return;
+  }
+
+  // Skip application_nudge if the lead has already applied or signed
+  if (
+    task.trigger_reason === "application_nudge" &&
+    (lead.status === "applied" || lead.status === "won")
+  ) {
+    await db.from("follow_up_tasks").update({
+      status:           "cancelled",
+      cancelled_reason: lead.status === "won" ? "lease_signed" : "lead_lost",
+      cancelled_at:     new Date().toISOString(),
     }).eq("id", taskId);
     return;
   }
@@ -271,21 +349,46 @@ export async function executeFollowUp(taskId: string): Promise<void> {
   const attemptNumber = task.attempt_number as number;
   const followUpPhase = getFollowUpPhase(attemptNumber);
 
+  // Resolve trigger type — tour-specific triggers pass through directly
+  const isTourTrigger =
+    task.trigger_reason === "post_tour" || task.trigger_reason === "application_nudge";
+
+  // Fetch the most recent tour scheduled_at for context (post_tour / application_nudge)
+  let tourScheduledAt: string | undefined;
+  if (isTourTrigger) {
+    const { data: lastTour } = await db
+      .from("tours")
+      .select("scheduled_at")
+      .eq("lead_id", task.lead_id)
+      .order("scheduled_at", { ascending: false })
+      .limit(1);
+    tourScheduledAt = lastTour?.[0]?.scheduled_at ?? undefined;
+  }
+
+  const p = property as Record<string, unknown>;
+  const applicationLink =
+    (aiConfig?.application_link as string | undefined) ?? undefined;
+
   let aiMessage: string;
   try {
     const result = await generateLeadReply({
       propertyName:        property.name,
       activeSpecial:       property.active_special ?? undefined,
+      tourBookingUrl:      p.tour_booking_url as string | undefined,
       leadName:            lead.name,
       moveInDate:          lead.move_in_date ?? undefined,
       bedrooms:            lead.bedrooms ?? undefined,
       budgetMin:           lead.budget_min ?? undefined,
       budgetMax:           lead.budget_max ?? undefined,
-      trigger:             "follow_up",
+      trigger:             isTourTrigger
+                             ? (task.trigger_reason as "post_tour" | "application_nudge")
+                             : "follow_up",
       conversationHistory,
       propertyContext,
       attemptNumber,
       followUpPhase,
+      tourScheduledAt,
+      applicationLink,
     });
     aiMessage = result.message;
   } catch (err) {
