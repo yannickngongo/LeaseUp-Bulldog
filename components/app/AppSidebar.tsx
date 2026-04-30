@@ -300,8 +300,8 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
               return (
                 <Link
                   key={item.href}
-                  href="/billing"
-                  title="Requires Marketing Add-On"
+                  href="/settings/billing"
+                  title="Subscribe to the Marketing Add-on ($500/mo + 5% of ad spend)"
                   className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-400 dark:text-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
                 >
                   <span className="text-gray-300 dark:text-gray-700">{item.icon}</span>

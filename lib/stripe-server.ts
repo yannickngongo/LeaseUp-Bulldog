@@ -32,15 +32,37 @@ const PRO_OVERRIDE_EMAILS = (process.env.PRO_OVERRIDE_EMAILS ?? "")
   .filter(Boolean);
 
 // ─── hasActiveMarketingSubscription ──────────────────────────────────────────
+// Returns true if any of these are true:
+//   1. Email is in PRO_OVERRIDE_EMAILS (testing bypass)
+//   2. operators.marketing_subscription_status is active/trialing (new Stripe sub)
+//   3. billing_subscriptions.marketing_addon is true (legacy system)
 
 export function hasActiveMarketingSubscription(op: {
   email?:                          string | null;
   marketing_subscription_status?:  string | null;
+  marketing_addon?:                boolean | null;   // from billing_subscriptions (legacy)
 }): boolean {
-  // Pro override (testing): listed emails always have access
   if (op.email && PRO_OVERRIDE_EMAILS.includes(op.email.toLowerCase())) return true;
-  return op.marketing_subscription_status === "active"
-      || op.marketing_subscription_status === "trialing";
+  if (op.marketing_subscription_status === "active" || op.marketing_subscription_status === "trialing") return true;
+  if (op.marketing_addon === true) return true;
+  return false;
+}
+
+// ─── checkMarketingAccessByOperatorId ────────────────────────────────────────
+// Server-side helper that joins operators + billing_subscriptions and runs
+// hasActiveMarketingSubscription. Use this in API routes to gate features.
+
+export async function checkMarketingAccessByOperatorId(operatorId: string): Promise<boolean> {
+  const db = getSupabaseAdmin();
+  const [opRes, subRes] = await Promise.all([
+    db.from("operators").select("email, marketing_subscription_status").eq("id", operatorId).single(),
+    db.from("billing_subscriptions").select("marketing_addon").eq("operator_id", operatorId).maybeSingle(),
+  ]);
+  return hasActiveMarketingSubscription({
+    email:                         opRes.data?.email,
+    marketing_subscription_status: opRes.data?.marketing_subscription_status,
+    marketing_addon:               subRes.data?.marketing_addon,
+  });
 }
 
 // ─── getOrCreateStripeCustomer ───────────────────────────────────────────────

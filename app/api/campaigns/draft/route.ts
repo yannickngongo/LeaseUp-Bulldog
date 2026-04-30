@@ -6,21 +6,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { checkMarketingAccessByOperatorId } from "@/lib/stripe-server";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
   // Gate: marketing add-on required
+  // Honors PRO_OVERRIDE_EMAILS, new Stripe subscription, AND legacy billing_subscriptions.marketing_addon
   const operatorId = body.operator_id as string | undefined;
   if (operatorId) {
-    const db = getSupabaseAdmin();
-    const { data: sub } = await db
-      .from("billing_subscriptions")
-      .select("marketing_addon")
-      .eq("operator_id", operatorId)
-      .single();
-    if (!sub?.marketing_addon) {
-      return NextResponse.json({ error: "Marketing add-on required", upgrade: true }, { status: 403 });
+    const hasAccess = await checkMarketingAccessByOperatorId(operatorId);
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Marketing add-on required", upgrade: true, subscribe_url: "/settings/billing" }, { status: 403 });
     }
   }
   const {

@@ -49,6 +49,16 @@ export async function POST(req: NextRequest) {
           marketing_subscription_ends_at:      null,
         }).eq("stripe_customer_id", customerId);
 
+        // Sync legacy billing_subscriptions.marketing_addon flag (sidebar badge + draft gate)
+        const { data: opForLegacy } = await db
+          .from("operators").select("id").eq("stripe_customer_id", customerId).single();
+        if (opForLegacy?.id) {
+          await db.from("billing_subscriptions").upsert(
+            { operator_id: opForLegacy.id, marketing_addon: true, marketing_fee: 50000, status: "active" },
+            { onConflict: "operator_id" }
+          );
+        }
+
         await db.from("activity_logs").insert({
           lead_id:     "00000000-0000-0000-0000-000000000000",
           property_id: "00000000-0000-0000-0000-000000000000",
@@ -97,6 +107,14 @@ export async function POST(req: NextRequest) {
           marketing_subscription_status:  "canceled",
           marketing_subscription_ends_at: new Date().toISOString(),
         }).eq("stripe_customer_id", customerId);
+
+        // Sync legacy flag — turn marketing_addon off
+        const { data: opForLegacy } = await db
+          .from("operators").select("id").eq("stripe_customer_id", customerId).single();
+        if (opForLegacy?.id) {
+          await db.from("billing_subscriptions").update({ marketing_addon: false })
+            .eq("operator_id", opForLegacy.id);
+        }
         break;
       }
 

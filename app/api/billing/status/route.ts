@@ -12,18 +12,24 @@ export async function GET(req: NextRequest) {
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = getSupabaseAdmin();
-  const { data: op } = await db
-    .from("operators")
-    .select(`
-      email,
-      stripe_customer_id,
-      stripe_subscription_id,
-      marketing_subscription_status,
-      marketing_subscribed_at,
-      marketing_subscription_ends_at
-    `)
-    .eq("id", ctx.operatorId)
-    .single();
+  const [opRes, subRes] = await Promise.all([
+    db.from("operators")
+      .select(`
+        email,
+        stripe_customer_id,
+        stripe_subscription_id,
+        marketing_subscription_status,
+        marketing_subscribed_at,
+        marketing_subscription_ends_at
+      `)
+      .eq("id", ctx.operatorId)
+      .single(),
+    db.from("billing_subscriptions")
+      .select("marketing_addon")
+      .eq("operator_id", ctx.operatorId)
+      .maybeSingle(),
+  ]);
+  const op = opRes.data;
 
   if (!op) return NextResponse.json({ error: "Operator not found" }, { status: 404 });
 
@@ -34,6 +40,7 @@ export async function GET(req: NextRequest) {
   const hasAccess = hasActiveMarketingSubscription({
     email:                          op.email,
     marketing_subscription_status:  op.marketing_subscription_status,
+    marketing_addon:                subRes.data?.marketing_addon,
   });
 
   return NextResponse.json({

@@ -49,21 +49,24 @@ export async function POST(
   const db = getSupabaseAdmin();
 
   // ── 1. Subscription gate ──────────────────────────────────────────────────────
-  const { data: operator } = await db
-    .from("operators")
-    .select(`
-      email,
-      meta_access_token, meta_ad_account_id, meta_page_id,
-      marketing_subscription_status
-    `)
-    .eq("id", ctx.operatorId)
-    .single();
+  const [opRes, subRes] = await Promise.all([
+    db.from("operators")
+      .select(`email, meta_access_token, meta_ad_account_id, meta_page_id, marketing_subscription_status`)
+      .eq("id", ctx.operatorId)
+      .single(),
+    db.from("billing_subscriptions")
+      .select("marketing_addon")
+      .eq("operator_id", ctx.operatorId)
+      .maybeSingle(),
+  ]);
+  const operator = opRes.data;
 
   if (!operator) return NextResponse.json({ error: "Operator not found" }, { status: 404 });
 
   if (!hasActiveMarketingSubscription({
     email:                         operator.email,
     marketing_subscription_status: operator.marketing_subscription_status,
+    marketing_addon:               subRes.data?.marketing_addon,
   })) {
     return NextResponse.json({
       error:           "Marketing Add-on subscription required",
