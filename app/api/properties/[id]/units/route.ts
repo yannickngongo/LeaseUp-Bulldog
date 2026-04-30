@@ -1,14 +1,19 @@
 // GET  /api/properties/[id]/units  — list all units for a property
 // POST /api/properties/[id]/units  — bulk upsert units from rent roll, recalculate occupancy
+// Tenant-scoped: only the operator who owns the property can read/write.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { authorizeProperty } from "@/lib/authz";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const db = getSupabaseAdmin();
   const { data, error } = await db
     .from("units")
@@ -37,6 +42,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const body = await req.json();
   const units: UnitRow[] = body.units;
 

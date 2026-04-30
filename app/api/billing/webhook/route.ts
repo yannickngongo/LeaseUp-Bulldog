@@ -15,6 +15,7 @@ import {
   getStripe,
 } from "@/lib/stripe-server";
 import { pauseMetaCampaign } from "@/lib/meta-ads";
+import { seenWebhook, markWebhookFailed } from "@/lib/webhook-idempotency";
 
 export async function POST(req: NextRequest) {
   const rawBody   = await req.text();
@@ -26,6 +27,12 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Invalid signature";
     return NextResponse.json({ error: `Webhook signature failed: ${msg}` }, { status: 400 });
+  }
+
+  // Idempotency — Stripe retries deliveries on timeout. Skip if we've seen this event.
+  const isDuplicate = await seenWebhook("stripe", event.id, event.type, event as unknown as Record<string, unknown>);
+  if (isDuplicate) {
+    return NextResponse.json({ received: true, duplicate: true });
   }
 
   const db = getSupabaseAdmin();
@@ -188,7 +195,9 @@ export async function POST(req: NextRequest) {
       }
     }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error(`Stripe webhook handler error (${event.type}):`, err);
+    await markWebhookFailed("stripe", event.id, msg);
     return NextResponse.json({ error: "Handler error" }, { status: 500 });
   }
 

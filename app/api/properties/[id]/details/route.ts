@@ -1,13 +1,18 @@
 // GET  /api/properties/[id]/details — fetch single property
 // PATCH /api/properties/[id]/details — update property fields
+// Tenant-scoped: only the operator who owns the property can read/update.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { authorizeProperty } from "@/lib/authz";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Ctx) {
+export async function GET(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const db = getSupabaseAdmin();
 
   const { data, error } = await db
@@ -22,6 +27,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const db = getSupabaseAdmin();
 
   const body = await req.json();

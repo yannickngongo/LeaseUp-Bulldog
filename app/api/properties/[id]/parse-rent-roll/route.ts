@@ -1,14 +1,18 @@
 // POST /api/properties/[id]/parse-rent-roll
 // Accepts a PDF or CSV file upload, extracts unit data using Claude, returns parsed units.
+// Tenant-scoped: only the operator who owns the property can upload.
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { authorizeProperty } from "@/lib/authz";
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await params; // property id available if needed for validation
+  const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { authorizeProperty } from "@/lib/authz";
 
 const UnitTypeSchema = z.object({
   label:      z.string().min(1),
@@ -41,10 +42,13 @@ const PatchSchema = z.object({
 });
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const db = getSupabaseAdmin();
 
   const { data, error } = await db
@@ -65,6 +69,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const body = await req.json();
   const parsed = PatchSchema.safeParse(body);
 

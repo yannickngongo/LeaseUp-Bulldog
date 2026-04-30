@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { authorizeProperty } from "@/lib/authz";
 
 interface UnitInput {
   unit_type?: string | null;
@@ -16,7 +17,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await params;
+  const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
   const { property, occupancy, pipeline, units } = body as {

@@ -1,14 +1,19 @@
 // DELETE /api/properties/[id] — delete a property and its related data
+// Tenant-scoped: only the operator who owns the property can delete it.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { releasePhoneNumber } from "@/lib/twilio";
+import { authorizeProperty } from "@/lib/authz";
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const auth = await authorizeProperty(req, id);
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const db = getSupabaseAdmin();
 
   // Fetch the property's Twilio SID before deleting so we can release the number

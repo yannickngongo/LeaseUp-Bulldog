@@ -101,27 +101,34 @@ const ALL_STEPS = [
 
 // ─── PlatformTour ─────────────────────────────────────────────────────────────
 
+const TOUR_COMPLETED_KEY = "lub_platform_tour_completed";
+
 interface PlatformTourProps {
   onFinish: () => void;
+  /** When true, runs even if the user previously completed/skipped. Used by 'Restart tour' button. */
+  forceRun?: boolean;
 }
 
-export function PlatformTour({ onFinish }: PlatformTourProps) {
+export function PlatformTour({ onFinish, forceRun = false }: PlatformTourProps) {
   const startTour = useCallback(async () => {
     const { driver } = await import("driver.js");
     await import("driver.js/dist/driver.css");
 
     const driverObj = driver({
-      showProgress: true,
-      animate: true,
-      overlayOpacity: 0.55,
-      stagePadding: 6,
-      stageRadius: 10,
-      allowClose: true,
-      progressText: "{{current}} of {{total}}",
-      nextBtnText: "Next →",
-      prevBtnText: "← Back",
-      doneBtnText: "Done ✓",
+      showProgress:    true,
+      animate:         true,
+      overlayOpacity:  0.55,
+      stagePadding:    6,
+      stageRadius:     10,
+      allowClose:      true,
+      progressText:    "{{current}} of {{total}}",
+      nextBtnText:     "Next →",
+      prevBtnText:     "← Back",
+      doneBtnText:     "Done ✓",
       onDestroyStarted: () => {
+        // Mark as completed whether they finished or closed early — we'll let
+        // them re-run via the 'Restart tour' button on getting-started.
+        try { localStorage.setItem(TOUR_COMPLETED_KEY, "1"); } catch { /* ignore */ }
         driverObj.destroy();
         onFinish();
       },
@@ -134,10 +141,24 @@ export function PlatformTour({ onFinish }: PlatformTourProps) {
   }, [onFinish]);
 
   useEffect(() => {
+    // Skip if user already completed/skipped, unless explicitly told to re-run
+    if (!forceRun) {
+      try {
+        if (localStorage.getItem(TOUR_COMPLETED_KEY) === "1") {
+          onFinish();
+          return;
+        }
+      } catch { /* ignore — fall through and run */ }
+    }
     // Small delay so the DOM is fully painted before we start highlighting
     const t = setTimeout(startTour, 300);
     return () => clearTimeout(t);
-  }, [startTour]);
+  }, [startTour, forceRun, onFinish]);
 
   return null;
+}
+
+/** Clears the "completed" flag so the next render re-runs the tour. */
+export function resetPlatformTour() {
+  try { localStorage.removeItem(TOUR_COMPLETED_KEY); } catch { /* ignore */ }
 }

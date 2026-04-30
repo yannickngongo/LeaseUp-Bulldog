@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { fetchMetaLead, verifyMetaWebhookSignature } from "@/lib/meta-ads";
 import { ingestCampaignLead } from "@/lib/marketing";
+import { seenWebhook } from "@/lib/webhook-idempotency";
 
 // ─── GET: webhook verification ────────────────────────────────────────────────
 
@@ -82,6 +83,10 @@ export async function POST(req: NextRequest) {
       if (change.field !== "leadgen") continue;
 
       const { leadgen_id, page_id, form_id, ad_id } = change.value;
+
+      // Idempotency — Meta retries on timeout. Skip if we've already ingested this lead.
+      const dup = await seenWebhook("meta", leadgen_id, "leadgen", change.value as unknown as Record<string, unknown>);
+      if (dup) continue;
 
       // Find the operator who owns this page
       const { data: operator } = await db
