@@ -20,6 +20,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { resolveCallerContext } from "@/lib/auth";
 import { createMetaLeadCampaign } from "@/lib/meta-ads";
 import { hasActiveMarketingSubscription } from "@/lib/stripe-server";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 const Schema = z.object({
   platform:     z.enum(["facebook", "instagram", "google"]),
@@ -33,6 +34,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: campaignId } = await params;
+
+  // Hard gate: Marketing Add-on launch flag
+  if (!isMarketingAddonLive()) {
+    return NextResponse.json({
+      error:        "Marketing Add-on is launching soon — join the waitlist at /marketing",
+      coming_soon:  true,
+      waitlist_url: "/marketing",
+    }, { status: 503 });
+  }
+
   const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

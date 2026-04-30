@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { authFetch } from "@/lib/demo-auth";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 interface Status {
   hasAccess:    boolean;
@@ -15,13 +16,32 @@ interface Status {
 
 function BillingPageInner() {
   const params = useSearchParams();
+  const addonLive = isMarketingAddonLive();
   const [status, setStatus]     = useState<Status | null>(null);
   const [loading, setLoading]   = useState(true);
   const [working, setWorking]   = useState(false);
   const [error, setError]       = useState("");
+  const [waitlistEmail, setWaitlistEmail]   = useState("");
+  const [waitlistDone, setWaitlistDone]     = useState(false);
+  const [waitlistError, setWaitlistError]   = useState("");
 
   const showSuccess  = params.get("success")  === "true";
   const showCanceled = params.get("canceled") === "true";
+
+  async function joinWaitlist() {
+    if (!waitlistEmail.trim()) { setWaitlistError("Email required"); return; }
+    setWaitlistError("");
+    try {
+      const res = await fetch("/api/marketing-waitlist", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ email: waitlistEmail.trim(), source: "billing_page" }),
+      });
+      const json = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok) { setWaitlistError(json.error ?? "Failed to join"); return; }
+      setWaitlistDone(true);
+    } catch { setWaitlistError("Network error"); }
+  }
 
   useEffect(() => {
     authFetch("/api/billing/status")
@@ -108,9 +128,15 @@ function BillingPageInner() {
               <p className="text-xs font-bold uppercase tracking-widest text-[#C8102E] mb-1">Marketing Add-on</p>
               <p className="text-lg font-bold text-gray-900 dark:text-gray-100">$500<span className="text-sm font-normal text-gray-400">/month + 5% of ad spend</span></p>
             </div>
-            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColor[status?.status ?? "inactive"]}`}>
-              {statusLabel[status?.status ?? "inactive"]}
-            </span>
+            {addonLive ? (
+              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColor[status?.status ?? "inactive"]}`}>
+                {statusLabel[status?.status ?? "inactive"]}
+              </span>
+            ) : (
+              <span className="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 text-xs font-semibold">
+                Coming Soon
+              </span>
+            )}
           </div>
 
           <div className="space-y-2 mb-5 text-sm">
@@ -131,7 +157,36 @@ function BillingPageInner() {
 
           {error && <p className="mb-3 text-xs text-red-500">{error}</p>}
 
-          {status?.hasAccess && status.status === "active" ? (
+          {!addonLive ? (
+            /* Coming Soon — waitlist signup */
+            waitlistDone ? (
+              <div className="rounded-xl border border-green-200 bg-green-50 dark:border-green-900/40 dark:bg-green-900/10 px-4 py-3">
+                <p className="text-sm font-semibold text-green-700 dark:text-green-400">✓ You&apos;re on the waitlist</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">We&apos;ll email you the moment the Marketing Add-On launches.</p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Get an email the moment this launches:</p>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={waitlistEmail}
+                    onChange={e => setWaitlistEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="flex-1 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm placeholder-gray-400 focus:border-[#C8102E] focus:outline-none"
+                  />
+                  <button
+                    onClick={joinWaitlist}
+                    disabled={!waitlistEmail.trim()}
+                    className="rounded-lg bg-[#C8102E] px-4 py-2 text-xs font-bold text-white hover:bg-[#A50D25] disabled:opacity-50"
+                  >
+                    Notify me
+                  </button>
+                </div>
+                {waitlistError && <p className="mt-2 text-xs text-red-500">{waitlistError}</p>}
+              </div>
+            )
+          ) : status?.hasAccess && status.status === "active" ? (
             <button onClick={openPortal} disabled={working} className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-white/20 disabled:opacity-50">
               {working ? "Opening…" : "Manage Subscription →"}
             </button>

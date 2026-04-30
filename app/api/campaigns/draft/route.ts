@@ -7,8 +7,18 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { checkMarketingAccessByOperatorId } from "@/lib/stripe-server";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 export async function POST(req: NextRequest) {
+  // Hard gate: Marketing Add-on launch flag
+  if (!isMarketingAddonLive()) {
+    return NextResponse.json({
+      error:        "Marketing Add-on is launching soon — join the waitlist at /marketing",
+      coming_soon:  true,
+      waitlist_url: "/marketing",
+    }, { status: 503 });
+  }
+
   const body = await req.json();
 
   // Gate: marketing add-on required

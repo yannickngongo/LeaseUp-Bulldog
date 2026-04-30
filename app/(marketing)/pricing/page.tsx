@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { MarketingNav } from "@/components/MarketingNav";
 import { MarketingFooter } from "@/components/MarketingFooter";
+import { PricingPageWaitlist } from "@/components/marketing-addon/PricingPageWaitlist";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 const FAQS = [
   {
@@ -152,7 +154,11 @@ export default function PricingPage() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <p className="text-sm font-bold text-amber-400">Marketing Add-On</p>
-                  <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Optional</span>
+                  {isMarketingAddonLive() ? (
+                    <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Optional</span>
+                  ) : (
+                    <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Coming Soon</span>
+                  )}
                 </div>
                 <div className="flex items-baseline gap-2 mb-1">
                   <span className="text-3xl font-black text-white">$500</span>
@@ -163,13 +169,17 @@ export default function PricingPage() {
                 </div>
                 <p className="text-sm text-gray-400">AI ad strategy, creative, and copy for Facebook & Google. You approve before anything goes live.</p>
               </div>
-              <div className="shrink-0">
-                <div className="rounded-xl border border-amber-800/30 bg-amber-900/20 p-4 text-center min-w-[160px]">
-                  <p className="text-xs text-amber-400 font-semibold mb-1">Example: $5K ad spend</p>
-                  <p className="text-2xl font-black text-white">$750/mo</p>
-                  <p className="text-xs text-gray-500">$500 + $250 (5%)</p>
+              {isMarketingAddonLive() ? (
+                <div className="shrink-0">
+                  <div className="rounded-xl border border-amber-800/30 bg-amber-900/20 p-4 text-center min-w-[160px]">
+                    <p className="text-xs text-amber-400 font-semibold mb-1">Example: $5K ad spend</p>
+                    <p className="text-2xl font-black text-white">$750/mo</p>
+                    <p className="text-xs text-gray-500">$500 + $250 (5%)</p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <PricingPageWaitlist />
+              )}
             </div>
           </div>
 

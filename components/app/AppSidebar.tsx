@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { CountBadge } from "@/components/ui/Badge";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 import { createBrowserClient } from "@supabase/ssr";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -296,19 +297,39 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
         <NavGroupLabel label="Operations" />
         <div className="space-y-0.5">
           {NAV_SECONDARY.map((item) => {
-            if (item.href === "/marketing" && !hasMarketing) {
-              return (
-                <Link
-                  key={item.href}
-                  href="/settings/billing"
-                  title="Subscribe to the Marketing Add-on ($500/mo + 5% of ad spend)"
-                  className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-400 dark:text-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
-                >
-                  <span className="text-gray-300 dark:text-gray-700">{item.icon}</span>
-                  <span className="flex-1">{item.label}</span>
-                  <span className="rounded-full bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-600">Add-on</span>
-                </Link>
-              );
+            if (item.href === "/marketing") {
+              const addonLive = isMarketingAddonLive();
+              // When the addon isn't live yet, everyone sees a "SOON" badge that
+              // links to the Marketing tab's Coming Soon page (with waitlist).
+              if (!addonLive) {
+                return (
+                  <Link
+                    key={item.href}
+                    href="/marketing"
+                    title="Marketing Add-on launching soon"
+                    className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-500 dark:text-gray-400 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
+                  >
+                    <span className="text-gray-400 dark:text-gray-500">{item.icon}</span>
+                    <span className="flex-1">{item.label}</span>
+                    <span className="rounded-full bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Soon</span>
+                  </Link>
+                );
+              }
+              // Addon is live — fall back to subscription gate
+              if (!hasMarketing) {
+                return (
+                  <Link
+                    key={item.href}
+                    href="/settings/billing"
+                    title="Subscribe to the Marketing Add-on ($500/mo + 5% of ad spend)"
+                    className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-gray-400 dark:text-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5"
+                  >
+                    <span className="text-gray-300 dark:text-gray-700">{item.icon}</span>
+                    <span className="flex-1">{item.label}</span>
+                    <span className="rounded-full bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-600">Add-on</span>
+                  </Link>
+                );
+              }
             }
             return <NavLink key={item.href} item={item} active={isActive(item.href)} />;
           })}

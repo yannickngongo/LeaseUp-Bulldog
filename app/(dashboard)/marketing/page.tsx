@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
+import { ComingSoonMarketing } from "@/components/marketing-addon/ComingSoonMarketing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1835,6 +1837,14 @@ function NewCampaignModal({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function MarketingPage() {
+  // Gate: if the Marketing Add-on is not live yet, show Coming Soon page with waitlist
+  if (!isMarketingAddonLive()) {
+    return <ComingSoonMarketing />;
+  }
+  return <MarketingPageInner />;
+}
+
+function MarketingPageInner() {
   const router = useRouter();
   const [campaigns, setCampaigns]     = useState<Campaign[]>([]);
   const [selectedId, setSelectedId]   = useState<string | null>(null);

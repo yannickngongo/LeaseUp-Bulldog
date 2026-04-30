@@ -5,8 +5,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveCallerContext } from "@/lib/auth";
 import { createMarketingCheckoutSession, getOrCreateStripeCustomer } from "@/lib/stripe-server";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 export async function POST(req: NextRequest) {
+  // Hard gate: Marketing Add-on launch flag — block subscriptions until we're ready to ship
+  if (!isMarketingAddonLive()) {
+    return NextResponse.json({
+      error:        "Marketing Add-on is launching soon — join the waitlist at /marketing",
+      coming_soon:  true,
+      waitlist_url: "/marketing",
+    }, { status: 503 });
+  }
+
   const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
