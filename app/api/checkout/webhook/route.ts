@@ -9,6 +9,7 @@ import Stripe from "stripe";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { provisionAdAccounts } from "@/lib/ad-accounts";
 import { normalizePlan } from "@/lib/plans";
+import { seenWebhook } from "@/lib/webhook-idempotency";
 
 function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
@@ -43,6 +44,12 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Stripe webhook signature verification failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  // Idempotency — Stripe retries deliveries on timeout, so dedupe by event ID.
+  const dup = await seenWebhook("stripe", event.id, event.type, event as unknown as Record<string, unknown>);
+  if (dup) {
+    return NextResponse.json({ received: true, duplicate: true });
   }
 
   if (event.type === "checkout.session.completed") {

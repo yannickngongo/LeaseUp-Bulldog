@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { provisionPhoneNumber } from "@/lib/twilio";
 import { resolveCallerContext } from "@/lib/auth";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
   const ctx = await resolveCallerContext(req);
@@ -51,6 +52,15 @@ export async function PATCH(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const ctx = await resolveCallerContext(req);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit — this endpoint provisions paid Twilio numbers, so abuse is expensive.
+  // 5 setups/hour per operator, 10/hour per IP.
+  if (!rateLimit(`setup:${ctx.operatorId}`, 5, 3_600_000)) {
+    return NextResponse.json({ error: "Too many setup attempts — try again in an hour" }, { status: 429 });
+  }
+  if (!rateLimit(`setup-ip:${getClientIp(req)}`, 10, 3_600_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
 
   const body = await req.json();
   const {

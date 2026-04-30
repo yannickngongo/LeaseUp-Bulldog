@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { sendWaitlistWelcomeEmail, sendWaitlistEnrollEmail } from "@/lib/email";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,12 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Rate limit — public endpoint, prevent spam waitlist signups.
+  // 5 per IP per minute is generous for legitimate users, blocks bots.
+  if (!rateLimit(`waitlist:${getClientIp(req)}`, 5, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429, headers: CORS });
+  }
+
   let body: unknown;
   try {
     body = await req.json();

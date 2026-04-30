@@ -3,8 +3,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
+  // Rate limit — invitation tokens are random but limit brute-force attempts anyway.
+  // 10 accept attempts per IP per minute is plenty for legitimate use.
+  if (!rateLimit(`accept-invite:${getClientIp(req)}`, 10, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const { token } = await req.json();
   if (!token) return NextResponse.json({ error: "token required" }, { status: 400 });
 

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const Schema = z.object({
   email:         z.string().email(),
@@ -15,6 +16,11 @@ const Schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Rate limit — prevent waitlist spam. 5 per IP per minute.
+  if (!rateLimit(`mkt-waitlist:${getClientIp(req)}`, 5, 60_000)) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   let body: unknown;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
