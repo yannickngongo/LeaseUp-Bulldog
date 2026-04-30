@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CountBadge } from "@/components/ui/Badge";
-import { getOperatorEmail } from "@/lib/demo-auth";
+import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 import { createBrowserClient } from "@supabase/ssr";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -240,7 +240,7 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
     });
     getOperatorEmail().then((email) => {
       if (!email) return;
-      fetch(`/api/setup?email=${encodeURIComponent(email)}`)
+      authFetch(`/api/setup`)
         .then(r => r.json())
         .then(j => {
           const name = j.operator?.name ?? email.split("@")[0];
