@@ -13,6 +13,7 @@ ALTER TABLE operators ADD COLUMN IF NOT EXISTS google_ads_refresh_token  TEXT;
 ALTER TABLE operators ADD COLUMN IF NOT EXISTS google_ads_connected_at   TIMESTAMPTZ;
 
 -- ─── campaigns: launch tracking ──────────────────────────────────────────────
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS leads_generated      INTEGER DEFAULT 0;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS meta_campaign_id     TEXT;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS meta_adset_id        TEXT;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS meta_ad_id           TEXT;
