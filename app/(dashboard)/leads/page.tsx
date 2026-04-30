@@ -1446,10 +1446,9 @@ function LeadsPageInner() {
   }, [properties, selectedId, loadLeads]);
 
   const handleAdvanceLead = useCallback(async (id: string, newStatus: LeadStatus) => {
-    await fetch(`/api/leads/${id}`, {
+    await authFetch(`/api/leads/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus }),
+      body: { status: newStatus },
     });
     setLeads(prev => prev.map(l => l.id === id ? { ...l, status: newStatus } : l));
   }, []);
@@ -1464,7 +1463,7 @@ function LeadsPageInner() {
   const handleDeleteLead = useCallback(async () => {
     if (!selectedId) return;
     if (!window.confirm("Permanently delete this lead? This cannot be undone.")) return;
-    await fetch(`/api/leads/${selectedId}`, { method: "DELETE" });
+    await authFetch(`/api/leads/${selectedId}`, { method: "DELETE" });
     setLeads(prev => prev.filter(l => l.id !== selectedId));
     const remaining = leads.filter(l => l.id !== selectedId);
     setSelectedId(remaining[0]?.id ?? "");
@@ -1474,10 +1473,9 @@ function LeadsPageInner() {
   const handleUnsubscribeLead = useCallback(async () => {
     if (!selectedId) return;
     if (!window.confirm("Mark this lead as lost and unsubscribe them from future messages?")) return;
-    await fetch(`/api/leads/${selectedId}`, {
+    await authFetch(`/api/leads/${selectedId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "lost" }),
+      body: { status: "lost" },
     });
     setLeads(prev => prev.map(l => l.id === selectedId ? { ...l, status: "lost" } : l));
   }, [selectedId]);

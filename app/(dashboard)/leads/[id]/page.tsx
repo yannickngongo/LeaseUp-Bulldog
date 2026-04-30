@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
+import { MarkLeaseSignedButton } from "@/components/leads/MarkLeaseSignedButton";
 import type { Conversation } from "@/types/lead";
 
 function formatDateTime(iso?: string) {
@@ -31,6 +32,19 @@ export default async function LeadDetailPage({
 
   if (!lead) notFound();
 
+  // Look up operator + per-lease performance fee for the lease-record button
+  const { data: property } = await db
+    .from("properties")
+    .select("operator_id")
+    .eq("id", lead.property_id)
+    .single();
+
+  const operatorId = property?.operator_id ?? "";
+  const { data: sub } = operatorId
+    ? await db.from("billing_subscriptions").select("performance_fee_per_lease").eq("operator_id", operatorId).maybeSingle()
+    : { data: null };
+  const performanceFeePerLease = sub?.performance_fee_per_lease ?? 20000;  // default $200
+
   const convos: Conversation[] = conversations ?? [];
 
   return (
@@ -54,7 +68,20 @@ export default async function LeadDetailPage({
                 <p className="text-sm text-gray-500">{lead.email}</p>
               )}
             </div>
-            <StatusBadge status={lead.status} />
+            <div className="flex items-center gap-3 flex-wrap">
+              <StatusBadge status={lead.status} />
+              {operatorId && (
+                <MarkLeaseSignedButton
+                  leadId={lead.id}
+                  propertyId={lead.property_id}
+                  operatorId={operatorId}
+                  leadStatus={lead.status}
+                  firstContactDate={lead.first_contact_date ?? null}
+                  attributionWindowEnd={lead.attribution_window_end ?? null}
+                  performanceFeePerLease={performanceFeePerLease}
+                />
+              )}
+            </div>
           </div>
 
           {/* AI summary */}

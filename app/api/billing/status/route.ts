@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       .eq("id", ctx.operatorId)
       .single(),
     db.from("billing_subscriptions")
-      .select("marketing_addon")
+      .select("marketing_addon, status")
       .eq("operator_id", ctx.operatorId)
       .maybeSingle(),
   ]);
@@ -37,16 +37,19 @@ export async function GET(req: NextRequest) {
     .split(",").map(s => s.trim().toLowerCase()).filter(Boolean)
     .includes(op.email.toLowerCase());
 
+  // Canonical access check: only reads marketing_addon + PRO_OVERRIDE.
   const hasAccess = hasActiveMarketingSubscription({
-    email:                          op.email,
-    marketing_subscription_status:  op.marketing_subscription_status,
-    marketing_addon:                subRes.data?.marketing_addon,
+    email:           op.email,
+    marketing_addon: subRes.data?.marketing_addon,
   });
 
+  // The Stripe subscription status (active/past_due/canceled/...) is informational
+  // only — it tracks Stripe's view, not access. Access is solely driven by
+  // marketing_addon. Webhook keeps both in sync for active subscriptions.
   return NextResponse.json({
     hasAccess,
     isPro,
-    status:        op.marketing_subscription_status ?? "inactive",
+    status:        op.marketing_subscription_status ?? (subRes.data?.marketing_addon ? "active" : "inactive"),
     subscribedAt:  op.marketing_subscribed_at  ?? null,
     endsAt:        op.marketing_subscription_ends_at ?? null,
     hasCustomer:   !!op.stripe_customer_id,

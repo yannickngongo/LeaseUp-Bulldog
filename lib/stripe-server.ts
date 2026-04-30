@@ -31,37 +31,46 @@ const PRO_OVERRIDE_EMAILS = (process.env.PRO_OVERRIDE_EMAILS ?? "")
   .map(s => s.trim().toLowerCase())
   .filter(Boolean);
 
-// ─── hasActiveMarketingSubscription ──────────────────────────────────────────
-// Returns true if any of these are true:
-//   1. Email is in PRO_OVERRIDE_EMAILS (testing bypass)
-//   2. operators.marketing_subscription_status is active/trialing (new Stripe sub)
-//   3. billing_subscriptions.marketing_addon is true (legacy system)
+// ─── Marketing add-on access ─────────────────────────────────────────────────
+//
+// CANONICAL SOURCE OF TRUTH: billing_subscriptions.marketing_addon (boolean)
+//
+// Why a single boolean and not the operators.marketing_subscription_status enum?
+// Because "do they have access?" is a yes/no decision, while the enum is just
+// Stripe-state tracking. Mixing the two led to drift bugs where one was true
+// and the other was false. Now the rule is:
+//
+//   billing_subscriptions.marketing_addon = true   →  user has access
+//   PRO_OVERRIDE_EMAILS includes their email       →  user has access
+//   anything else                                  →  no access
+//
+// The Stripe webhook flips billing_subscriptions.marketing_addon on subscription
+// activation/cancellation. The operators.stripe_*, marketing_subscription_status,
+// marketing_subscribed_at, marketing_subscription_ends_at columns are kept for
+// observability (when did they sub? what's Stripe's view?) but are never read
+// for access decisions.
 
 export function hasActiveMarketingSubscription(op: {
-  email?:                          string | null;
-  marketing_subscription_status?:  string | null;
-  marketing_addon?:                boolean | null;   // from billing_subscriptions (legacy)
+  email?:           string | null;
+  marketing_addon?: boolean | null;
 }): boolean {
   if (op.email && PRO_OVERRIDE_EMAILS.includes(op.email.toLowerCase())) return true;
-  if (op.marketing_subscription_status === "active" || op.marketing_subscription_status === "trialing") return true;
-  if (op.marketing_addon === true) return true;
-  return false;
+  return op.marketing_addon === true;
 }
 
 // ─── checkMarketingAccessByOperatorId ────────────────────────────────────────
-// Server-side helper that joins operators + billing_subscriptions and runs
-// hasActiveMarketingSubscription. Use this in API routes to gate features.
+// Server-side helper. Looks up the operator's email + their billing_subscriptions
+// row, returns true if they have access via PRO_OVERRIDE or marketing_addon=true.
 
 export async function checkMarketingAccessByOperatorId(operatorId: string): Promise<boolean> {
   const db = getSupabaseAdmin();
   const [opRes, subRes] = await Promise.all([
-    db.from("operators").select("email, marketing_subscription_status").eq("id", operatorId).single(),
+    db.from("operators").select("email").eq("id", operatorId).single(),
     db.from("billing_subscriptions").select("marketing_addon").eq("operator_id", operatorId).maybeSingle(),
   ]);
   return hasActiveMarketingSubscription({
-    email:                         opRes.data?.email,
-    marketing_subscription_status: opRes.data?.marketing_subscription_status,
-    marketing_addon:               subRes.data?.marketing_addon,
+    email:           opRes.data?.email,
+    marketing_addon: subRes.data?.marketing_addon,
   });
 }
 
