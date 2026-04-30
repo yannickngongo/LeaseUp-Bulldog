@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MarkLeaseSignedButton } from "@/components/leads/MarkLeaseSignedButton";
+import { ConsentAuditTrail } from "@/components/leads/ConsentAuditTrail";
 import type { Conversation } from "@/types/lead";
 
 function formatDateTime(iso?: string) {
@@ -124,6 +125,19 @@ export default async function LeadDetailPage({
             </div>
           </dl>
         </div>
+
+        {/* Consent audit trail (TCPA compliance record) */}
+        <ConsentAuditTrail
+          createdAt={lead.created_at}
+          firstContactDate={lead.first_contact_date ?? null}
+          source={lead.source}
+          utmSource={lead.utm_source ?? null}
+          utmMedium={lead.utm_medium ?? null}
+          utmCampaign={lead.utm_campaign ?? null}
+          optOut={lead.opt_out ?? null}
+          optOutAt={lead.opt_out_at ?? null}
+          ingestionMetadata={lead.ingestion_metadata ?? null}
+        />
 
         {/* Conversation history */}
         <div className="rounded-xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">

@@ -165,6 +165,16 @@ export async function POST(req: NextRequest) {
     metadata:    { lead_name: name, source, property_name: property.name, operator_id: property.operator_id },
   });
 
+  // Record first-lead milestone (idempotent — only the first lead per operator counts)
+  if (property.operator_id) {
+    const { recordMilestone } = await import("@/lib/milestones");
+    await recordMilestone(property.operator_id, "first_lead", {
+      lead_id:    lead.id,
+      source,
+      property_id: propertyId,
+    });
+  }
+
   // Generate and send AI welcome SMS
   try {
     const result = await generateLeadReply({

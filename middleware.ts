@@ -102,6 +102,27 @@ export async function middleware(req: NextRequest) {
     "max-age=63072000; includeSubDomains; preload"
   );
 
+  // Content Security Policy — allow self, our own subdomains, and trusted third parties.
+  // 'unsafe-inline' on style is unavoidable with Tailwind's runtime; we whitelist scripts
+  // explicitly. Adjust the connect-src list if you add new third-party APIs.
+  res.headers.set(
+    "Content-Security-Policy",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://*.sentry.io https://*.ingest.sentry.io",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https: http:",
+      "font-src 'self' data:",
+      "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.anthropic.com https://api.twilio.com https://api.hubapi.com https://graph.facebook.com https://*.sentry.io https://*.ingest.sentry.io",
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+      "upgrade-insecure-requests",
+    ].join("; ")
+  );
+
   return res;
 }
 

@@ -3,9 +3,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
-import { provisionPhoneNumber } from "@/lib/twilio";
+import { provisionPhoneNumber, sendSms, normalizePhone } from "@/lib/twilio";
 import { resolveCallerContext } from "@/lib/auth";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { recordMilestone } from "@/lib/milestones";
 
 export async function GET(req: NextRequest) {
   const ctx = await resolveCallerContext(req);
@@ -75,6 +76,11 @@ export async function POST(req: NextRequest) {
 
   const db = getSupabaseAdmin();
 
+  // UTM attribution captured on first visit (if available)
+  const attr = body.attribution as
+    | { utm_source?: string; utm_medium?: string; utm_campaign?: string; referrer?: string }
+    | undefined;
+
   // Upsert operator by email
   let operatorId: string;
   const { data: existing } = await db.from("operators").select("id").eq("email", email).single();
@@ -85,7 +91,15 @@ export async function POST(req: NextRequest) {
   } else {
     const { data: created, error } = await db
       .from("operators")
-      .insert({ name: operatorName, email, plan: "starter" })
+      .insert({
+        name:                 operatorName,
+        email,
+        plan:                 "starter",
+        signup_utm_source:    attr?.utm_source   ?? null,
+        signup_utm_medium:    attr?.utm_medium   ?? null,
+        signup_utm_campaign:  attr?.utm_campaign ?? null,
+        signup_referrer:      attr?.referrer     ?? null,
+      })
       .select("id")
       .single();
     if (error || !created) return NextResponse.json({ error: "Failed to create operator" }, { status: 500 });
@@ -125,6 +139,45 @@ export async function POST(req: NextRequest) {
 
   if (propError) {
     return NextResponse.json({ error: "Failed to create property" }, { status: 500 });
+  }
+
+  // ── Record milestone: setup_complete (first time only) ───────────────────────
+  await recordMilestone(operatorId, "setup_complete", {
+    property_id:    property?.id,
+    property_name:  propertyName,
+    city, state,
+  });
+
+  // ── Send welcome SMS to the operator ─────────────────────────────────────────
+  // We don't have an operator phone yet (operators table doesn't store one),
+  // so we skip if the body didn't include one. Wire-in path: when /setup
+  // collects a contact phone, pass it here as `body.contactPhone`.
+  const contactPhone = (body.contactPhone || body.operatorPhone || body.phone) as string | undefined;
+  if (contactPhone) {
+    const normalized = normalizePhone(contactPhone);
+    if (normalized) {
+      // Dedupe — only ever send once per operator
+      const { data: alreadySent } = await db
+        .from("operators")
+        .select("welcome_sms_sent_at")
+        .eq("id", operatorId)
+        .maybeSingle();
+
+      if (!alreadySent?.welcome_sms_sent_at) {
+        try {
+          await sendSms({
+            to:   normalized,
+            from: provisioned.phoneNumber,
+            body: `Welcome to LeaseUp Bulldog! Your AI is now live for ${propertyName}. Try texting this number to see how leads will be greeted within 60 seconds — that's how fast every prospect will hear from you.`,
+          });
+          await db.from("operators")
+            .update({ welcome_sms_sent_at: new Date().toISOString() })
+            .eq("id", operatorId);
+        } catch (err) {
+          console.error("[setup] welcome SMS failed (non-fatal):", err);
+        }
+      }
+    }
   }
 
   return NextResponse.json({ ok: true, operatorId, property }, { status: 201 });
