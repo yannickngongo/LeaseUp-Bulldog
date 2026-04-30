@@ -12,6 +12,7 @@ import {
   STRIPE_PRICE_ID_PORTFOLIO,
   STRIPE_PRICE_ID_MARKETING_ADDON,
 } from "@/lib/stripe";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 // Simple in-memory rate limiter — max 5 checkout attempts per email per 15 minutes.
 // Resets on cold starts; good enough for basic abuse prevention on serverless.
@@ -132,7 +133,9 @@ export async function POST(req: NextRequest) {
       makePriceItem(planConfig.priceId, planConfig.name, planConfig.unitAmount),
     ];
 
-    if (marketing_addon) {
+    // Server-side gate: ignore marketing_addon=true if feature flag isn't live.
+    // Defends against forged client requests slipping through to Stripe.
+    if (marketing_addon && isMarketingAddonLive()) {
       lineItems.push(
         makePriceItem(
           STRIPE_PRICE_ID_MARKETING_ADDON,

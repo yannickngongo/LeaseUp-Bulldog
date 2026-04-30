@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 // ─── Tour step definitions ────────────────────────────────────────────────────
 
-const STEPS = [
+const ALL_STEPS = [
   {
     element: "[data-tour='nav-dashboard']",
     popover: {
@@ -58,6 +59,7 @@ const STEPS = [
       side: "right" as const,
       align: "start" as const,
     },
+    requiresMarketingAddon: true,
   },
   {
     element: "[data-tour='nav-insights']",
@@ -123,7 +125,9 @@ export function PlatformTour({ onFinish }: PlatformTourProps) {
         driverObj.destroy();
         onFinish();
       },
-      steps: STEPS,
+      steps: ALL_STEPS
+        .filter(s => isMarketingAddonLive() || !("requiresMarketingAddon" in s && s.requiresMarketingAddon))
+        .map(({ element, popover }) => ({ element, popover })),
     });
 
     driverObj.drive();

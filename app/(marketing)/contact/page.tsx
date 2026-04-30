@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { MarketingNav } from "@/components/MarketingNav";
 import { MarketingFooter } from "@/components/MarketingFooter";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 export default function ContactPage() {
   return (
@@ -147,7 +148,9 @@ export default function ContactPage() {
               <span className="ml-2 text-sm text-white font-black">$500/mo + 5% of ad spend</span>
               <span className="ml-2 text-xs text-gray-400">— AI creative & copy for Facebook & Google</span>
             </div>
-            <span className="text-xs text-gray-500 shrink-0">$5K spend = $750/mo total</span>
+            <span className="text-xs text-gray-500 shrink-0">
+              {isMarketingAddonLive() ? "$5K spend = $750/mo total" : "Coming Soon"}
+            </span>
           </div>
           <p className="text-center mt-4 text-xs text-gray-600">No setup fee · 14-day pilot · <Link href="/pricing" className="text-[#C8102E] hover:underline">Full pricing →</Link></p>
         </div>

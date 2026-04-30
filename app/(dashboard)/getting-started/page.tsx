@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 import { PlatformTour } from "@/components/app/PlatformTour";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -241,7 +242,7 @@ export default function GettingStartedPage() {
 
   const visibleSteps = STEPS.filter(s => {
     if (!s.plans.includes(plan)) return false;
-    if (s.requiresMarketing && !hasMarketing) return false;
+    if (s.requiresMarketing && (!hasMarketing || !isMarketingAddonLive())) return false;
     return true;
   });
 
@@ -283,7 +284,7 @@ export default function GettingStartedPage() {
             <p className="text-gray-400 text-sm">
               Follow these steps to get LeaseUp Bulldog fully set up for your{" "}
               <span className="text-white font-semibold capitalize">{plan}</span> plan
-              {hasMarketing && <span className="text-purple-400"> + Marketing Add-On</span>}.
+              {hasMarketing && isMarketingAddonLive() && <span className="text-purple-400"> + Marketing Add-On</span>}.
             </p>
           </div>
           <button

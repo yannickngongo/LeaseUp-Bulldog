@@ -3,6 +3,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getOperatorEmail } from "@/lib/demo-auth";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 // ── Plan config ───────────────────────────────────────────────────────────────
 
@@ -50,10 +51,26 @@ function CheckoutForm() {
   const [marketingAddon,  setMarketingAddon]  = useState(false);
   const [loading,         setLoading]         = useState(false);
   const [error,           setError]           = useState<string | null>(null);
+  const [waitlistEmail,   setWaitlistEmail]   = useState("");
+  const [waitlistDone,    setWaitlistDone]    = useState(false);
+  const addonLive = isMarketingAddonLive();
 
   const plan = PLANS.find(p => p.id === selectedPlan) ?? PLANS[1];
 
-  const totalMonthly = plan.monthlyAmount + (marketingAddon ? 500 : 0);
+  // Force-disable marketing add-on charge if it's not live
+  const totalMonthly = plan.monthlyAmount + (addonLive && marketingAddon ? 500 : 0);
+
+  async function joinMarketingWaitlist() {
+    if (!waitlistEmail.trim()) return;
+    try {
+      const res = await fetch("/api/marketing-waitlist", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ email: waitlistEmail.trim(), source: "billing_page" }),
+      });
+      if (res.ok) setWaitlistDone(true);
+    } catch { /* swallow */ }
+  }
 
   async function handleCheckout() {
     setError(null);
@@ -68,7 +85,7 @@ function CheckoutForm() {
       const res = await fetch("/api/checkout/create-session", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ plan: selectedPlan, marketing_addon: marketingAddon, email }),
+        body:    JSON.stringify({ plan: selectedPlan, marketing_addon: addonLive && marketingAddon, email }),
       });
 
       let json: { url?: string; error?: string } = {};
@@ -164,33 +181,76 @@ function CheckoutForm() {
             {/* Marketing add-on */}
             <div className="mb-8">
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-gray-500">Add-Ons</h2>
-              <label
-                className={`flex cursor-pointer items-start gap-4 rounded-xl border px-5 py-4 transition-colors ${
-                  marketingAddon
-                    ? "border-purple-500/50 bg-purple-900/10"
-                    : "border-[#1E1E2E] bg-[#10101A] hover:border-purple-500/30"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={marketingAddon}
-                  onChange={e => setMarketingAddon(e.target.checked)}
-                  className="mt-0.5 accent-purple-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white">Marketing Add-On</span>
-                    <span className="rounded bg-purple-900/40 px-1.5 py-0.5 text-[10px] font-bold text-purple-400">Optional</span>
+
+              {addonLive ? (
+                <label
+                  className={`flex cursor-pointer items-start gap-4 rounded-xl border px-5 py-4 transition-colors ${
+                    marketingAddon
+                      ? "border-purple-500/50 bg-purple-900/10"
+                      : "border-[#1E1E2E] bg-[#10101A] hover:border-purple-500/30"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={marketingAddon}
+                    onChange={e => setMarketingAddon(e.target.checked)}
+                    className="mt-0.5 accent-purple-500"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-white">Marketing Add-On</span>
+                      <span className="rounded bg-purple-900/40 px-1.5 py-0.5 text-[10px] font-bold text-purple-400">Optional</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      AI ad creative for Facebook & Google. Campaigns auto-built, you approve before they go live.
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    AI ad creative for Facebook & Google. Campaigns auto-built, you approve before they go live.
-                  </p>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-white">$500/mo</p>
+                    <p className="text-[11px] text-gray-500">+ 5% of ad spend</p>
+                  </div>
+                </label>
+              ) : (
+                /* Coming Soon — waitlist instead of checkbox */
+                <div className="rounded-xl border border-amber-800/30 bg-amber-950/20 px-5 py-4">
+                  <div className="flex items-start gap-4 mb-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white">Marketing Add-On</span>
+                        <span className="rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">Coming Soon</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        AI ad creative for Facebook & Google. Launching shortly — get notified.
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-gray-500 line-through">$500/mo</p>
+                      <p className="text-[11px] text-gray-500">+ 5% of ad spend</p>
+                    </div>
+                  </div>
+                  {waitlistDone ? (
+                    <p className="text-xs text-green-400">✓ You&apos;ll be notified when this launches.</p>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        value={waitlistEmail}
+                        onChange={e => setWaitlistEmail(e.target.value)}
+                        placeholder="email@example.com"
+                        className="flex-1 rounded-lg border border-amber-800/30 bg-[#0a0a12] px-3 py-2 text-xs text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={joinMarketingWaitlist}
+                        disabled={!waitlistEmail.trim()}
+                        className="rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-[#0a0a12] hover:bg-amber-400 disabled:opacity-50 transition-colors"
+                      >
+                        Notify me
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="font-bold text-white">$500/mo</p>
-                  <p className="text-[11px] text-gray-500">+ 5% of ad spend</p>
-                </div>
-              </label>
+              )}
             </div>
 
             {error && (
@@ -229,7 +289,7 @@ function CheckoutForm() {
             </div>
 
             {/* Marketing addon summary */}
-            {marketingAddon && (
+            {addonLive && marketingAddon && (
               <div className="mb-4 rounded-xl border border-purple-500/30 bg-purple-900/10 p-4">
                 <p className="font-bold text-white text-sm">Marketing Add-On</p>
                 <p className="text-xs text-gray-400 mt-0.5">$500/mo + 5% of ad spend</p>
@@ -249,7 +309,7 @@ function CheckoutForm() {
                 <span>Platform fee after trial</span>
                 <span className="text-white">{plan.price}</span>
               </div>
-              {marketingAddon && (
+              {addonLive && marketingAddon && (
                 <div className="flex justify-between text-gray-400">
                   <span>Marketing add-on after trial</span>
                   <span className="text-white">$500/mo + 5%</span>
@@ -262,7 +322,7 @@ function CheckoutForm() {
               <div className="border-t border-[#1E1E2E] pt-3 flex justify-between">
                 <span className="font-semibold text-white">Monthly after trial</span>
                 <span className="font-black text-white">
-                  ${totalMonthly.toLocaleString()}/mo{marketingAddon ? " + 5%" : ""}
+                  ${totalMonthly.toLocaleString()}/mo{addonLive && marketingAddon ? " + 5%" : ""}
                 </span>
               </div>
             </div>

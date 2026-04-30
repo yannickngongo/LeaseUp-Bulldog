@@ -54,7 +54,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg font-bold text-white mb-3">6. Payment Terms</h2>
-            <p>The Service is billed monthly after a 14-day free trial. Pricing is plan-based: Starter ($500/month + $200/lease), Pro ($1,500/month + $150/lease), Portfolio ($3,000/month + $100/lease). A Marketing Add-On is available on any plan for an additional $500/month. Performance fees apply per lease marked &quot;Won&quot; in the platform within the 30-day attribution window. You may cancel at any time; cancellation takes effect at the end of the current billing cycle.</p>
+            <p>The Service is billed monthly after a 14-day free trial. Pricing is plan-based: Starter ($500/month + $200/lease), Pro ($1,500/month + $150/lease), Portfolio ($3,000/month + $100/lease). A Marketing Add-On (currently in development, available on any plan for $500/month + 5% of actual ad spend once launched) provides AI-generated ad campaigns and lead capture for Facebook, Instagram, and Google; charges for the Marketing Add-On only begin after it becomes generally available and you opt in. Performance fees apply per lease marked &quot;Won&quot; in the platform within the 30-day attribution window. You may cancel at any time; cancellation takes effect at the end of the current billing cycle.</p>
           </section>
 
           <section>

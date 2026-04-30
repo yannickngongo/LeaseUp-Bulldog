@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { isMarketingAddonLive } from "@/lib/feature-flags";
 
 const PLAN_OPTIONS = [
   { id: "starter",   label: "Starter",   price: "$500/mo + $200/lease",   desc: "Up to 3 properties" },
@@ -107,15 +108,27 @@ export default function FreeTrialPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-purple-800/30 bg-purple-950/20 px-4 py-3">
-                  <p className="text-xs font-semibold text-purple-400 mb-0.5">
-                    Marketing Add-On{" "}
-                    <span className="font-normal text-purple-600">— Optional</span>
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    $500/mo + 5% of ad spend. AI ad creative for Facebook &amp; Google. Select on the next screen.
-                  </p>
-                </div>
+                {isMarketingAddonLive() ? (
+                  <div className="rounded-lg border border-purple-800/30 bg-purple-950/20 px-4 py-3">
+                    <p className="text-xs font-semibold text-purple-400 mb-0.5">
+                      Marketing Add-On{" "}
+                      <span className="font-normal text-purple-600">— Optional</span>
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      $500/mo + 5% of ad spend. AI ad creative for Facebook &amp; Google. Select on the next screen.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-4 py-3">
+                    <p className="text-xs font-semibold text-amber-400 mb-0.5">
+                      Marketing Add-On{" "}
+                      <span className="font-normal text-amber-600">— Coming Soon</span>
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      AI ad creative for Facebook &amp; Google launching shortly. Existing customers get first access — start your pilot now and we&apos;ll notify you.
+                    </p>
+                  </div>
+                )}
 
                 <button
                   type="submit"
