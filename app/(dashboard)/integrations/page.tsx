@@ -1,6 +1,22 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
+
+interface MetaPickerPage {
+  id:        string;
+  name:      string;
+  category:  string;
+  followers: number;
+}
+
+interface MetaPickerAdAccount {
+  id:             string;
+  name:           string;
+  status:         string;
+  currency:       string;
+  fundingDisplay: string | null;
+}
 
 interface Property {
   id: string;
@@ -22,10 +38,14 @@ const PLATFORMS: { id: Platform; name: string; logo: string }[] = [
   { id: "google_ads",     name: "Google Ads",             logo: "GA"  },
 ];
 
-export default function IntegrationsPage() {
+function IntegrationsPageInner() {
+  const searchParams = useSearchParams();
+  const router       = useRouter();
   const [properties, setProperties]         = useState<Property[]>([]);
   const [selectedProperty, setSelectedProperty] = useState<string>("");
-  const [activePlatform, setActivePlatform] = useState<Platform>("zillow");
+  const [activePlatform, setActivePlatform] = useState<Platform>(
+    (searchParams.get("tab") as Platform) ?? "zillow"
+  );
   const [email, setEmail]                   = useState<string>("");
   const [copied, setCopied]                 = useState(false);
 
@@ -44,6 +64,16 @@ export default function IntegrationsPage() {
   const [metaPageInput, setMetaPageInput]         = useState("");
   const [metaSaving, setMetaSaving]               = useState(false);
   const [metaError, setMetaError]                 = useState("");
+  const [metaShowAdvanced, setMetaShowAdvanced]   = useState(false);
+  const [metaOauthStarting, setMetaOauthStarting] = useState(false);
+
+  // Meta picker (post-OAuth)
+  const [metaPickerOpen, setMetaPickerOpen]       = useState(searchParams.get("meta_picker") === "1");
+  const [metaPages, setMetaPages]                 = useState<MetaPickerPage[]>([]);
+  const [metaAdAccounts, setMetaAdAccounts]       = useState<MetaPickerAdAccount[]>([]);
+  const [metaPickerLoading, setMetaPickerLoading] = useState(false);
+  const [metaSelectedPage, setMetaSelectedPage]   = useState("");
+  const [metaSelectedAdAcc, setMetaSelectedAdAcc] = useState("");
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://lease-up-bulldog.vercel.app";
 
@@ -68,7 +98,72 @@ export default function IntegrationsPage() {
       .then(r => r.json())
       .then(j => { setMetaConnected(j.connected); setMetaAdAccountId(j.adAccountId); })
       .catch(() => {});
-  }, []);
+
+    // OAuth callback returned with an error?
+    const metaErr = searchParams.get("meta_error");
+    if (metaErr) {
+      setMetaError(`Meta connection failed: ${metaErr.replace(/_/g, " ")}`);
+      setActivePlatform("meta_ads");
+    }
+  }, [searchParams]);
+
+  // Load Meta page picker data after OAuth callback
+  useEffect(() => {
+    if (!metaPickerOpen) return;
+    setMetaPickerLoading(true);
+    authFetch("/api/integrations/meta/pages")
+      .then(r => r.json())
+      .then(j => {
+        if (j.error) { setMetaError(j.error); setMetaPickerOpen(false); return; }
+        setMetaPages(j.pages ?? []);
+        setMetaAdAccounts(j.adAccounts ?? []);
+        // Auto-select the most-followed page and an active ad account
+        const topPage = (j.pages ?? []).slice().sort((a: MetaPickerPage, b: MetaPickerPage) => b.followers - a.followers)[0];
+        if (topPage) setMetaSelectedPage(topPage.id);
+        const activeAcc = (j.adAccounts ?? []).find((a: MetaPickerAdAccount) => a.status === "active");
+        if (activeAcc) setMetaSelectedAdAcc(activeAcc.id);
+      })
+      .catch(() => setMetaError("Failed to load pages — please reconnect"))
+      .finally(() => setMetaPickerLoading(false));
+  }, [metaPickerOpen]);
+
+  async function startMetaOAuth() {
+    setMetaError("");
+    setMetaOauthStarting(true);
+    try {
+      const res  = await authFetch("/api/integrations/meta/oauth/start", { method: "POST", body: {} });
+      const json = await res.json() as { redirectUrl?: string; error?: string };
+      if (!res.ok || !json.redirectUrl) {
+        setMetaError(json.error ?? "Could not start OAuth — using manual setup is a fallback");
+        setMetaOauthStarting(false);
+        return;
+      }
+      window.location.href = json.redirectUrl;
+    } catch {
+      setMetaError("Network error starting OAuth");
+      setMetaOauthStarting(false);
+    }
+  }
+
+  async function finalizeMetaConnection() {
+    if (!metaSelectedPage || !metaSelectedAdAcc) return;
+    setMetaSaving(true);
+    setMetaError("");
+    try {
+      const res  = await authFetch("/api/integrations/meta/finalize", {
+        method: "POST",
+        body:   { pageId: metaSelectedPage, adAccountId: metaSelectedAdAcc },
+      });
+      const json = await res.json() as { ok?: boolean; adAccountId?: string; pageName?: string; error?: string };
+      if (!res.ok) { setMetaError(json.error ?? "Connection failed"); return; }
+      setMetaConnected(true);
+      setMetaAdAccountId(json.adAccountId ?? null);
+      setMetaPickerOpen(false);
+      // Clean up the URL so a refresh doesn't re-trigger the picker
+      router.replace("/integrations?tab=meta_ads");
+    } catch { setMetaError("Network error — please try again."); }
+    finally  { setMetaSaving(false); }
+  }
 
   async function connectHubSpot() {
     setHsSaving(true);
@@ -486,52 +581,155 @@ export default function IntegrationsPage() {
                     <strong>What happens now:</strong> When you launch a campaign from the Marketing tab, LUB automatically creates the Lead Ad on your Facebook Page, collects leads via the webhook above, and starts the AI qualification sequence within 60 seconds.
                   </div>
                 </div>
-              ) : (
+              ) : metaPickerOpen ? (
+                /* ── Page picker (post-OAuth) ────────────────────────────────── */
                 <div>
-                  <div className="rounded-xl border border-[#1E1E2E] p-5 mb-6 space-y-5">
-                    {[
-                      { n: 1, title: "Create a Facebook App", desc: "Go to developers.facebook.com → My Apps → Create App. Choose Business type." },
-                      { n: 2, title: "Request Marketing API access", desc: "In your App Dashboard → App Review → Permissions. Request ads_management and leads_retrieval. For testing, these work with your own accounts without review." },
-                      { n: 3, title: "Generate a long-lived Page Access Token", desc: "In Graph API Explorer, select your app, get a User Token, then exchange for a long-lived token. Use /{page-id}?fields=access_token to get the Page token." },
-                      { n: 4, title: "Find your Ad Account ID", desc: 'In Meta Business Suite → Settings → Ad Accounts. Looks like "1234567890" (without "act_" — LUB adds that).' },
-                      { n: 5, title: "Find your Page ID", desc: "In Meta Business Suite → Pages → your page → About. Or in Graph API Explorer: GET /me/accounts." },
-                    ].map(step => (
-                      <div key={step.n} className="flex gap-4">
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/20 text-xs font-bold text-[#C8102E]">{step.n}</div>
-                        <div>
-                          <p className="font-semibold text-white">{step.title}</p>
-                          <p className="text-sm text-gray-400 mt-0.5">{step.desc}</p>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="rounded-xl border border-green-800/40 bg-green-950/20 px-5 py-4 mb-6 flex items-center gap-3">
+                    <span className="text-green-400 text-lg">✓</span>
+                    <div>
+                      <p className="text-sm font-semibold text-green-400">Authorized with Facebook</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Now pick which Page and Ad Account LUB should use.</p>
+                    </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {[
-                      { label: "Page Access Token", value: metaToken, setter: setMetaToken, placeholder: "EAAxxxxxxxxxxxxxxx", type: "password" as const },
-                      { label: "Ad Account ID", value: metaAccountInput, setter: setMetaAccountInput, placeholder: "1234567890 (without act_)", type: "text" as const },
-                      { label: "Facebook Page ID", value: metaPageInput, setter: setMetaPageInput, placeholder: "112233445566778", type: "text" as const },
-                    ].map(f => (
-                      <div key={f.label}>
-                        <label className="block text-xs font-semibold text-gray-400 mb-1">{f.label}</label>
-                        <input
-                          type={f.type}
-                          value={f.value}
-                          onChange={e => f.setter(e.target.value)}
-                          placeholder={f.placeholder}
-                          className="w-full rounded-xl border border-[#1E1E2E] bg-[#0a0a12] px-4 py-3 text-sm text-white font-mono placeholder-gray-600 focus:border-[#C8102E] focus:outline-none"
-                        />
+                  {metaPickerLoading ? (
+                    <div className="flex items-center gap-3 py-10 justify-center">
+                      <div className="h-6 w-6 rounded-full border-4 border-[#C8102E]/20 border-t-[#C8102E] animate-spin" />
+                      <p className="text-sm text-gray-400">Loading your pages and ad accounts…</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-5">
+                      {/* Page selector */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-2">Which Facebook Page should LUB use for ads?</label>
+                        <div className="space-y-2">
+                          {metaPages.length === 0 ? (
+                            <p className="text-xs text-gray-500">No pages found. You need to be admin of at least one Facebook Page.</p>
+                          ) : metaPages.map(p => (
+                            <label key={p.id} className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                              metaSelectedPage === p.id ? "border-[#C8102E] bg-[#C8102E]/5" : "border-[#1E1E2E] hover:border-gray-700"
+                            }`}>
+                              <input type="radio" name="meta-page" checked={metaSelectedPage === p.id} onChange={() => setMetaSelectedPage(p.id)} className="accent-[#C8102E]" />
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-white">{p.name}</p>
+                                <p className="text-[11px] text-gray-500">{p.followers.toLocaleString()} followers · {p.category}</p>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                    {metaError && <p className="text-xs text-red-400">{metaError}</p>}
+
+                      {/* Ad account selector */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-2">Which Ad Account should we use to charge for ads?</label>
+                        <div className="space-y-2">
+                          {metaAdAccounts.length === 0 ? (
+                            <p className="text-xs text-gray-500">No ad accounts found. Make sure you&apos;re an admin or advertiser on at least one Meta Ad Account.</p>
+                          ) : metaAdAccounts.map(a => (
+                            <label key={a.id} className={`flex items-center gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                              metaSelectedAdAcc === a.id ? "border-[#C8102E] bg-[#C8102E]/5" : "border-[#1E1E2E] hover:border-gray-700"
+                            } ${a.status !== "active" ? "opacity-60" : ""}`}>
+                              <input type="radio" name="meta-ad-account" checked={metaSelectedAdAcc === a.id} onChange={() => setMetaSelectedAdAcc(a.id)} disabled={a.status !== "active"} className="accent-[#C8102E]" />
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-white">{a.name}</p>
+                                <p className="text-[11px] text-gray-500">
+                                  {a.status === "active" ? "Active" : "Inactive"} · {a.currency}
+                                  {a.fundingDisplay ? ` · ${a.fundingDisplay}` : " · No payment method"}
+                                </p>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                        <p className="mt-2 text-[11px] text-gray-500">
+                          Don&apos;t see your account, or it&apos;s inactive? Make sure it has a payment method in Meta Business Suite → Billing.
+                        </p>
+                      </div>
+
+                      {metaError && <p className="text-xs text-red-400">{metaError}</p>}
+
+                      <div className="flex gap-3 pt-2">
+                        <button
+                          onClick={finalizeMetaConnection}
+                          disabled={metaSaving || !metaSelectedPage || !metaSelectedAdAcc}
+                          className="flex-1 rounded-xl bg-[#C8102E] px-5 py-3 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {metaSaving ? "Connecting…" : "Connect Account →"}
+                        </button>
+                        <button
+                          onClick={() => { setMetaPickerOpen(false); router.replace("/integrations?tab=meta_ads"); }}
+                          disabled={metaSaving}
+                          className="rounded-xl border border-[#1E1E2E] px-5 py-3 text-sm font-semibold text-gray-400 hover:text-white hover:border-gray-600 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* ── Initial connect: OAuth button + Advanced manual fallback ── */
+                <div>
+                  <div className="rounded-2xl border border-[#1E1E2E] bg-gradient-to-br from-[#1877F2]/5 to-transparent p-6 mb-6">
+                    <p className="text-sm text-gray-300 mb-4">
+                      Click the button below to connect with Facebook. You&apos;ll be asked to log in and grant LUB permission to manage ads on your Page — no developer accounts or tokens required.
+                    </p>
                     <button
-                      onClick={connectMeta}
-                      disabled={metaSaving || !metaToken.trim() || !metaAccountInput.trim() || !metaPageInput.trim()}
-                      className="rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      onClick={startMetaOAuth}
+                      disabled={metaOauthStarting}
+                      className="flex items-center gap-2.5 rounded-xl bg-[#1877F2] px-5 py-3 text-sm font-bold text-white hover:bg-[#1465D8] disabled:opacity-50 transition-colors"
                     >
-                      {metaSaving ? "Connecting…" : "Connect Meta Ads"}
+                      <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                      </svg>
+                      {metaOauthStarting ? "Opening Facebook…" : "Connect with Facebook"}
                     </button>
+                    {metaError && <p className="mt-3 text-xs text-red-400">{metaError}</p>}
                   </div>
+
+                  <div className="rounded-xl border border-amber-800/30 bg-amber-950/20 px-4 py-3 text-sm text-amber-300 mb-6">
+                    <strong>App Review note:</strong> Until your Facebook App is approved by Meta for advanced access, only people listed in your Business Manager (admins, developers, testers) can connect via this flow. Submit for App Review at developers.facebook.com → your App → App Review.
+                  </div>
+
+                  {/* Advanced manual fallback */}
+                  <button
+                    onClick={() => setMetaShowAdvanced(v => !v)}
+                    className="text-xs font-semibold text-gray-500 hover:text-gray-300 underline underline-offset-2"
+                  >
+                    {metaShowAdvanced ? "Hide" : "Show"} advanced: connect with Page Access Token instead
+                  </button>
+
+                  {metaShowAdvanced && (
+                    <div className="mt-4 rounded-xl border border-[#1E1E2E] p-5">
+                      <p className="text-xs text-gray-500 mb-4">
+                        Paste a long-lived Page Access Token (with <code className="text-green-400">ads_management</code> + <code className="text-green-400">leads_retrieval</code> scopes), Ad Account ID, and Page ID. Useful for testing or if OAuth isn&apos;t set up yet.
+                      </p>
+                      <div className="space-y-3">
+                        {[
+                          { label: "Page Access Token",  value: metaToken,         setter: setMetaToken,         placeholder: "EAAxxxxxxxxxxxxxxx",        type: "password" as const },
+                          { label: "Ad Account ID",      value: metaAccountInput,  setter: setMetaAccountInput,  placeholder: "1234567890 (without act_)", type: "text"     as const },
+                          { label: "Facebook Page ID",   value: metaPageInput,     setter: setMetaPageInput,     placeholder: "112233445566778",            type: "text"     as const },
+                        ].map(f => (
+                          <div key={f.label}>
+                            <label className="block text-xs font-semibold text-gray-400 mb-1">{f.label}</label>
+                            <input
+                              type={f.type}
+                              value={f.value}
+                              onChange={e => f.setter(e.target.value)}
+                              placeholder={f.placeholder}
+                              className="w-full rounded-xl border border-[#1E1E2E] bg-[#0a0a12] px-4 py-3 text-sm text-white font-mono placeholder-gray-600 focus:border-[#C8102E] focus:outline-none"
+                            />
+                          </div>
+                        ))}
+                        <button
+                          onClick={connectMeta}
+                          disabled={metaSaving || !metaToken.trim() || !metaAccountInput.trim() || !metaPageInput.trim()}
+                          className="rounded-xl bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {metaSaving ? "Connecting…" : "Connect Meta Ads (manual)"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -629,6 +827,14 @@ export default function IntegrationsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#08080F] text-white p-10 text-center text-gray-400">Loading…</div>}>
+      <IntegrationsPageInner />
+    </Suspense>
   );
 }
 
