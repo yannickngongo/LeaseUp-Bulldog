@@ -4,10 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -389,111 +385,6 @@ function BudgetForecastPanel({
   );
 }
 
-// ─── Stripe Payment Form ──────────────────────────────────────────────────────
-// Must be rendered inside <Elements> so it can use useStripe / useElements.
-
-function StripePaymentForm({
-  campaignId,
-  budget,
-  channel,
-  durationDays,
-  imageUrl,
-  onSuccess,
-  onError,
-}: {
-  campaignId:   string;
-  budget:       number;
-  channel:      AdChannel;
-  durationDays: number;
-  imageUrl?:    string;
-  onSuccess:    (warning?: string) => void;
-  onError:      (msg: string) => void;
-}) {
-  const stripe      = useStripe();
-  const elements    = useElements();
-  const [processing, setProcessing] = useState(false);
-
-  async function handleSubmit() {
-    if (!stripe || !elements) return;
-    setProcessing(true);
-
-    // 1. Validate Stripe Elements
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      onError(submitError.message ?? "Payment validation failed");
-      setProcessing(false);
-      return;
-    }
-
-    // 2. Create PaymentIntent server-side
-    const piRes = await fetch("/api/campaigns/payment-intent", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ campaignId, amountCents: Math.round(budget * 100), platform: channel }),
-    });
-    const piData = await piRes.json() as { clientSecret?: string; error?: string };
-    if (!piRes.ok || !piData.clientSecret) {
-      onError(piData.error ?? "Failed to create payment");
-      setProcessing(false);
-      return;
-    }
-
-    // 3. Confirm payment (stays in-page for cards; redirects only for bank transfers)
-    const { error: paymentError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      clientSecret:   piData.clientSecret,
-      confirmParams:  { return_url: `${window.location.origin}/dashboard/marketing` },
-      redirect:       "if_required",
-    });
-
-    if (paymentError) {
-      onError(paymentError.message ?? "Payment failed — please try again.");
-      setProcessing(false);
-      return;
-    }
-
-    // 4. Payment confirmed — launch campaign on ad platform
-    const launchRes = await fetch(`/api/campaigns/${campaignId}/launch`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        platform:        channel,
-        budgetCents:     Math.round(budget * 100),
-        durationDays,
-        imageUrl,
-        paymentIntentId: paymentIntent?.id,
-      }),
-    });
-    const launchData = await launchRes.json() as { ok?: boolean; warning?: string; error?: string };
-    if (!launchRes.ok) {
-      onError(launchData.error ?? "Campaign launch failed");
-      setProcessing(false);
-      return;
-    }
-
-    onSuccess(launchData.warning);
-  }
-
-  return (
-    <div>
-      <PaymentElement options={{ layout: "tabs" }} />
-      <button
-        onClick={handleSubmit}
-        disabled={processing || !stripe || !elements}
-        className="mt-4 w-full rounded-xl bg-[#C8102E] py-3.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
-      >
-        {processing ? (
-          <span className="flex items-center justify-center gap-2">
-            <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-            Processing…
-          </span>
-        ) : `Pay $${budget.toFixed(2)} and Launch →`}
-      </button>
-    </div>
-  );
-}
-
 // ─── Launch Modal ─────────────────────────────────────────────────────────────
 
 function LaunchModal({
@@ -530,8 +421,42 @@ function LaunchModal({
 
   const DURATION_OPTIONS = [7, 14, 30, 60];
 
-  function handlePaymentSuccess(warning?: string) {
-    setLaunchWarning(warning);
+  const [launching, setLaunching] = useState(false);
+
+  async function handleLaunch() {
+    setPaymentError(null);
+    setLaunching(true);
+
+    const res  = await fetch(`/api/campaigns/${campaign.id}/launch`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        platform:     channel,
+        budgetCents:  Math.round(budget * 100),
+        durationDays,
+        imageUrl,
+      }),
+    });
+    const data = await res.json() as { ok?: boolean; warning?: string; error?: string; subscribe_url?: string; connect_url?: string };
+
+    setLaunching(false);
+
+    if (!res.ok) {
+      // Subscription required — redirect to billing page
+      if (res.status === 402 && data.subscribe_url) {
+        window.location.href = data.subscribe_url;
+        return;
+      }
+      // Meta not connected — point operator to integrations
+      if (res.status === 412 && data.connect_url) {
+        setPaymentError(`${data.error}. Open Integrations → Meta Ads to connect.`);
+        return;
+      }
+      setPaymentError(data.error ?? "Launch failed");
+      return;
+    }
+
+    setLaunchWarning(data.warning);
     setLaunched(true);
     setTimeout(() => { onLaunched(campaign.id); onClose(); }, 2500);
   }
@@ -668,63 +593,49 @@ function LaunchModal({
               )}
             </div>
 
-            {/* Step 3: Payment */}
+            {/* Step 3: Cost Breakdown */}
             <div className="border-t border-gray-100 dark:border-white/5 pt-5">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">3. Payment</p>
-                <div className="flex items-center gap-1.5">
-                  <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  <span className="text-[10px] text-gray-400">Secured by Stripe</span>
+              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-4">3. Cost Breakdown</p>
+
+              <div className="rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 p-4 mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Paid directly to {channel === "google" ? "Google" : "Meta"}</p>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-gray-600 dark:text-gray-400">{channel.charAt(0).toUpperCase() + channel.slice(1)} ad spend ({durationDays} days)</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">${budget.toFixed(2)}</span>
                 </div>
+                <p className="text-[11px] text-gray-400">Charged to the card on file with your {channel === "google" ? "Google Ads" : "Meta Ad"} account, not LUB.</p>
               </div>
 
-              {/* Order summary */}
-              <div className="mb-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/5 p-4">
-                <div className="space-y-2">
-                  {[
-                    { label: `${channel.charAt(0).toUpperCase() + channel.slice(1)} Ads (${durationDays} days)`, value: `$${budget.toFixed(2)}` },
-                    { label: "LUB AI Qualification", value: "Included" },
-                    { label: "Platform Fee",          value: "$0.00"   },
-                  ].map(r => (
-                    <div key={r.label} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">{r.label}</span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">{r.value}</span>
-                    </div>
-                  ))}
-                  <div className="border-t border-gray-200 dark:border-white/10 pt-2 flex items-center justify-between">
-                    <span className="font-bold text-gray-900 dark:text-gray-100">Total</span>
-                    <span className="font-bold text-gray-900 dark:text-gray-100 text-lg">${budget.toFixed(2)}</span>
-                  </div>
+              <div className="rounded-xl bg-[#C8102E]/5 border border-[#C8102E]/20 p-4 mb-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#C8102E] mb-2">Billed by LUB on your monthly invoice</p>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="text-gray-600 dark:text-gray-400">5% of actual ad spend (≈ ${(budget * 0.05).toFixed(2)})</span>
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">≈ ${(budget * 0.05).toFixed(2)}</span>
                 </div>
+                <p className="text-[11px] text-gray-400">
+                  Calculated daily from real spend, added to your $500/mo Marketing Add-on invoice. No charge if you pause early.
+                </p>
               </div>
 
-              {/* Stripe Payment Element */}
               {paymentError && (
                 <div className="mb-3 rounded-xl border border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/10 px-4 py-2.5 text-sm text-red-600 dark:text-red-400">
                   {paymentError}
                 </div>
               )}
-              <Elements
-                stripe={stripePromise}
-                options={{
-                  mode:       "payment",
-                  amount:     Math.round(budget * 100),
-                  currency:   "usd",
-                  appearance: { theme: "stripe", variables: { colorPrimary: "#C8102E" } },
-                }}
+
+              <button
+                onClick={handleLaunch}
+                disabled={launching}
+                className="mt-2 w-full rounded-xl bg-[#C8102E] py-3.5 text-sm font-bold text-white hover:bg-[#A50D25] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                style={{ boxShadow: "0 4px 16px rgba(200,16,46,0.25)" }}
               >
-                <StripePaymentForm
-                  campaignId={campaign.id}
-                  budget={budget}
-                  channel={channel}
-                  durationDays={durationDays}
-                  imageUrl={imageUrl}
-                  onSuccess={handlePaymentSuccess}
-                  onError={msg => setPaymentError(msg)}
-                />
-              </Elements>
+                {launching ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                    Launching campaign…
+                  </span>
+                ) : `Launch Campaign on ${channel.charAt(0).toUpperCase() + channel.slice(1)} →`}
+              </button>
             </div>
           </div>
         )}
@@ -1934,6 +1845,7 @@ export default function MarketingPage() {
   const [operatorId, setOperatorId]   = useState("");
   const [operatorEmail, setOperatorEmail] = useState("");
   const [imageUrls, setImageUrls]     = useState<Record<string, string>>({});
+  const [subscription, setSubscription] = useState<{ hasAccess: boolean; isPro: boolean; status: string } | null>(null);
 
   function normalizeCampaigns(raw: Record<string, unknown>[]): Campaign[] {
     return raw.map(c => ({
@@ -1975,6 +1887,13 @@ export default function MarketingPage() {
         const res = await fetch(`/api/campaigns?operator_id=${opId}`);
         const json = await res.json();
         setCampaigns(normalizeCampaigns(json.campaigns ?? []));
+
+        // Load subscription status
+        try {
+          const subRes  = await authFetch("/api/billing/status");
+          const subJson = await subRes.json() as { hasAccess: boolean; isPro: boolean; status: string };
+          setSubscription(subJson);
+        } catch { /* non-blocking */ }
       } finally { setLoading(false); }
     }
     load();
@@ -2033,6 +1952,35 @@ export default function MarketingPage() {
                 + New Campaign
               </button>
             </div>
+
+            {subscription && !subscription.hasAccess && (
+              <div className="mb-6 rounded-2xl border border-[#C8102E]/30 bg-gradient-to-br from-[#C8102E]/5 to-transparent p-5 flex flex-wrap items-start gap-4">
+                <div className="shrink-0 flex h-10 w-10 items-center justify-center rounded-xl bg-[#C8102E]/10 text-[#C8102E] text-xl">⚡</div>
+                <div className="flex-1 min-w-[280px]">
+                  <p className="font-bold text-gray-900 dark:text-gray-100 mb-1">Marketing Add-on required to launch campaigns</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    $500/month + 5% of actual ad spend (billed monthly).
+                    You&apos;ll still pay Meta / Google directly for the ads themselves — we just manage strategy, copy, and lead capture.
+                  </p>
+                  <Link href="/settings/billing" className="inline-block rounded-lg bg-[#C8102E] px-4 py-2 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors">
+                    Subscribe →
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {subscription?.isPro && (
+              <div className="mb-6 rounded-xl border border-purple-300 bg-purple-50 dark:border-purple-900/40 dark:bg-purple-900/10 px-4 py-2.5 text-sm text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                <span className="text-base">★</span>
+                <span><strong>Pro Override</strong> — full Marketing Add-on access via <code className="text-xs">PRO_OVERRIDE_EMAILS</code>. Subscription not required.</span>
+              </div>
+            )}
+
+            {subscription?.status === "past_due" && (
+              <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+                <strong>Payment past due.</strong> Active campaigns have been paused. <Link href="/settings/billing" className="underline font-semibold">Update your payment method →</Link>
+              </div>
+            )}
 
             <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[
