@@ -28,9 +28,17 @@ ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS image_url            TEXT;
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS launched_at          TIMESTAMPTZ;
 
 -- ─── increment_campaign_leads RPC ────────────────────────────────────────────
+-- Uses plpgsql so the body isn't parse-validated at definition time
+-- (avoids "column does not exist" errors during fresh installs).
 CREATE OR REPLACE FUNCTION public.increment_campaign_leads(campaign_id UUID)
-RETURNS VOID LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
   UPDATE campaigns SET leads_generated = COALESCE(leads_generated, 0) + 1 WHERE id = campaign_id;
+END;
 $$;
 
 -- ─── Supabase Storage: campaign-images bucket ────────────────────────────────
