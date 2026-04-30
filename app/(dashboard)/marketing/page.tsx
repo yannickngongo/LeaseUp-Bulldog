@@ -427,15 +427,14 @@ function LaunchModal({
     setPaymentError(null);
     setLaunching(true);
 
-    const res  = await fetch(`/api/campaigns/${campaign.id}/launch`, {
+    const res  = await authFetch(`/api/campaigns/${campaign.id}/launch`, {
       method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
+      body: {
         platform:     channel,
         budgetCents:  Math.round(budget * 100),
         durationDays,
         imageUrl,
-      }),
+      },
     });
     const data = await res.json() as { ok?: boolean; warning?: string; error?: string; subscribe_url?: string; connect_url?: string };
 
@@ -1152,7 +1151,7 @@ function CampaignDetail({
     if (!file) return;
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch(`/api/campaigns/${campaign.id}/image`, { method: "POST", body: formData });
+    const res = await authFetch(`/api/campaigns/${campaign.id}/image`, { method: "POST", body: formData });
     const data = await res.json() as { url?: string; error?: string };
     if (data.url) onImageChange(campaign.id, data.url);
   }
@@ -2067,7 +2066,7 @@ export default function MarketingPage() {
                     onClick={async e => {
                       e.stopPropagation();
                       if (!confirm("Delete this campaign?")) return;
-                      await fetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
+                      await authFetch(`/api/campaigns/${campaign.id}`, { method: "DELETE" });
                       setCampaigns(prev => prev.filter(c => c.id !== campaign.id));
                     }}
                     className="absolute right-3 top-3 rounded px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20"
