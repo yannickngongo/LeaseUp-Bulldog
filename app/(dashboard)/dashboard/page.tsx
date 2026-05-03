@@ -74,8 +74,8 @@ function formatAction(action: string, actor: string, meta?: Record<string, unkno
     case "ai_skipped_paused":         return `AI skipped — paused for this lead`;
     case "ai_skipped_lead_closed":    return `AI skipped — lead is ${meta?.reason ? String(meta.reason).replace("lead_status_", "") : "closed"}`;
     case "ai_skipped_db_error":       return `AI skipped — database error storing inbound message`;
-    case "ai_generation_failed":      return `AI generation failed${meta?.error ? ` — ${String(meta.error).slice(0, 250)}` : ""}`;
-    case "sms_send_failed":           return `SMS send failed${meta?.error ? ` — ${String(meta.error).slice(0, 250)}` : ""}`;
+    case "ai_generation_failed":      return `AI generation failed — click for details`;
+    case "sms_send_failed":           return `SMS send failed — click for details`;
     case "inbound_sms_duplicate":     return `Duplicate inbound SMS ignored`;
     case "inbound_sms_unmatched":     return `Unknown number texted in${meta?.from ? ` (${String(meta.from)})` : ""}`;
     case "inbound_sms_no_property":   return `Inbound SMS hit a number not assigned to any property${meta?.to ? ` (${String(meta.to)})` : ""}`;
@@ -177,6 +177,7 @@ export default function DashboardPage() {
   const [activity, setActivity]     = useState<ActivityItem[]>([]);
   const [loading, setLoading]       = useState(true);
   const [newIds, setNewIds]         = useState<Set<string>>(new Set());
+  const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null);
   const [avgResponseSec, setAvgResponseSec] = useState<number | null>(null);
   const operatorIdRef               = useRef<string | null>(null);
 
@@ -887,9 +888,11 @@ export default function DashboardPage() {
             ) : (
               <div className="space-y-3">
                 {activity.map((item) => (
-                  <div
+                  <button
                     key={item.id}
-                    className={`flex items-start gap-2.5 rounded-lg transition-all duration-500 ${newIds.has(item.id) ? "bg-violet-50 dark:bg-violet-900/10 -mx-2 px-2 py-1" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedActivity(item)}
+                    className={`-mx-2 flex w-[calc(100%+1rem)] items-start gap-2.5 rounded-lg px-2 py-1 text-left transition-colors hover:bg-gray-50 dark:hover:bg-white/5 ${newIds.has(item.id) ? "bg-violet-50 dark:bg-violet-900/10" : ""}`}
                   >
                     <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${SEVERITY_DOT[severityOf(item.action)]}`} />
                     <div className="min-w-0 flex-1">
@@ -903,7 +906,7 @@ export default function DashboardPage() {
                         <span className="text-[10px] text-gray-400 dark:text-gray-500">{relativeTime(item.created_at)}</span>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -931,6 +934,137 @@ export default function DashboardPage() {
       )}
 
       </>)} {/* end of activeTab !== "conversations" */}
+
+      {selectedActivity && (
+        <ActivityDetailModal
+          item={selectedActivity}
+          onClose={() => setSelectedActivity(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Activity detail modal ───────────────────────────────────────────────────
+function ActivityDetailModal({
+  item,
+  onClose,
+}: {
+  item: ActivityItem;
+  onClose: () => void;
+}) {
+  // Close on ESC
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const severity = severityOf(item.action);
+  const SEVERITY_BORDER: Record<string, string> = {
+    success: "border-green-500/30",
+    warn:    "border-amber-400/30",
+    error:   "border-red-500/40",
+    info:    "border-violet-400/30",
+  };
+  const SEVERITY_BG: Record<string, string> = {
+    success: "bg-green-50 dark:bg-green-950/20",
+    warn:    "bg-amber-50 dark:bg-amber-950/20",
+    error:   "bg-red-50 dark:bg-red-950/20",
+    info:    "bg-violet-50 dark:bg-violet-950/20",
+  };
+  const SEVERITY_LABEL: Record<string, string> = {
+    success: "Success", warn: "Warning", error: "Error", info: "Info",
+  };
+
+  const fullDate = new Date(item.created_at).toLocaleString("en-US", {
+    weekday: "short", month: "short", day: "numeric", year: "numeric",
+    hour: "numeric", minute: "2-digit", second: "2-digit",
+  });
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl dark:bg-[#1C1F2E]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`flex items-start justify-between border-b ${SEVERITY_BORDER[severity]} ${SEVERITY_BG[severity]} px-6 py-4 rounded-t-2xl`}>
+          <div className="flex items-start gap-3">
+            <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${SEVERITY_DOT[severity]}`} />
+            <div>
+              <div className="mb-1 flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  {SEVERITY_LABEL[severity]}
+                </span>
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold capitalize ${ACTOR_STYLE[item.actor] ?? "bg-gray-100 text-gray-500"}`}>
+                  {item.actor}
+                </span>
+              </div>
+              <h3 className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {item.action}
+              </h3>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{fullDate}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-black/5 hover:text-gray-700 dark:hover:bg-white/5 dark:hover:text-gray-200"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
+              <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4 px-6 py-5">
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Summary</p>
+            <p className="text-sm text-gray-800 dark:text-gray-200">
+              {formatAction(item.action, item.actor, item.metadata)}
+            </p>
+          </div>
+
+          {item.metadata && Object.keys(item.metadata).length > 0 && (
+            <div>
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Details</p>
+              <div className="space-y-2 rounded-lg bg-gray-50 p-3 dark:bg-black/20">
+                {Object.entries(item.metadata).map(([key, value]) => (
+                  <div key={key} className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
+                    <span className="shrink-0 font-mono text-[11px] font-semibold text-gray-500 sm:w-32 dark:text-gray-400">
+                      {key}
+                    </span>
+                    <span className="break-all font-mono text-[11px] text-gray-700 dark:text-gray-300">
+                      {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">IDs</p>
+            <div className="space-y-1 rounded-lg bg-gray-50 p-3 font-mono text-[11px] text-gray-600 dark:bg-black/20 dark:text-gray-300">
+              <div><span className="text-gray-400">event_id:</span> {item.id}</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-gray-100 px-6 py-3 dark:border-white/5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-200 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
