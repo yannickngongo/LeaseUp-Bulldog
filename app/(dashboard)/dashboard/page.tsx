@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import IntelligenceSection from "./IntelligenceSection";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
-import { IconBuilding, IconUsers, IconCalendar, IconCheck } from "@/components/marketing/Icons";
+import { IconBuilding, IconCalendar, IconCheck, IconBolt } from "@/components/marketing/Icons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,6 +122,26 @@ function periodStartMs(p: PeriodKey): number {
   return 0;
 }
 
+function formatResponseTime(seconds: number | null): string {
+  if (seconds === null || seconds < 0) return "—";
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m < 60) return s === 0 ? `${m}m` : `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+function periodToDays(p: PeriodKey): number {
+  if (p === "7d") return 7;
+  if (p === "30d") return 30;
+  if (p === "month") {
+    const d = new Date();
+    return Math.max(1, Math.ceil((Date.now() - new Date(d.getFullYear(), d.getMonth(), 1).getTime()) / 86400000));
+  }
+  return 365;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [operator, setOperator]     = useState<Operator | null>(null);
@@ -130,6 +150,7 @@ export default function DashboardPage() {
   const [activity, setActivity]     = useState<ActivityItem[]>([]);
   const [loading, setLoading]       = useState(true);
   const [newIds, setNewIds]         = useState<Set<string>>(new Set());
+  const [avgResponseSec, setAvgResponseSec] = useState<number | null>(null);
   const operatorIdRef               = useRef<string | null>(null);
 
   // Filter state
@@ -206,6 +227,16 @@ export default function DashboardPage() {
     const timer = setInterval(pollActivity, 30000);
     return () => clearInterval(timer);
   }, [pollActivity]);
+
+  // Fetch avg AI response time whenever the period filter changes
+  useEffect(() => {
+    if (loading) return;
+    const days = periodToDays(period);
+    authFetch(`/api/analytics/performance?days=${days}`)
+      .then((r) => r.json())
+      .then((j) => setAvgResponseSec(typeof j.avgResponseSec === "number" ? j.avgResponseSec : null))
+      .catch(() => setAvgResponseSec(null));
+  }, [period, loading]);
 
   // Apply period + property filters before computing any stats
   const periodCutoff = periodStartMs(period);
@@ -419,12 +450,16 @@ export default function DashboardPage() {
             shadowColor: "rgba(200,16,46,0.4)",
           },
           {
-            label: "Active Leads",
-            value: loading ? "—" : activeLeads.length.toString(),
-            sub: loading ? "" : `${newLeads.length} new · need reply`,
-            trend: newLeads.length > 0 ? `${newLeads.length} awaiting reply` : "All caught up",
-            trendUp: newLeads.length === 0,
-            Icon: IconUsers,
+            label: "Avg AI Response",
+            value: avgResponseSec === null ? "—" : formatResponseTime(avgResponseSec),
+            sub: avgResponseSec === null
+              ? "Awaiting first reply"
+              : avgResponseSec <= 60
+              ? "Under target (60s)"
+              : `${avgResponseSec - 60}s above target`,
+            trend: avgResponseSec !== null && avgResponseSec <= 60 ? "Hitting target" : "Slow first replies",
+            trendUp: avgResponseSec !== null && avgResponseSec <= 60,
+            Icon: IconBolt,
             gradient: "linear-gradient(135deg, #A78BFA, #7C5BE6)",
             shadowColor: "rgba(167,139,250,0.4)",
           },
