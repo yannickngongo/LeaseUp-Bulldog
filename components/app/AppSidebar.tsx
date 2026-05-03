@@ -164,7 +164,7 @@ const NAV_PRIMARY: NavItem[] = [
   { href: "/leads",           label: "Leads",           Icon: IconLeads, badgeKey: "leads" },
   { href: "/properties",      label: "Properties",      Icon: IconProperties },
   { href: "/calendar",        label: "Tours",           Icon: IconTours },
-  { href: "/leads?view=conversations", label: "Conversations", Icon: IconConversations },
+  { href: "/conversations", label: "Conversations", Icon: IconConversations },
 ];
 
 // Operations — workflow + automation tools
@@ -212,6 +212,23 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
     router.push("/login");
   }
 
+  // Fetch active leads count across all properties — used for the sidebar badge
+  const refreshLeadCount = async () => {
+    try {
+      const propRes = await authFetch("/api/properties");
+      const propJson = await propRes.json();
+      const props = propJson.properties ?? [];
+      let total = 0;
+      await Promise.all(props.map(async (p: { id: string }) => {
+        const r = await authFetch(`/api/leads?propertyId=${p.id}`);
+        const j = await r.json();
+        const active = (j.leads ?? []).filter((l: { status: string }) => !["won", "lost"].includes(l.status));
+        total += active.length;
+      }));
+      setActiveLeads(total);
+    } catch { /* swallow — keep stale count */ }
+  };
+
   useEffect(() => {
     getSupabase().auth.getUser().then(({ data }) => {
       const url = data.user?.user_metadata?.avatar_url;
@@ -227,23 +244,16 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
         setUserName(name);
         setUserInitials(name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase());
 
-        // Fetch active leads count for the badge
-        const propRes = await authFetch("/api/properties");
-        const propJson = await propRes.json();
-        const props = propJson.properties ?? [];
-        let total = 0;
-        await Promise.all(props.map(async (p: { id: string }) => {
-          const r = await fetch(`/api/leads?propertyId=${p.id}`);
-          const j = await r.json();
-          const active = (j.leads ?? []).filter((l: { status: string }) => !["won", "lost"].includes(l.status));
-          total += active.length;
-        }));
-        setActiveLeads(total);
+        await refreshLeadCount();
       } catch {
         setUserName(email.split("@")[0]);
         setUserInitials(email[0]?.toUpperCase() ?? "?");
       }
     });
+
+    // Poll every 60 seconds so the badge stays current as new leads arrive
+    const timer = setInterval(refreshLeadCount, 60000);
+    return () => clearInterval(timer);
   }, []);
 
   function isActive(href: string) {

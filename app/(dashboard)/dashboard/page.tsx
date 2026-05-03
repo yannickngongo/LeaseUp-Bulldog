@@ -101,6 +101,27 @@ function Skeleton({ className }: { className?: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+type TabId = "activity" | "conversations" | "performance";
+type PeriodKey = "7d" | "30d" | "month" | "all";
+
+const PERIOD_LABELS: Record<PeriodKey, string> = {
+  "7d":   "Last 7 days",
+  "30d":  "Last 30 days",
+  "month": "This month",
+  "all":  "All time",
+};
+
+function periodStartMs(p: PeriodKey): number {
+  const now = Date.now();
+  if (p === "7d")  return now - 7 * 86400000;
+  if (p === "30d") return now - 30 * 86400000;
+  if (p === "month") {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+  }
+  return 0;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [operator, setOperator]     = useState<Operator | null>(null);
@@ -110,6 +131,13 @@ export default function DashboardPage() {
   const [loading, setLoading]       = useState(true);
   const [newIds, setNewIds]         = useState<Set<string>>(new Set());
   const operatorIdRef               = useRef<string | null>(null);
+
+  // Filter state
+  const [activeTab, setActiveTab]               = useState<TabId>("activity");
+  const [period, setPeriod]                     = useState<PeriodKey>("30d");
+  const [selectedPropertyId, setSelectedPropId] = useState<string>("all");
+  const [showPeriodMenu, setShowPeriodMenu]     = useState(false);
+  const [showPropMenu, setShowPropMenu]         = useState(false);
 
   const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
@@ -179,15 +207,24 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, [pollActivity]);
 
-  // Compute stats
-  const activeLeads  = leads.filter((l) => !["won", "lost"].includes(l.status));
-  const newLeads     = leads.filter((l) => l.status === "new");
-  const tours        = leads.filter((l) => l.status === "tour_scheduled");
-  const won          = leads.filter((l) => l.status === "won");
+  // Apply period + property filters before computing any stats
+  const periodCutoff = periodStartMs(period);
+  const filteredProps = selectedPropertyId === "all"
+    ? properties
+    : properties.filter((p) => p.id === selectedPropertyId);
+  const visibleLeads = leads
+    .filter((l) => new Date(l.created_at).getTime() >= periodCutoff)
+    .filter((l) => selectedPropertyId === "all" || l.property_id === selectedPropertyId);
 
-  // Portfolio occupancy
-  const totalPortfolioUnits    = properties.reduce((s, p) => s + (p.total_units ?? 0), 0);
-  const occupiedPortfolioUnits = properties.reduce((s, p) => s + (p.occupied_units ?? 0), 0);
+  // Compute stats from filtered leads
+  const activeLeads  = visibleLeads.filter((l) => !["won", "lost"].includes(l.status));
+  const newLeads     = visibleLeads.filter((l) => l.status === "new");
+  const tours        = visibleLeads.filter((l) => l.status === "tour_scheduled");
+  const won          = visibleLeads.filter((l) => l.status === "won");
+
+  // Portfolio occupancy (uses filtered properties — single property when filter is on)
+  const totalPortfolioUnits    = filteredProps.reduce((s, p) => s + (p.total_units ?? 0), 0);
+  const occupiedPortfolioUnits = filteredProps.reduce((s, p) => s + (p.occupied_units ?? 0), 0);
   const portfolioOccPct = totalPortfolioUnits > 0
     ? Math.round((occupiedPortfolioUnits / totalPortfolioUnits) * 100)
     : null;
@@ -216,65 +253,137 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5 p-4 lg:p-6">
 
-      {/* Greeting */}
+      {/* Hero — preview-style big title + welcome subtitle */}
       <div>
         {loading
-          ? <Skeleton className="h-7 w-48" />
-          : <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Good morning, {operatorFirstName}.</h1>
+          ? <Skeleton className="h-9 w-48" />
+          : <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Dashboard</h1>
         }
-        <p className="mt-0.5 text-sm text-gray-400 dark:text-gray-500">
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Welcome back, {operatorFirstName} — here&apos;s what happened overnight.
+        </p>
+        <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
           {today} · {properties.length} {properties.length === 1 ? "property" : "properties"} · {activeLeads.length} active leads
         </p>
       </div>
 
-      {/* Tabs row + filters (preview-style) */}
+      {/* Tabs row + filters (functional dropdowns) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-[#1E1E2E] dark:bg-[#10101A]">
-          {[
-            { id: "activity", label: "Activity", icon: (
+          {([
+            { id: "activity",      label: "Activity",      icon: (
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
                 <polyline points="13 7 10.5 7 8.75 12 5.25 2 3.5 7 1 7" />
               </svg>
-            )},
+            ) },
             { id: "conversations", label: "Conversations", icon: (
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
                 <path d="M12.25 8.75c0 .35-.31.66-.66.66H4.08l-2.33 2.33V3.5c0-.35.31-.66.66-.66h9.18c.35 0 .66.31.66.66v5.25z" />
               </svg>
-            )},
-            { id: "performance", label: "Performance", icon: (
+            ) },
+            { id: "performance",   label: "Performance",   icon: (
               <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
                 <line x1="10.5" y1="11.7" x2="10.5" y2="5.83" /><line x1="7" y1="11.7" x2="7" y2="2.33" /><line x1="3.5" y1="11.7" x2="3.5" y2="8.17" />
               </svg>
-            )},
-          ].map((tab, i) => (
-            <button
-              key={tab.id}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
-              style={
-                i === 0
-                  ? { background: "rgba(200,16,46,0.10)", color: "#C8102E" }
-                  : { color: "var(--tab-muted)" }
-              }
-            >
-              <span style={i === 0 ? { color: "#C8102E" } : undefined}>{tab.icon}</span>
-              {tab.label}
-            </button>
-          ))}
+            ) },
+          ] as { id: TabId; label: string; icon: React.ReactNode }[]).map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors cursor-pointer"
+                style={
+                  isActive
+                    ? { background: "rgba(200,16,46,0.10)", color: "#C8102E" }
+                    : { color: "var(--tab-muted)" }
+                }
+              >
+                <span style={isActive ? { color: "#C8102E" } : undefined}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 dark:border-[#1E1E2E] dark:bg-[#10101A] dark:text-gray-300">
-            <span className="text-gray-400 dark:text-gray-500">Period:</span>
-            {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })} – {new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-3 w-3"><polyline points="3 4.5 6 7.5 9 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-          <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 dark:border-[#1E1E2E] dark:bg-[#10101A] dark:text-gray-300">
-            All Properties
-            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-3 w-3"><polyline points="3 4.5 6 7.5 9 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
+          {/* Period selector — real dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowPeriodMenu((s) => !s); setShowPropMenu(false); }}
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-[#C8102E]/40 dark:border-[#1E1E2E] dark:bg-[#10101A] dark:text-gray-300"
+            >
+              <span className="text-gray-400 dark:text-gray-500">Period:</span>
+              {PERIOD_LABELS[period]}
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5} className={`h-3 w-3 transition-transform ${showPeriodMenu ? "rotate-180" : ""}`}>
+                <polyline points="3 4.5 6 7.5 9 4.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            {showPeriodMenu && (
+              <div className="absolute right-0 top-full z-30 mt-2 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-[#1E1E2E] dark:bg-[#10101A]">
+                {(Object.keys(PERIOD_LABELS) as PeriodKey[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => { setPeriod(p); setShowPeriodMenu(false); }}
+                    className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5"
+                  >
+                    {PERIOD_LABELS[p]}
+                    {period === p && <span className="text-[#C8102E]">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Property filter — real dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowPropMenu((s) => !s); setShowPeriodMenu(false); }}
+              className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-[#C8102E]/40 dark:border-[#1E1E2E] dark:bg-[#10101A] dark:text-gray-300"
+            >
+              {selectedPropertyId === "all"
+                ? "All Properties"
+                : (properties.find((p) => p.id === selectedPropertyId)?.name ?? "Property")}
+              <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5} className={`h-3 w-3 transition-transform ${showPropMenu ? "rotate-180" : ""}`}>
+                <polyline points="3 4.5 6 7.5 9 4.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+            {showPropMenu && (
+              <div className="absolute right-0 top-full z-30 mt-2 w-56 max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg dark:border-[#1E1E2E] dark:bg-[#10101A]">
+                <button
+                  onClick={() => { setSelectedPropId("all"); setShowPropMenu(false); }}
+                  className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  All Properties
+                  {selectedPropertyId === "all" && <span className="text-[#C8102E]">✓</span>}
+                </button>
+                {properties.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => { setSelectedPropId(p.id); setShowPropMenu(false); }}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/5"
+                  >
+                    <span className="truncate">{p.name}</span>
+                    {selectedPropertyId === p.id && <span className="flex-shrink-0 text-[#C8102E]">✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <style jsx>{`:global(:root) { --tab-muted: #6B7280; } :global(.dark) { --tab-muted: #9CA3AF; }`}</style>
+
+      {/* Conversations tab — quick redirect to dedicated page */}
+      {activeTab === "conversations" && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-[#1E1E2E] dark:bg-[#10101A]">
+          <p className="mb-3 text-base font-semibold text-gray-900 dark:text-white">View conversations in the dedicated workspace</p>
+          <p className="mb-5 text-sm text-gray-500">All your AI-powered SMS threads in one place — search, filter, and take over any time.</p>
+          <Link href="/conversations" className="inline-flex items-center gap-2 rounded-full bg-[#C8102E] px-5 py-2.5 text-sm font-bold text-white hover:scale-105 transition-transform" style={{ boxShadow: "0 0 25px rgba(200,16,46,0.4)" }}>
+            Open Conversations →
+          </Link>
+        </div>
+      )}
 
       {/* Getting Started banner — shown when leads count is 0 (new user) */}
       {!loading && leads.length === 0 && (
@@ -292,6 +401,9 @@ export default function DashboardPage() {
           <span className="text-xs font-semibold text-[#C8102E] shrink-0">View guide →</span>
         </Link>
       )}
+
+      {/* The rest of the dashboard renders only on the Activity + Performance tabs */}
+      {activeTab !== "conversations" && (<>
 
       {/* KPI strip — preview-style gradient icon tiles, theme-aware, mobile-responsive */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -755,6 +867,8 @@ export default function DashboardPage() {
           </Link>
         </div>
       )}
+
+      </>)} {/* end of activeTab !== "conversations" */}
     </div>
   );
 }

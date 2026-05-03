@@ -254,7 +254,7 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   }, []);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-gray-100 bg-white px-4 dark:border-white/5 dark:bg-[#12141E] lg:px-6">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 dark:border-[#1E1E2E] dark:bg-[#10101A] lg:px-6">
       {/* Left: hamburger + page title */}
       <div className="flex items-center gap-3">
         <button
@@ -266,7 +266,22 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
             <path d="M2 4.5h14M2 9h14M2 13.5h14" />
           </svg>
         </button>
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{meta.title}</h2>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white">{meta.title}</h2>
+      </div>
+
+      {/* Center: search bar (preview-style) — hidden on small screens */}
+      <div className="hidden flex-1 items-center justify-center md:flex">
+        <div className="relative w-full max-w-md">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500">
+            <circle cx="7" cy="7" r="5" /><line x1="14" y1="14" x2="10.5" y2="10.5" />
+          </svg>
+          <input
+            type="search"
+            placeholder="Search leads, properties..."
+            className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-12 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#C8102E]/40 focus:bg-white focus:outline-none dark:border-[#1E1E2E] dark:bg-[#16161F] dark:text-white dark:placeholder:text-gray-500 dark:focus:bg-[#1A1A2E]"
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-gray-200 px-1.5 py-0.5 text-[10px] font-mono text-gray-400 dark:border-[#1E1E2E] dark:text-gray-500">⌘K</span>
+        </div>
       </div>
 
       {/* Right: actions */}
