@@ -59,17 +59,44 @@ function relativeTime(iso: string): string {
 
 function formatAction(action: string, actor: string, meta?: Record<string, unknown>): string {
   switch (action) {
-    case "lead_created":    return `New lead added${meta?.source ? ` via ${meta.source}` : ""}`;
-    case "sms_sent":        return actor === "ai" ? `AI reply sent${meta?.preview ? ` — "${String(meta.preview).slice(0, 50)}…"` : ""}` : "SMS sent";
-    case "sms_received":    return `Lead replied`;
-    case "tour_scheduled":  return `Tour scheduled`;
-    case "lead_won":        return `Lease signed 🎉`;
-    case "lead_lost":       return `Lead marked lost`;
-    case "human_takeover":  return `Human takeover triggered`;
-    case "follow_up_sent":  return `Follow-up sent automatically`;
-    default:                return action.replace(/_/g, " ");
+    case "lead_created":              return `New lead added${meta?.source ? ` via ${meta.source}` : ""}`;
+    case "sms_sent":                  return actor === "ai" ? `AI reply sent${meta?.preview ? ` — "${String(meta.preview).slice(0, 50)}…"` : ""}` : "SMS sent";
+    case "sms_received":              return `Lead replied`;
+    case "tour_scheduled":            return `Tour scheduled`;
+    case "lead_won":                  return `Lease signed 🎉`;
+    case "lead_lost":                 return `Lead marked lost`;
+    case "human_takeover":            return `Human takeover triggered`;
+    case "follow_up_sent":            return `Follow-up sent automatically`;
+    case "lead_opted_out":            return `Lead opted out (STOP)`;
+    case "application_completed":     return `Application submitted ✅`;
+    // Silent-skip diagnostics — surface these so operators see why AI didn't reply
+    case "ai_skipped_human_takeover": return `AI skipped — human takeover active`;
+    case "ai_skipped_paused":         return `AI skipped — paused for this lead`;
+    case "ai_skipped_lead_closed":    return `AI skipped — lead is ${meta?.reason ? String(meta.reason).replace("lead_status_", "") : "closed"}`;
+    case "ai_skipped_db_error":       return `AI skipped — database error storing inbound message`;
+    case "ai_generation_failed":      return `AI generation failed${meta?.error ? ` — ${String(meta.error).slice(0, 60)}` : ""}`;
+    case "sms_send_failed":           return `SMS send failed${meta?.error ? ` — ${String(meta.error).slice(0, 60)}` : ""}`;
+    case "inbound_sms_duplicate":     return `Duplicate inbound SMS ignored`;
+    case "inbound_sms_unmatched":     return `Unknown number texted in${meta?.from ? ` (${String(meta.from)})` : ""}`;
+    case "inbound_sms_no_property":   return `Inbound SMS hit a number not assigned to any property${meta?.to ? ` (${String(meta.to)})` : ""}`;
+    default:                          return action.replace(/_/g, " ");
   }
 }
+
+// Severity drives the dot color in the activity feed so operators notice failures.
+function severityOf(action: string): "success" | "info" | "warn" | "error" {
+  if (action.endsWith("_failed") || action === "ai_skipped_db_error") return "error";
+  if (action.startsWith("ai_skipped_") || action.startsWith("inbound_sms_no_") || action === "inbound_sms_unmatched" || action === "human_takeover") return "warn";
+  if (action === "application_completed" || action === "lead_won" || action === "tour_scheduled") return "success";
+  return "info";
+}
+
+const SEVERITY_DOT: Record<string, string> = {
+  success: "bg-green-500",
+  warn:    "bg-amber-400",
+  error:   "bg-red-500",
+  info:    "bg-violet-400",
+};
 
 const STATUS_STYLES: Record<LeadStatus, { dot: string; label: string; text: string }> = {
   new:            { dot: "bg-indigo-400",  label: "New",          text: "text-indigo-700" },
@@ -864,7 +891,7 @@ export default function DashboardPage() {
                     key={item.id}
                     className={`flex items-start gap-2.5 rounded-lg transition-all duration-500 ${newIds.has(item.id) ? "bg-violet-50 dark:bg-violet-900/10 -mx-2 px-2 py-1" : ""}`}
                   >
-                    <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${item.actor === "ai" ? "bg-violet-400" : item.actor === "agent" ? "bg-blue-400" : "bg-gray-300"}`} />
+                    <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${SEVERITY_DOT[severityOf(item.action)]}`} />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs leading-relaxed text-gray-700 dark:text-gray-300">
                         {formatAction(item.action, item.actor, item.metadata)}
