@@ -318,6 +318,90 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* ── Lead Volume Heatmap + Hot Leads (preview-style grid) ──────────── */}
+      {!loading && properties.length > 0 && (
+        <div className="grid gap-4 lg:grid-cols-3">
+
+          {/* Lead volume heatmap (col-span-2) */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 lg:col-span-2 dark:border-[#1E1E2E] dark:bg-[#10101A]">
+            <div className="mb-5 flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-500">Lead volume — last 12 weeks</p>
+                <p className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{leads.length}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">total leads · {properties.length} properties</span>
+                </p>
+              </div>
+              <span className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 dark:border-[#1E1E2E] dark:text-gray-300">
+                Weekly
+              </span>
+            </div>
+            <Heatmap leads={leads} properties={properties} />
+          </div>
+
+          {/* Hot Leads side panel */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-[#1E1E2E] dark:bg-[#10101A]">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Hot Leads</h3>
+              <Link href="/leads" className="flex items-center gap-1 text-xs font-semibold text-[#C8102E] hover:text-[#A50D25] dark:text-[#F87171]">
+                View All →
+              </Link>
+            </div>
+            <div className="space-y-3">
+              {leads.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center text-xs text-gray-400 dark:border-[#1E1E2E] dark:text-gray-500">
+                  No leads yet — they&apos;ll appear here as they come in.
+                </div>
+              ) : (
+                attentionLeads.slice(0, 3).map(({ lead, urgency }) => {
+                  const status = STATUS_STYLES[lead.status];
+                  const initial = lead.name?.charAt(0).toUpperCase() ?? "?";
+                  const grad =
+                    urgency === "high"
+                      ? "linear-gradient(135deg, #C8102E, #A50D25)"
+                      : urgency === "medium"
+                      ? "linear-gradient(135deg, #F59E0B, #D97706)"
+                      : "linear-gradient(135deg, #A78BFA, #7C5BE6)";
+                  const badgeText = urgency === "high" ? "HOT" : urgency === "medium" ? "WARM" : "NEW";
+                  const badgeColor = urgency === "high" ? "bg-[#C8102E]/15 text-[#F87171]" : urgency === "medium" ? "bg-amber-500/15 text-amber-500" : "bg-violet-400/15 text-violet-400";
+                  return (
+                    <Link
+                      key={lead.id}
+                      href={`/leads/${lead.id}`}
+                      className="group block rounded-xl border border-gray-200 bg-gray-50 p-3 transition-all hover:-translate-y-0.5 hover:border-[#C8102E]/40 hover:shadow-[0_0_24px_rgba(200,16,46,0.15)] dark:border-[#1E1E2E] dark:bg-[#16161F]"
+                    >
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                            style={{ background: grad }}
+                          >
+                            {initial}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{lead.name}</p>
+                            <p className="truncate text-[11px] text-gray-500 dark:text-gray-500">{lead.property_name ?? "—"}</p>
+                          </div>
+                        </div>
+                        <span className={`flex-shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold ${badgeColor}`}>
+                          {badgeText}
+                        </span>
+                      </div>
+                      <div className="mb-2 flex items-center gap-1.5 text-[11px]">
+                        <span className={`inline-block h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                        <span className="font-medium text-gray-600 dark:text-gray-300">{status.label}</span>
+                        <span className="text-gray-400 dark:text-gray-600">·</span>
+                        <span className="text-gray-400 dark:text-gray-500">{relativeTime(lead.created_at)}</span>
+                      </div>
+                    </Link>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Property health grid */}
       {!loading && properties.length > 0 && (
         <div>
@@ -622,6 +706,79 @@ export default function DashboardPage() {
           </Link>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Heatmap (preview-style colored squares grid) ────────────────────────────
+// Renders lead volume per property × week as a heatmap. Uses real lead data.
+function Heatmap({ leads, properties }: { leads: Lead[]; properties: Property[] }) {
+  const COLS = 12; // last 12 weeks
+  const ROWS = Math.min(properties.length, 6) || 1;
+
+  // Color ramp: 0 = empty, increasing intensity to peak (white)
+  const COLORS_LIGHT = ["#F3F4F6", "#FCE7EB", "#F8B4BD", "#F87171", "#DC2626", "#C8102E", "#7F1D1D"];
+  const COLORS_DARK  = ["#1E1E2E", "#3A1620", "#5C1623", "#8B1428", "#C8102E", "#F87171", "#FFFFFF"];
+
+  // Bucket leads by property × week (where week 0 = oldest of last 12, week 11 = current)
+  const now = Date.now();
+  const weekMs = 7 * 24 * 3600 * 1000;
+  const propIds = properties.slice(0, ROWS).map((p) => p.id);
+  const grid: number[][] = propIds.map(() => new Array(COLS).fill(0));
+
+  leads.forEach((l) => {
+    const weeksAgo = Math.floor((now - new Date(l.created_at).getTime()) / weekMs);
+    if (weeksAgo < 0 || weeksAgo >= COLS) return;
+    const propIdx = propIds.indexOf(l.property_id ?? "");
+    if (propIdx === -1) return;
+    grid[propIdx][COLS - 1 - weeksAgo]++;
+  });
+
+  // Normalize to 0-6 intensity
+  const max = Math.max(1, ...grid.flat());
+  const intensity = (v: number) => Math.min(6, Math.round((v / max) * 6));
+
+  return (
+    <div>
+      <div className="space-y-1.5">
+        {grid.map((row, ri) => (
+          <div key={ri} className="flex items-center gap-2">
+            <span className="hidden w-24 truncate text-[10px] text-gray-500 dark:text-gray-500 sm:block">
+              {properties[ri]?.name ?? "—"}
+            </span>
+            <div className="flex flex-1 gap-1.5">
+              {row.map((v, ci) => {
+                const idx = intensity(v);
+                return (
+                  <div
+                    key={ci}
+                    title={v > 0 ? `${v} lead${v === 1 ? "" : "s"} · ${properties[ri]?.name ?? ""}` : ""}
+                    className="h-7 flex-1 rounded-md transition-transform hover:scale-110"
+                    style={{
+                      background: `var(--hm-${idx})`,
+                      // Light/dark via CSS vars set on parent
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 ml-0 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500 sm:ml-26">
+        <span>12 weeks ago</span>
+        <span>This week</span>
+      </div>
+
+      {/* CSS variable bridges for theme-aware colors */}
+      <style jsx>{`
+        div :global(div[style*="--hm-0"]) { background: ${COLORS_LIGHT[0]}; }
+        :global(.dark) div :global(div[style*="--hm-0"]) { background: ${COLORS_DARK[0]}; }
+      `}</style>
+      <style>{`
+        :root { ${COLORS_LIGHT.map((c, i) => `--hm-${i}: ${c};`).join(" ")} }
+        :root.dark { ${COLORS_DARK.map((c, i) => `--hm-${i}: ${c};`).join(" ")} }
+      `}</style>
     </div>
   );
 }
