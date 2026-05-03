@@ -74,8 +74,8 @@ function formatAction(action: string, actor: string, meta?: Record<string, unkno
     case "ai_skipped_paused":         return `AI skipped — paused for this lead`;
     case "ai_skipped_lead_closed":    return `AI skipped — lead is ${meta?.reason ? String(meta.reason).replace("lead_status_", "") : "closed"}`;
     case "ai_skipped_db_error":       return `AI skipped — database error storing inbound message`;
-    case "ai_generation_failed":      return `AI generation failed${meta?.error ? ` — ${String(meta.error).slice(0, 60)}` : ""}`;
-    case "sms_send_failed":           return `SMS send failed${meta?.error ? ` — ${String(meta.error).slice(0, 60)}` : ""}`;
+    case "ai_generation_failed":      return `AI generation failed${meta?.error ? ` — ${String(meta.error).slice(0, 250)}` : ""}`;
+    case "sms_send_failed":           return `SMS send failed${meta?.error ? ` — ${String(meta.error).slice(0, 250)}` : ""}`;
     case "inbound_sms_duplicate":     return `Duplicate inbound SMS ignored`;
     case "inbound_sms_unmatched":     return `Unknown number texted in${meta?.from ? ` (${String(meta.from)})` : ""}`;
     case "inbound_sms_no_property":   return `Inbound SMS hit a number not assigned to any property${meta?.to ? ` (${String(meta.to)})` : ""}`;
