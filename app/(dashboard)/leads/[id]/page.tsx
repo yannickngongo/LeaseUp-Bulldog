@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from "@/lib/supabase";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MarkLeaseSignedButton } from "@/components/leads/MarkLeaseSignedButton";
 import { ConsentAuditTrail } from "@/components/leads/ConsentAuditTrail";
+import { ManualReplyBox } from "@/components/leads/ManualReplyBox";
 import type { Conversation } from "@/types/lead";
 
 function formatDateTime(iso?: string) {
@@ -186,6 +187,13 @@ export default async function LeadDetailPage({
               ))}
             </div>
           )}
+
+          {/* Manual reply input — auto-pauses the AI when operator types */}
+          <ManualReplyBox
+            leadId={lead.id}
+            leadName={lead.name}
+            initialAiPaused={Boolean(lead.ai_paused)}
+          />
         </div>
       </div>
     </main>
