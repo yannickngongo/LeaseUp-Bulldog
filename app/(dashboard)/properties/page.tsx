@@ -123,15 +123,18 @@ export default function PropertiesPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {properties.map((p) => (
             <div key={p.id}
-              className="group relative rounded-2xl border border-gray-100 bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.05)] transition-shadow hover:shadow-[0_4px_24px_rgba(0,0,0,0.09)] dark:border-white/5 dark:bg-[#1C1F2E]">
+              className="group relative rounded-2xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[#C8102E]/40 hover:shadow-[0_0_32px_rgba(200,16,46,0.18)] dark:border-[#1E1E2E] dark:bg-[#10101A] dark:hover:shadow-[0_0_40px_rgba(200,16,46,0.25)]">
 
               {/* Clickable overlay — opens property dashboard */}
               <Link href={`/properties/${p.id}`} className="absolute inset-0 z-0 rounded-2xl" aria-label={`View ${p.name} dashboard`} />
 
               {/* Header */}
               <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C8102E]/10">
-                  <svg viewBox="0 0 20 20" fill="#C8102E" className="h-5 w-5">
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white shadow-lg"
+                  style={{ background: "linear-gradient(135deg, #C8102E, #A50D25)", boxShadow: "0 8px 24px rgba(200,16,46,0.4)" }}
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
                     <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
                   </svg>
                 </div>

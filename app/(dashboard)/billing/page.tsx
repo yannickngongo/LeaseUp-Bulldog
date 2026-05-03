@@ -181,7 +181,7 @@ function BillingContent() {
           <div className="space-y-4">
 
             {/* Current plan card */}
-            <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-6">
+            <div className="group rounded-2xl border border-gray-200 dark:border-[#1E1E2E] bg-white dark:bg-[#10101A] p-6 transition-all duration-300 hover:border-[#C8102E]/40 hover:shadow-[0_0_32px_rgba(200,16,46,0.15)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">Current Plan</p>
@@ -225,7 +225,7 @@ function BillingContent() {
             </div>
 
             {/* What's included */}
-            <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-6">
+            <div className="group rounded-2xl border border-gray-200 dark:border-[#1E1E2E] bg-white dark:bg-[#10101A] p-6 transition-all duration-300 hover:border-[#C8102E]/40 hover:shadow-[0_0_32px_rgba(200,16,46,0.15)]">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">What&apos;s Included</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {[
@@ -248,7 +248,7 @@ function BillingContent() {
             </div>
 
             {/* Performance fee note */}
-            <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-5">
+            <div className="rounded-2xl border border-gray-200 dark:border-[#1E1E2E] bg-white dark:bg-[#10101A] p-5 transition-all duration-300 hover:border-[#C8102E]/40">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Performance Fee</p>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                 A <strong className="text-gray-900 dark:text-gray-100">{planDisplay.perfFee} performance fee</strong> applies per lease signed through LUB within the 30-day attribution window.
@@ -258,7 +258,7 @@ function BillingContent() {
 
             {/* Invoice history */}
             {(invLoading || invoices.length > 0) && (
-              <div className="rounded-xl border border-gray-100 dark:border-white/5 bg-white dark:bg-[#1C1F2E] p-5">
+              <div className="rounded-2xl border border-gray-200 dark:border-[#1E1E2E] bg-white dark:bg-[#10101A] p-5 transition-all duration-300 hover:border-[#C8102E]/40">
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Invoice History</p>
                 {invLoading ? (
                   <div className="space-y-2">
