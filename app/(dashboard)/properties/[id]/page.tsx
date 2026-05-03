@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { authFetch } from "@/lib/demo-auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -427,7 +428,7 @@ function OccupancyIntelligenceSection({
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/properties/${property.id}/occupancy-analysis`, {
+      const res = await authFetch(`/api/properties/${property.id}/occupancy-analysis`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -835,7 +836,7 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/properties/${propertyId}/units`);
+    const res = await authFetch(`/api/properties/${propertyId}/units`);
     if (res.ok) { const json = await res.json(); setUnits(json.units ?? []); }
     setLoading(false);
   }, [propertyId]);
@@ -853,7 +854,7 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
     setParsing(true); setUploadMsg("Reading PDF with AI… 10–20 seconds."); setPreview([]);
     try {
       const fd = new FormData(); fd.append("file", file);
-      const res = await fetch(`/api/properties/${propertyId}/parse-rent-roll`, { method: "POST", body: fd });
+      const res = await authFetch(`/api/properties/${propertyId}/parse-rent-roll`, { method: "POST", body: fd });
       const data = await res.json();
       if (data.ok) { setPreview(data.units); setUploadMsg(`AI extracted ${data.units.length} units. Review and save.`); }
       else setUploadMsg(data.error ?? "Failed to read PDF.");
@@ -864,7 +865,7 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
   async function submitUnits() {
     if (preview.length === 0) return;
     setUploading(true);
-    const res = await fetch(`/api/properties/${propertyId}/units`, {
+    const res = await authFetch(`/api/properties/${propertyId}/units`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ units: preview }),
     });
@@ -876,7 +877,7 @@ function RentRollSection({ propertyId, daysSinceUpdate }: { propertyId: string; 
   async function submitNewUnit() {
     if (!newUnit.unit_name.trim()) { setAddError("Unit name required"); return; }
     setAddError("");
-    const res = await fetch(`/api/properties/${propertyId}/units`, {
+    const res = await authFetch(`/api/properties/${propertyId}/units`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ units: [newUnit] }),
     });
@@ -1130,7 +1131,7 @@ function MarketPositionSection({ property, units }: { property: Property; units:
   async function run() {
     setLoading(true); setError(null); setRan(true);
     try {
-      const res = await fetch("/api/properties/market-position", {
+      const res = await authFetch("/api/properties/market-position", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1343,7 +1344,7 @@ function AIConfigSection({ propertyId }: { propertyId: string }) {
   async function syncFromRentRoll() {
     setSyncing(true); setSyncMsg("");
     try {
-      const res = await fetch(`/api/properties/${propertyId}/units`);
+      const res = await authFetch(`/api/properties/${propertyId}/units`);
       const json = await res.json();
       const raw: RentRollUnit[] = json.units ?? [];
       if (!raw.length) { setSyncMsg("No units found in rent roll. Upload a rent roll first."); return; }
@@ -1437,7 +1438,7 @@ function AIConfigSection({ propertyId }: { propertyId: string }) {
           rent_max: u.rent_max ? Number(u.rent_max) : undefined,
           available: Number(u.available) || 0, total: Number(u.total) || 0,
         }));
-      const res = await fetch(`/api/properties/${propertyId}/ai-config`, {
+      const res = await authFetch(`/api/properties/${propertyId}/ai-config`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1827,10 +1828,11 @@ export default function PropertyDetailPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      // Use authFetch — these endpoints require the operator's bearer token to scope to their org
       const [propRes, leadsRes, unitsRes] = await Promise.all([
-        fetch(`/api/properties/${propertyId}/details`),
-        fetch(`/api/leads?propertyId=${propertyId}`),
-        fetch(`/api/properties/${propertyId}/units`),
+        authFetch(`/api/properties/${propertyId}/details`),
+        authFetch(`/api/leads?propertyId=${propertyId}`),
+        authFetch(`/api/properties/${propertyId}/units`),
       ]);
       if (propRes.ok)  { const j = await propRes.json();  setProperty(j.property ?? null); }
       if (leadsRes.ok) { const j = await leadsRes.json(); setLeads(j.leads ?? []); }
