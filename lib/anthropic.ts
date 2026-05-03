@@ -8,7 +8,10 @@ import path from "path";
 
 // Sonnet for leasing conversations — the quality difference closes more leases than Haiku saves in cost
 const MODEL = "claude-sonnet-4-6";
-const MAX_TOKENS = 350; // SMS replies are short but objection handling needs room to breathe
+// SMS replies are 1-3 short sentences. 120 tokens is enough for ~25-35 words. Forces the model
+// to stay tight rather than producing essays. Raised slightly only for objection-heavy paths
+// is unnecessary — the prompt itself enforces brevity.
+const MAX_TOKENS = 120;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,8 +35,9 @@ export interface GenerateLeadReplyInput {
 }
 
 export interface GenerateLeadReplyOutput {
-  message: string;      // plain SMS text, ready to send (booking tag stripped)
-  tourBookingAt?: string; // ISO datetime string if the AI confirmed a tour, else undefined
+  message: string;          // plain SMS text, ready to send (tags stripped)
+  tourBookingAt?: string;   // ISO datetime string if the AI confirmed a tour, else undefined
+  applicationCompleted?: boolean; // true if AI detected the lead said they finished applying
   model: string;
   inputTokens: number;
   outputTokens: number;
@@ -100,19 +104,39 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
 
   let triggerInstructions = "";
   if (input.trigger === "post_tour") {
-    triggerInstructions =
-      "\nTRIGGER CONTEXT: The lead just toured the property a couple of hours ago. " +
-      "Reach out warmly to ask how they felt about it and whether they have any questions. " +
-      "Express genuine enthusiasm. If they seemed interested, gently move them toward applying. " +
-      "Keep it conversational — one or two sentences max.\n";
+    // Two distinct scenarios depending on how recent the tour was
+    const scheduledMs = input.tourScheduledAt ? new Date(input.tourScheduledAt).getTime() : 0;
+    const hoursSince = scheduledMs ? (Date.now() - scheduledMs) / 3600000 : 0;
+    if (hoursSince < 0.5) {
+      // Tour is starting now or just started — confirm they made it
+      triggerInstructions =
+        "\nTRIGGER: The tour is happening right now (or starting in the next few minutes). " +
+        "Send a short message confirming you saw they were scheduled. Ask if they made it onsite ok " +
+        "or if they need directions. Do not be pushy. One sentence is enough.\n";
+    } else {
+      // Tour was earlier today / yesterday — ask how it went and gauge interest
+      triggerInstructions =
+        "\nTRIGGER: The lead just toured. Ask how the tour went. Then ask, plainly, if they are " +
+        "thinking about applying. Be warm but direct. If they say yes, send the application link if " +
+        "you have one. If they need a beat, leave the door open without pressure. Two short sentences.\n";
+    }
   } else if (input.trigger === "application_nudge") {
     const appLink = input.applicationLink ? ` Application link: ${input.applicationLink}` : "";
     triggerInstructions =
-      "\nTRIGGER CONTEXT: The lead toured yesterday and hasn't submitted an application yet. " +
-      "Encourage them to take the next step and apply. Mention any active special if relevant." +
-      appLink +
-      " Be warm but create a gentle sense of urgency (availability, specials ending soon, etc.).\n";
+      "\nTRIGGER: The lead toured yesterday and hasn't submitted an application yet. Check in: " +
+      "ask if they have any questions and gently nudge them toward starting the application. " +
+      "If they reply that they applied, finished it, or sent it in, append [APPLICATION_COMPLETE] " +
+      "at the very end of your next reply on its own line." + appLink + "\n";
   }
+
+  // Always-on application detection rule
+  triggerInstructions +=
+    "\nAPPLICATION COMPLETION DETECTION: At any point in the conversation, if the lead clearly " +
+    "states they have finished, submitted, sent, or completed the application (examples: 'I just " +
+    "applied', 'application is in', 'I submitted it', 'just sent the application'), append the tag " +
+    "[APPLICATION_COMPLETE] on its own line at the very end of your reply. The system uses this to " +
+    "alert the leasing team. Do not append it for half-statements like 'I will apply tonight' or " +
+    "'I started filling it out' — only when they confirm it is done.\n";
 
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in server local time
 
@@ -165,11 +189,30 @@ export async function generateLeadReply(
   // Extract [TOUR_BOOKED:YYYY-MM-DDTHH:MM] tag if present, then strip it from SMS text
   const tourTagMatch = raw.match(/\[TOUR_BOOKED:(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})\]/);
   const tourBookingAt = tourTagMatch ? `${tourTagMatch[1]}:00` : undefined;
-  const message = raw.replace(/\s*\[TOUR_BOOKED:[^\]]+\]\s*/g, "").trim();
+
+  // Extract [APPLICATION_COMPLETE] tag if present, then strip from SMS text
+  const appCompleteMatch = raw.match(/\[APPLICATION_COMPLETE\]/);
+  const applicationCompleted = Boolean(appCompleteMatch);
+
+  let message = raw
+    .replace(/\s*\[TOUR_BOOKED:[^\]]+\]\s*/g, "")
+    .replace(/\s*\[APPLICATION_COMPLETE\]\s*/g, "")
+    .trim();
+
+  // Safety net: real humans don't write em-dashes in SMS. Replace any that slipped through.
+  // Convert " — " (with spaces) into ". " (sentence break) and bare "—"/"–" into ", " or " ".
+  message = message
+    .replace(/\s+—\s+/g, ". ")
+    .replace(/\s+–\s+/g, ". ")
+    .replace(/[—–]/g, ", ")
+    .replace(/\.\s+\./g, ".")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 
   return {
     message,
     tourBookingAt,
+    applicationCompleted,
     model: response.model,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,

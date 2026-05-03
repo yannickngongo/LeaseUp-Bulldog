@@ -299,7 +299,8 @@ export type CancelReason =
   | "lease_signed"
   | "manual_pause"
   | "lead_lost"
-  | "replied";
+  | "replied"
+  | "application_complete";
 
 export interface FollowUpTask {
   id: string;

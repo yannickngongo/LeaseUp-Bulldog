@@ -25,7 +25,7 @@ import { isOptOut, cancelFollowUps, evaluateNextAction, scheduleTourFollowUps } 
 import { detectEscalation, createHandoffEvent } from "@/lib/human-takeover";
 import { getPropertyAIContext, formatPropertyAIContext } from "@/lib/property-ai-context";
 import { setFirstContactDate } from "@/lib/billing";
-import { sendHotLeadAlert, sendHumanTakeoverAlert, sendTourRequestedAlert } from "@/lib/email";
+import { sendHotLeadAlert, sendHumanTakeoverAlert, sendTourRequestedAlert, sendApplicationCompleteAlert } from "@/lib/email";
 
 const TWIML_OK = new NextResponse(
   `<?xml version="1.0" encoding="UTF-8"?><Response></Response>`,
@@ -104,6 +104,14 @@ export async function POST(req: NextRequest) {
 
   if (!property) {
     console.warn("[twilio/inbound] no property found for number:", to);
+    // No property_id available — log to a sentinel row so operator can see unrouted SMS
+    await db.from("activity_logs").insert({
+      lead_id:     "00000000-0000-0000-0000-000000000000",
+      property_id: "00000000-0000-0000-0000-000000000000",
+      action:      "inbound_sms_no_property",
+      actor:       "system",
+      metadata:    { from, to, preview: body.slice(0, 100) },
+    });
     return TWIML_OK;
   }
 
@@ -139,6 +147,13 @@ export async function POST(req: NextRequest) {
 
   if (existing?.length) {
     console.warn("[twilio/inbound] duplicate MessageSid, skipping:", messageSid);
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "inbound_sms_duplicate",
+      actor:       "system",
+      metadata:    { twilio_sid: messageSid },
+    });
     return TWIML_OK;
   }
 
@@ -193,6 +208,13 @@ export async function POST(req: NextRequest) {
 
   if (inboundErr) {
     console.error("[twilio/inbound] failed to log inbound message:", inboundErr);
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "ai_skipped_db_error",
+      actor:       "system",
+      metadata:    { reason: "failed_to_store_inbound", error: String(inboundErr.message ?? inboundErr) },
+    });
     return TWIML_OK;
   }
 
@@ -253,13 +275,36 @@ export async function POST(req: NextRequest) {
   if (lead.opt_out) return TWIML_OK; // already handled above but safety guard
   if (lead.human_takeover) {
     console.log("[twilio/inbound] human takeover active for lead:", lead.id);
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "ai_skipped_human_takeover",
+      actor:       "system",
+      metadata:    { reason: "human_takeover_active" },
+    });
     return TWIML_OK;
   }
   if (lead.ai_paused) {
     console.log("[twilio/inbound] AI paused for lead:", lead.id);
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "ai_skipped_paused",
+      actor:       "system",
+      metadata:    { reason: "ai_paused_for_lead" },
+    });
     return TWIML_OK;
   }
-  if (lead.status === "won" || lead.status === "lost") return TWIML_OK;
+  if (lead.status === "won" || lead.status === "lost") {
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "ai_skipped_lead_closed",
+      actor:       "system",
+      metadata:    { reason: `lead_status_${lead.status}` },
+    });
+    return TWIML_OK;
+  }
 
   // ── 7. Escalation detection ───────────────────────────────────────────────
   const aiConfig = await getPropertyAIContext(property.id);
@@ -310,6 +355,7 @@ export async function POST(req: NextRequest) {
   // ── 9. Generate AI reply ──────────────────────────────────────────────────
   let aiMessage: string;
   let tourBookingAt: string | undefined;
+  let applicationCompleted = false;
   try {
     const p = property as Record<string, unknown>;
     const addressParts = [p.address, p.city, p.state, p.zip].filter(Boolean);
@@ -327,10 +373,18 @@ export async function POST(req: NextRequest) {
       conversationHistory,
       propertyContext,
     });
-    aiMessage     = result.message;
-    tourBookingAt = result.tourBookingAt;
+    aiMessage             = result.message;
+    tourBookingAt         = result.tourBookingAt;
+    applicationCompleted  = Boolean(result.applicationCompleted);
   } catch (err) {
     console.error("[twilio/inbound] AI generation failed:", err);
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "ai_generation_failed",
+      actor:       "system",
+      metadata:    { error: err instanceof Error ? err.message : String(err) },
+    });
     return TWIML_OK;
   }
 
@@ -341,6 +395,16 @@ export async function POST(req: NextRequest) {
     twilioSid = smsResult.sid;
   } catch (err) {
     console.error("[twilio/inbound] SMS send failed:", err);
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "sms_send_failed",
+      actor:       "system",
+      metadata:    {
+        error:   err instanceof Error ? err.message : String(err),
+        preview: aiMessage.slice(0, 100),
+      },
+    });
     return TWIML_OK;
   }
 
@@ -384,6 +448,38 @@ export async function POST(req: NextRequest) {
 
   // Set first_contact_date if not already set (e.g. lead was created manually)
   await setFirstContactDate(lead.id);
+
+  // ── 13. Application complete — flip status, kill follow-ups, alert operator ─
+  if (applicationCompleted) {
+    await db.from("leads").update({
+      status:            "applied",
+      last_contacted_at: new Date().toISOString(),
+    }).eq("id", lead.id);
+
+    await cancelFollowUps(lead.id, "application_complete");
+
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "application_completed",
+      actor:       "ai",
+      metadata:    { detected_from: body.slice(0, 100) },
+    });
+
+    if (property.notify_email) {
+      sendApplicationCompleteAlert({
+        to:             property.notify_email,
+        leadName:       lead.name,
+        leadPhone:      from,
+        propertyName:   property.name,
+        propertyId:     property.id,
+        leadId:         lead.id,
+        messagePreview: body.slice(0, 200),
+      }).catch((err: unknown) =>
+        console.error("[twilio/inbound] application complete alert failed:", err)
+      );
+    }
+  }
 
   await logActivity(db, {
     lead_id:     lead.id,

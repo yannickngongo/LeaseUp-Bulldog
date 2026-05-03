@@ -120,6 +120,38 @@ export async function sendHumanTakeoverAlert({
   );
 }
 
+export async function sendApplicationCompleteAlert({
+  to, leadName, leadPhone, propertyName, propertyId, leadId, messagePreview,
+}: {
+  to: string; leadName: string; leadPhone: string; propertyName: string;
+  propertyId: string; leadId: string; messagePreview: string;
+}) {
+  const leadsUrl = `${APP_URL}/leads?property=${propertyId}&lead=${leadId}`;
+  await sendEmail(
+    to,
+    `✅ Application Submitted — ${leadName} at ${propertyName}`,
+    `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111">
+      <div style="background:#16a34a;padding:24px 32px;border-radius:12px 12px 0 0">
+        <h1 style="color:white;margin:0;font-size:22px">LeaseUp Bulldog</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;font-size:14px">Application Complete</p>
+      </div>
+      <div style="background:#f9f9f9;padding:32px;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:16px;margin-top:0"><strong>${leadName}</strong> just confirmed they finished their application at <strong>${propertyName}</strong>.</p>
+        <div style="background:#d4edda;border:1px solid #28a745;border-radius:8px;padding:16px;margin:20px 0">
+          <p style="font-size:14px;color:#155724;margin:0"><strong>Next step:</strong> Review the application in your leasing software and reach out personally to keep momentum.</p>
+        </div>
+        <div style="background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:16px;margin:20px 0">
+          <p style="font-size:12px;color:#888;margin:0 0 6px">Their last message:</p>
+          <p style="font-size:15px;color:#111;margin:0;font-style:italic">"${messagePreview}"</p>
+        </div>
+        <p style="font-size:14px;color:#555">Phone: <a href="tel:${leadPhone}" style="color:#C8102E">${leadPhone}</a></p>
+        <a href="${leadsUrl}" style="display:inline-block;background:#16a34a;color:white;text-decoration:none;padding:14px 28px;border-radius:8px;font-size:15px;font-weight:600">View Conversation →</a>
+        <p style="font-size:12px;color:#aaa;margin-top:24px">Bulldog will pause the auto follow-up cadence on this lead now that they've applied.</p>
+      </div>
+    </div>`
+  );
+}
+
 export async function sendTourRequestedAlert({
   to, leadName, leadPhone, propertyName, propertyId, leadId, messagePreview,
 }: {
