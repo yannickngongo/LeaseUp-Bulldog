@@ -98,9 +98,9 @@ export default function LandingPage() {
           </Reveal>
         </div>
 
-        {/* Pipeline animation — flows naturally below the title (aspect-locked on mobile, fixed height on desktop) */}
+        {/* Pipeline animation — vertical flow on mobile (aspect-[10/16] for portrait), horizontal on desktop */}
         <Reveal delay={400}>
-          <div className="relative z-10 mx-auto mt-12 aspect-[16/9] max-w-7xl sm:mt-16 sm:aspect-auto sm:h-[500px] md:h-[560px]">
+          <div className="relative z-10 mx-auto mt-12 aspect-[10/16] max-w-md sm:mt-16 sm:aspect-auto sm:h-[500px] sm:max-w-7xl md:h-[560px]">
             <PipelineAnim />
           </div>
         </Reveal>
