@@ -18,16 +18,17 @@ function formatDateTime(iso?: string) {
 export default async function LeadDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const db = getSupabaseAdmin();
 
   const [{ data: lead }, { data: conversations }] = await Promise.all([
-    db.from("leads").select("*").eq("id", params.id).single(),
+    db.from("leads").select("*").eq("id", id).single(),
     db
       .from("conversations")
       .select("*")
-      .eq("lead_id", params.id)
+      .eq("lead_id", id)
       .order("created_at", { ascending: true }),
   ]);
 
