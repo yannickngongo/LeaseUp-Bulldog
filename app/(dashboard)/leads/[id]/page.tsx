@@ -54,10 +54,10 @@ export default async function LeadDetailPage({
       <div className="mx-auto max-w-4xl space-y-6">
         {/* Back */}
         <a
-          href="/dashboard"
+          href="/leads"
           className="text-sm text-blue-600 hover:underline"
         >
-          ← Back to dashboard
+          ← Back to leads
         </a>
 
         {/* Lead header */}
@@ -70,8 +70,17 @@ export default async function LeadDetailPage({
                 <p className="text-sm text-gray-500">{lead.email}</p>
               )}
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex flex-wrap items-center gap-3">
               <StatusBadge status={lead.status} />
+              <a
+                href="#conversation"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#C8102E] px-4 py-2 text-sm font-semibold text-white shadow-[0_4px_14px_rgba(200,16,46,0.25)] transition-colors hover:bg-[#A50D25]"
+              >
+                <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <path d="M2 4a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6l-4 3V4z" />
+                </svg>
+                Open conversation
+              </a>
               {operatorId && (
                 <MarkLeaseSignedButton
                   leadId={lead.id}
@@ -141,7 +150,7 @@ export default async function LeadDetailPage({
         />
 
         {/* Conversation history */}
-        <div className="rounded-xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">
+        <div id="conversation" className="scroll-mt-4 rounded-xl border border-gray-100 bg-white p-4 sm:p-6 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
             Conversation History
           </h2>
