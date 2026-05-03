@@ -59,24 +59,40 @@ function LoginForm() {
   const signupHref = isInvite ? `/signup?invite_token=${encodeURIComponent(inviteToken)}` : "/signup";
 
   return (
-    <div className="min-h-screen text-white font-sans flex flex-col">
-      <header className="border-b border-[#1E1E2E] px-6 py-4">
+    <div className="min-h-screen bg-[#08080F] text-white font-sans flex flex-col">
+      <header className="sticky top-0 z-50 border-b border-[#1E1E2E] bg-[#08080F]/90 backdrop-blur-md px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <Link href="/" className="text-xl font-black tracking-tight">
-            LeaseUp<span className="text-[#C8102E]">Bulldog</span>
+          <Link href="/" className="flex items-center gap-2 text-lg font-black tracking-tight">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#C8102E] pulse-dot" />
+            <span className="text-white">LeaseUp <span className="text-[#C8102E]">Bulldog</span></span>
           </Link>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm font-medium text-gray-300">
             Don&apos;t have an account?{" "}
-            <Link href={signupHref} className="text-[#C8102E] hover:underline font-medium">Sign up free</Link>
+            <Link href={signupHref} className="text-[#F87171] hover:text-white transition-colors">Sign up free</Link>
           </p>
         </div>
       </header>
 
-      <div className="flex flex-1 items-center justify-center px-6 py-16">
-        <div className="relative w-full max-w-md">
-          <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[500px] rounded-full bg-[#C8102E]/10 blur-[80px]" />
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden px-6 py-16">
+        {/* Subtle ambient bg */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div
+            className="absolute left-1/2 top-1/2 h-[420px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ background: "radial-gradient(ellipse, rgba(200,16,46,0.18) 0%, transparent 70%)", filter: "blur(80px)" }}
+          />
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage: `linear-gradient(rgba(200,16,46,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(200,16,46,0.08) 1px, transparent 1px)`,
+              backgroundSize: "48px 48px",
+              maskImage: `radial-gradient(ellipse at 50% 50%, black 30%, transparent 75%)`,
+              WebkitMaskImage: `radial-gradient(ellipse at 50% 50%, black 30%, transparent 75%)`,
+            }}
+          />
+        </div>
 
-          <div className="relative rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8">
+        <div className="relative w-full max-w-md">
+          <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8 transition-all duration-300 hover:border-[#C8102E]/40 hover:shadow-[0_0_60px_rgba(200,16,46,0.2)]">
             <div className="mb-8 text-center">
               <h1 className="text-3xl font-black">Welcome back.</h1>
               <p className="mt-2 text-sm text-gray-500">

@@ -3,6 +3,8 @@ import { MarketingNav } from "@/components/MarketingNav";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { PricingPageWaitlist } from "@/components/marketing-addon/PricingPageWaitlist";
 import { isMarketingAddonLive } from "@/lib/feature-flags";
+import { Reveal } from "@/components/marketing/Reveal";
+import { PageBackground } from "@/components/marketing/PageBackground";
 
 const FAQS = [
   {
@@ -41,30 +43,40 @@ function Check() {
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen text-white font-sans">
+    <div className="min-h-screen bg-[#08080F] text-white font-sans">
       <MarketingNav />
 
       {/* Hero */}
-      <section className="relative overflow-hidden px-6 pb-16 pt-20 text-center">
-        <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-[400px] w-[700px] rounded-full bg-[#C8102E]/10 blur-[100px]" />
-        <div className="relative mx-auto max-w-2xl">
-          <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#C8102E]">Pricing</p>
-          <h1 className="mb-5 text-5xl font-black tracking-tight md:text-6xl">
-            Simple. Performance-based.
-          </h1>
-          <p className="text-lg text-gray-400">
-            Start at $500/mo. Pay per lease only when we deliver. No setup fee. No lock-in.
-          </p>
+      <section className="relative overflow-hidden px-6 pb-16 pt-24 text-center">
+        <PageBackground variant="hero" />
+        <div className="relative mx-auto max-w-3xl">
+          <Reveal>
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F87171] backdrop-blur-sm">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#C8102E] pulse-dot" />
+              Pricing
+            </div>
+          </Reveal>
+          <Reveal delay={100}>
+            <h1 className="mb-6 text-5xl font-black leading-[0.95] tracking-tight md:text-6xl lg:text-7xl">
+              Simple.<br />
+              <span className="text-[#C8102E]">Performance-based.</span>
+            </h1>
+          </Reveal>
+          <Reveal delay={200}>
+            <p className="text-lg font-medium text-gray-300 leading-relaxed">
+              Start at $500/mo. Pay per lease only when we deliver. No setup fee. No lock-in.
+            </p>
+          </Reveal>
         </div>
       </section>
 
       {/* Tier cards */}
-      <section className="px-6 pb-20">
+      <section className="relative px-6 pb-20">
         <div className="mx-auto max-w-5xl">
 
-          <div className="grid gap-4 md:grid-cols-3 mb-6">
+          <Reveal className="grid gap-4 md:grid-cols-3 mb-6">
             {/* Starter */}
-            <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8 flex flex-col">
+            <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-[#C8102E]/40 hover:shadow-[0_0_30px_rgba(200,16,46,0.15)]">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Starter</p>
               <div className="mb-1 flex items-end gap-1">
                 <span className="text-4xl font-black text-white">$500</span>
@@ -91,7 +103,7 @@ export default function PricingPage() {
             </div>
 
             {/* Pro */}
-            <div className="rounded-2xl border border-[#C8102E] bg-[#C8102E]/5 p-8 flex flex-col relative">
+            <div className="rounded-2xl border border-[#C8102E] bg-[#C8102E]/5 p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_0_50px_rgba(200,16,46,0.35)]">
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#C8102E] px-3 py-1 text-[10px] font-black text-white tracking-widest uppercase">Most Popular</span>
               <p className="text-xs font-bold uppercase tracking-widest text-[#C8102E] mb-1">Pro</p>
               <div className="mb-1 flex items-end gap-1">
@@ -120,7 +132,7 @@ export default function PricingPage() {
             </div>
 
             {/* Portfolio */}
-            <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8 flex flex-col">
+            <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8 flex flex-col transition-all duration-300 hover:-translate-y-1 hover:border-[#C8102E]/40 hover:shadow-[0_0_30px_rgba(200,16,46,0.15)]">
               <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Portfolio</p>
               <div className="mb-1 flex items-end gap-1">
                 <span className="text-4xl font-black text-white">$3,000</span>
@@ -146,18 +158,18 @@ export default function PricingPage() {
                 Talk to Sales →
               </Link>
             </div>
-          </div>
+          </Reveal>
 
           {/* Marketing Add-On */}
-          <div className="mb-6 rounded-2xl border border-amber-800/40 bg-amber-950/20 p-6">
+          <Reveal className="mb-6 rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm font-bold text-amber-400">Marketing Add-On</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#F87171]">Marketing Add-On</p>
                   {isMarketingAddonLive() ? (
-                    <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Optional</span>
+                    <span className="rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-2 py-0.5 text-[10px] font-bold text-[#F87171]">Optional</span>
                   ) : (
-                    <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Coming Soon</span>
+                    <span className="rounded-full border border-[#1E1E2E] bg-[#16161F] px-2 py-0.5 text-[10px] font-bold text-gray-400">Coming Soon</span>
                   )}
                 </div>
                 <div className="flex items-baseline gap-2 mb-1">
@@ -171,8 +183,8 @@ export default function PricingPage() {
               </div>
               {isMarketingAddonLive() ? (
                 <div className="shrink-0">
-                  <div className="rounded-xl border border-amber-800/30 bg-amber-900/20 p-4 text-center min-w-[160px]">
-                    <p className="text-xs text-amber-400 font-semibold mb-1">Example: $5K ad spend</p>
+                  <div className="rounded-xl border border-[#1E1E2E] bg-[#16161F] p-4 text-center min-w-[160px]">
+                    <p className="text-xs text-[#F87171] font-semibold mb-1">Example: $5K ad spend</p>
                     <p className="text-2xl font-black text-white">$750/mo</p>
                     <p className="text-xs text-gray-500">$500 + $250 (5%)</p>
                   </div>
@@ -181,10 +193,10 @@ export default function PricingPage() {
                 <PricingPageWaitlist />
               )}
             </div>
-          </div>
+          </Reveal>
 
           {/* Performance fee callout */}
-          <div className="mb-6 rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-6">
+          <Reveal className="mb-6 rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-6">
             <div className="grid gap-6 sm:grid-cols-3">
               <div className="sm:col-span-2">
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">Performance Fee — Only When We Deliver</p>
@@ -198,16 +210,21 @@ export default function PricingPage() {
                 <p className="text-xs text-gray-500">$1,500 platform + $1,000 perf.</p>
               </div>
             </div>
-          </div>
+          </Reveal>
 
           {/* 30-day guarantee */}
-          <div className="mb-8 rounded-2xl border border-green-800/40 bg-green-950/20 p-6 text-center">
-            <p className="text-2xl mb-2">🛡️</p>
+          <Reveal className="mb-8 rounded-2xl border border-[#C8102E]/30 bg-gradient-to-br from-[#10101A] to-[#1A0A0F] p-6 text-center">
+            <div className="mx-auto mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 text-[#F87171]">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+            </div>
             <p className="text-lg font-black text-white mb-1">30-Day Results Guarantee</p>
-            <p className="text-sm text-gray-400 max-w-xl mx-auto">
-              If LUB doesn't qualify at least 20 leads in your first 30 days, we refund your first month. No questions asked. We're that confident.
+            <p className="text-sm text-gray-400 max-w-xl mx-auto leading-relaxed">
+              If LUB doesn&apos;t qualify at least 20 leads in your first 30 days, we refund your first month. No questions asked. We&apos;re that confident.
             </p>
-          </div>
+          </Reveal>
 
           <div className="text-center">
             <Link href="/free-trial" className="inline-block rounded-xl bg-[#C8102E] px-10 py-4 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25">

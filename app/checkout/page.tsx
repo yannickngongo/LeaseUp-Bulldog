@@ -107,32 +107,57 @@ function CheckoutForm() {
   return (
     <div className="min-h-screen bg-[#08080F] text-white font-sans flex flex-col">
       {/* Header */}
-      <header className="border-b border-[#1E1E2E] px-6 py-4">
+      <header className="sticky top-0 z-50 border-b border-[#1E1E2E] bg-[#08080F]/90 backdrop-blur-md px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <Link href="/" className="text-xl font-black tracking-tight">
-            LeaseUp<span className="text-[#C8102E]">Bulldog</span>
+          <Link href="/" className="flex items-center gap-2 text-lg font-black tracking-tight">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#C8102E] pulse-dot" />
+            <span className="text-white">LeaseUp <span className="text-[#C8102E]">Bulldog</span></span>
           </Link>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <svg className="h-3.5 w-3.5 text-green-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+          <div className="flex items-center gap-2 text-xs font-medium text-gray-400">
+            <svg className="h-3.5 w-3.5 text-[#F87171]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="m9 12 2 2 4-4" />
             </svg>
             Secured by Stripe
           </div>
         </div>
       </header>
 
-      <div className="flex flex-1 items-start justify-center px-6 py-12">
-        <div className="w-full max-w-5xl grid gap-10 md:grid-cols-[1fr_380px] items-start">
+      <div className="relative flex flex-1 items-start justify-center overflow-hidden px-6 py-16">
+        {/* Subtle ambient bg */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div
+            className="absolute left-1/2 top-0 h-[420px] w-[900px] -translate-x-1/2 -translate-y-1/3 rounded-full"
+            style={{ background: "radial-gradient(ellipse, rgba(200,16,46,0.18) 0%, transparent 70%)", filter: "blur(80px)" }}
+          />
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage: `linear-gradient(rgba(200,16,46,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(200,16,46,0.08) 1px, transparent 1px)`,
+              backgroundSize: "48px 48px",
+              maskImage: `radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%)`,
+              WebkitMaskImage: `radial-gradient(ellipse at 50% 30%, black 30%, transparent 75%)`,
+            }}
+          />
+        </div>
+
+        <div className="relative w-full max-w-5xl grid gap-10 md:grid-cols-[1fr_380px] items-start">
 
           {/* Left — selection */}
           <div>
-            <h1 className="mb-2 text-3xl font-black">Complete your order</h1>
-            <p className="mb-8 text-sm text-gray-500">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F87171] backdrop-blur-sm">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#C8102E] pulse-dot" />
+              Checkout
+            </div>
+            <h1 className="mb-3 text-4xl font-black tracking-tight md:text-5xl">
+              Complete your <span className="text-[#C8102E]">order.</span>
+            </h1>
+            <p className="mb-8 text-base font-medium text-gray-300">
               14-day free trial · No setup fee · Platform fee starts after trial
             </p>
 
             {cancelled && (
-              <div className="mb-6 rounded-xl border border-yellow-900/50 bg-yellow-950/20 px-4 py-3 text-sm text-yellow-400">
+              <div className="mb-6 rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/10 px-4 py-3 text-sm text-[#F87171]">
                 Checkout was cancelled — no charge was made. Pick a plan when you&apos;re ready.
               </div>
             )}

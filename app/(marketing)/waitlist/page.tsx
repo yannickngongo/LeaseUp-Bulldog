@@ -1,6 +1,12 @@
 import { MarketingNav } from "@/components/MarketingNav";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { WaitlistForm } from "@/components/WaitlistForm";
+import { IconLock, IconHandshake, IconTarget, IconCheck } from "@/components/marketing/Icons";
+import { Reveal } from "@/components/marketing/Reveal";
+import { PageBackground } from "@/components/marketing/PageBackground";
+import type { ComponentType } from "react";
+
+type Perk = { Icon: ComponentType<{ className?: string; size?: number }>; title: string; desc: string };
 
 // Brand: #C8102E red | #08080F bg | #10101A mid | #16161F surface | #1E1E2E border
 
@@ -12,79 +18,88 @@ export const metadata = {
 
 export default function WaitlistPage() {
   return (
-    <div className="min-h-screen text-white font-sans">
+    <div className="min-h-screen bg-[#08080F] text-white font-sans">
       <MarketingNav />
 
       {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden px-5 py-16 sm:px-6 sm:py-24">
-        {/* Background glows */}
-        <div className="pointer-events-none absolute left-1/4 top-0 h-[500px] w-[700px] -translate-y-1/4 rounded-full bg-[#C8102E]/10 blur-[120px]" />
-        <div className="pointer-events-none absolute right-0 top-1/2 h-[400px] w-[500px] rounded-full bg-[#C8102E]/5 blur-[100px]" />
+      <section className="relative overflow-hidden px-5 py-20 sm:px-6 sm:py-28">
+        <PageBackground variant="hero" />
 
         <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-2 lg:items-center">
 
           {/* ── Left: headline + social proof ── */}
           <div>
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/30 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-medium text-[#F87171]">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#C8102E]" />
-              Limited early access — first wave of operators
-            </div>
+            <Reveal>
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F87171] backdrop-blur-sm">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#C8102E] pulse-dot" />
+                Limited early access
+              </div>
+            </Reveal>
 
-            <h1 className="mb-5 text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl md:text-6xl">
-              Your AI leasing agent.
-              <br />
-              <span className="text-[#C8102E]">Respond in 60 seconds.</span>
-            </h1>
+            <Reveal delay={100}>
+              <h1 className="mb-6 text-5xl font-black leading-[0.95] tracking-tight md:text-6xl lg:text-7xl">
+                Your AI leasing agent.<br />
+                <span className="text-[#C8102E]">Respond in 60 seconds.</span>
+              </h1>
+            </Reveal>
 
-            <p className="mb-8 max-w-lg text-base leading-relaxed text-gray-400 sm:text-lg">
-              LeaseUp Bulldog texts every new lead the moment they come in, qualifies
-              them through natural conversation, and pushes them toward a tour —
-              automatically, 24/7. We&apos;re onboarding our first wave of operators now.
-            </p>
+            <Reveal delay={200}>
+              <p className="mb-10 max-w-lg text-lg font-medium leading-relaxed text-gray-300">
+                LeaseUp Bulldog texts every new lead the moment they come in, qualifies
+                them through natural conversation, and pushes them toward a tour —
+                automatically, 24/7. We&apos;re onboarding our first wave of operators now.
+              </p>
+            </Reveal>
 
             {/* Perks */}
-            <ul className="mb-10 space-y-3">
-              {[
-                "Founding member pricing — locked for life",
-                "White-glove onboarding with our team",
-                "Direct line to the founding team for feedback & support",
-              ].map((perk) => (
-                <li key={perk} className="flex items-center gap-3 text-sm text-gray-300">
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/15 text-xs text-[#C8102E]">
-                    ✓
-                  </span>
-                  {perk}
-                </li>
-              ))}
-            </ul>
+            <Reveal delay={300}>
+              <ul className="mb-10 space-y-3">
+                {[
+                  "Founding member pricing — locked for life",
+                  "White-glove onboarding with our team",
+                  "Direct line to the founding team for feedback & support",
+                ].map((perk) => (
+                  <li key={perk} className="flex items-center gap-3 text-sm text-gray-300">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#C8102E]/15 text-[#F87171]">
+                      <IconCheck size={12} />
+                    </span>
+                    {perk}
+                  </li>
+                ))}
+              </ul>
+            </Reveal>
 
             {/* Social proof numbers */}
-            <div className="flex items-center gap-6">
-              <div>
-                <p className="text-2xl font-black text-white">247+</p>
-                <p className="text-xs text-gray-500">operators on the list</p>
+            <Reveal delay={400}>
+              <div className="flex items-center gap-6">
+                <div>
+                  <p className="text-2xl font-black text-[#C8102E]">247+</p>
+                  <p className="text-xs text-gray-500">operators on the list</p>
+                </div>
+                <div className="h-8 w-px bg-[#1E1E2E]" />
+                <div>
+                  <p className="text-2xl font-black text-[#C8102E]">&lt;60s</p>
+                  <p className="text-xs text-gray-500">avg response time</p>
+                </div>
+                <div className="h-8 w-px bg-[#1E1E2E]" />
+                <div>
+                  <p className="text-2xl font-black text-[#C8102E]">98%</p>
+                  <p className="text-xs text-gray-500">lead coverage</p>
+                </div>
               </div>
-              <div className="h-8 w-px bg-[#1E1E2E]" />
-              <div>
-                <p className="text-2xl font-black text-white">&lt;60s</p>
-                <p className="text-xs text-gray-500">avg response time</p>
-              </div>
-              <div className="h-8 w-px bg-[#1E1E2E]" />
-              <div>
-                <p className="text-2xl font-black text-white">98%</p>
-                <p className="text-xs text-gray-500">lead coverage</p>
-              </div>
-            </div>
+            </Reveal>
           </div>
 
           {/* ── Right: form card ── */}
-          <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8 shadow-2xl shadow-black/60">
-            <h2 className="mb-1 text-xl font-bold text-white">Get early access</h2>
-            <p className="mb-6 text-sm text-gray-500">
-              We review every application personally. Spots are limited.
-            </p>
-            <WaitlistForm />
-          </div>
+          <Reveal delay={150}>
+            <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-8 transition-all duration-300 hover:border-[#C8102E]/40 hover:shadow-[0_0_60px_rgba(200,16,46,0.2)]">
+              <h2 className="mb-1 text-xl font-bold text-white">Get early access</h2>
+              <p className="mb-6 text-sm text-gray-400">
+                We review every application personally. Spots are limited.
+              </p>
+              <WaitlistForm />
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -122,32 +137,20 @@ export default function WaitlistPage() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-3">
-            {[
-              {
-                icon: "🔒",
-                title: "Founding Member Pricing",
-                desc: "Lock in a rate that never changes — no matter how much we charge future customers. Early operators pay less. Always.",
-              },
-              {
-                icon: "🤝",
-                title: "White-Glove Onboarding",
-                desc: "We set everything up for you. Phone numbers, property config, AI tone — done in one call. You're live within 24 hours.",
-              },
-              {
-                icon: "🎯",
-                title: "Direct Founder Access",
-                desc: "Every application is reviewed personally. As a founding member, you have a direct line for feedback, requests, and support.",
-              },
-            ].map((perk) => (
+            {([
+              { Icon: IconLock, title: "Founding Member Pricing", desc: "Lock in a rate that never changes — no matter how much we charge future customers. Early operators pay less. Always." },
+              { Icon: IconHandshake, title: "White-Glove Onboarding", desc: "We set everything up for you. Phone numbers, property config, AI tone — done in one call. You're live within 24 hours." },
+              { Icon: IconTarget, title: "Direct Founder Access", desc: "Every application is reviewed personally. As a founding member, you have a direct line for feedback, requests, and support." },
+            ] as Perk[]).map((perk) => (
               <div
                 key={perk.title}
-                className="rounded-2xl border border-[#1E1E2E] bg-[#16161F] p-6 transition-colors hover:border-[#C8102E]/40"
+                className="group rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[#C8102E]/60 hover:shadow-[0_0_40px_rgba(200,16,46,0.25),inset_0_0_20px_rgba(200,16,46,0.05)]"
               >
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#C8102E]/10 text-xl">
-                  {perk.icon}
+                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/10 text-[#F87171]">
+                  <perk.Icon />
                 </div>
-                <h3 className="mb-2 font-bold text-white">{perk.title}</h3>
-                <p className="text-sm leading-relaxed text-gray-500">{perk.desc}</p>
+                <h3 className="mb-2 text-lg font-bold text-white">{perk.title}</h3>
+                <p className="text-sm leading-relaxed text-gray-400">{perk.desc}</p>
               </div>
             ))}
           </div>

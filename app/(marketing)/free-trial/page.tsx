@@ -27,7 +27,7 @@ export default function FreeTrialPage() {
   }
 
   return (
-    <div className="min-h-screen text-white font-sans flex flex-col">
+    <div className="min-h-screen bg-[#08080F] text-white font-sans flex flex-col">
       <header className="border-b border-[#1E1E2E] px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="text-xl font-black tracking-tight">
@@ -47,11 +47,21 @@ export default function FreeTrialPage() {
           <div className="relative grid gap-12 md:grid-cols-2 items-start">
             {/* Left — value prop */}
             <div>
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#C8102E]">14-Day Free Trial</p>
-              <h1 className="mb-6 text-4xl font-black tracking-tight md:text-5xl leading-tight">
-                Start converting leads<br />today. No risk.
+              <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F87171] backdrop-blur-sm">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#C8102E] animate-pulse" />
+                14-Day Free Trial
+              </div>
+              <h1
+                className="mb-6 text-4xl font-black leading-[0.95] tracking-tight md:text-5xl lg:text-6xl"
+                style={{ textShadow: "0 2px 24px rgba(0,0,0,0.85)" }}
+              >
+                Start converting leads<br />
+                today. <span className="text-[#C8102E]">No risk.</span>
               </h1>
-              <p className="mb-8 text-gray-400 leading-relaxed">
+              <p
+                className="mb-8 text-lg font-medium text-gray-300 leading-relaxed"
+                style={{ textShadow: "0 2px 16px rgba(0,0,0,0.85)" }}
+              >
                 Set up your first property in minutes and watch LeaseUp Bulldog respond to your very first lead — automatically.
               </p>
 
@@ -109,20 +119,20 @@ export default function FreeTrialPage() {
                 </div>
 
                 {isMarketingAddonLive() ? (
-                  <div className="rounded-lg border border-purple-800/30 bg-purple-950/20 px-4 py-3">
-                    <p className="text-xs font-semibold text-purple-400 mb-0.5">
+                  <div className="rounded-lg border border-[#C8102E]/30 bg-[#C8102E]/10 px-4 py-3">
+                    <p className="text-xs font-semibold text-[#F87171] mb-0.5">
                       Marketing Add-On{" "}
-                      <span className="font-normal text-purple-600">— Optional</span>
+                      <span className="font-normal text-gray-500">— Optional</span>
                     </p>
                     <p className="text-xs text-gray-400">
                       $500/mo + 5% of ad spend. AI ad creative for Facebook &amp; Google. Select on the next screen.
                     </p>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-amber-800/30 bg-amber-950/20 px-4 py-3">
-                    <p className="text-xs font-semibold text-amber-400 mb-0.5">
+                  <div className="rounded-lg border border-[#1E1E2E] bg-[#16161F] px-4 py-3">
+                    <p className="text-xs font-semibold text-[#F87171] mb-0.5">
                       Marketing Add-On{" "}
-                      <span className="font-normal text-amber-600">— Coming Soon</span>
+                      <span className="font-normal text-gray-500">— Coming Soon</span>
                     </p>
                     <p className="text-xs text-gray-400">
                       AI ad creative for Facebook &amp; Google launching shortly. Existing customers get first access — start your pilot now and we&apos;ll notify you.

@@ -3,6 +3,12 @@ import Link from "next/link";
 import { MarketingNav } from "@/components/MarketingNav";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { isMarketingAddonLive } from "@/lib/feature-flags";
+import { IconCalendar, IconChat, IconLifebuoy } from "@/components/marketing/Icons";
+import { Reveal } from "@/components/marketing/Reveal";
+import { PageBackground } from "@/components/marketing/PageBackground";
+import type { ComponentType } from "react";
+
+type ContactItem = { Icon: ComponentType<{ className?: string; size?: number }>; title: string; desc: string };
 
 export default function ContactPage() {
   return (
@@ -10,42 +16,44 @@ export default function ContactPage() {
       <MarketingNav />
 
       <section className="relative overflow-hidden px-6 py-24">
-        <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-[400px] w-[700px] rounded-full bg-[#C8102E]/10 blur-[100px]" />
+        <PageBackground variant="hero" />
 
         <div className="relative mx-auto max-w-5xl grid gap-16 md:grid-cols-2">
           {/* Left */}
           <div>
-            <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#C8102E]">Contact</p>
-            <h1 className="mb-6 text-4xl font-black tracking-tight md:text-5xl">
-              Let&apos;s talk leasing.
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F87171] backdrop-blur-sm">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#C8102E] animate-pulse" />
+              Contact
+            </div>
+            <h1
+              className="mb-6 text-5xl font-black leading-[0.95] tracking-tight md:text-6xl"
+              style={{ textShadow: "0 2px 24px rgba(0,0,0,0.85)" }}
+            >
+              Let&apos;s <span className="text-[#C8102E]">talk leasing.</span>
             </h1>
-            <p className="mb-8 text-gray-400 leading-relaxed">
+            <p
+              className="mb-8 text-lg font-medium text-gray-300 leading-relaxed"
+              style={{ textShadow: "0 2px 16px rgba(0,0,0,0.85)" }}
+            >
               Whether you&apos;re managing 1 property or 100, we&apos;d love to show you what LeaseUp Bulldog can do for your pipeline.
             </p>
 
             <div className="space-y-5">
-              {[
-                {
-                  icon: "📅",
-                  title: "Book a demo",
-                  desc: "30 minutes. We'll show you a live walkthrough with your property's data.",
-                },
-                {
-                  icon: "💬",
-                  title: "Sales inquiry",
-                  desc: "Have questions about Portfolio pricing or custom integrations? We'll get back to you same day.",
-                },
-                {
-                  icon: "🛟",
-                  title: "Support",
-                  desc: "Already a customer? Email support@leaseupbulldog.com or use the chat in your dashboard.",
-                },
-              ].map((item) => (
-                <div key={item.title} className="flex gap-4 rounded-xl border border-[#1E1E2E] bg-[#10101A] p-5">
-                  <span className="text-2xl">{item.icon}</span>
+              {([
+                { Icon: IconCalendar, title: "Book a demo", desc: "30 minutes. We'll show you a live walkthrough with your property's data." },
+                { Icon: IconChat, title: "Sales inquiry", desc: "Have questions about Portfolio pricing or custom integrations? We'll get back to you same day." },
+                { Icon: IconLifebuoy, title: "Support", desc: "Already a customer? Email support@leaseupbulldog.com or use the chat in your dashboard." },
+              ] as ContactItem[]).map((item) => (
+                <div
+                  key={item.title}
+                  className="group flex gap-4 rounded-xl border border-[#1E1E2E] bg-[#10101A] p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C8102E]/60 hover:shadow-[0_0_30px_rgba(200,16,46,0.2)]"
+                >
+                  <div className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/10 text-[#F87171]">
+                    <item.Icon size={20} />
+                  </div>
                   <div>
                     <p className="font-semibold text-white">{item.title}</p>
-                    <p className="mt-1 text-sm text-gray-500">{item.desc}</p>
+                    <p className="mt-1 text-sm text-gray-400 leading-relaxed">{item.desc}</p>
                   </div>
                 </div>
               ))}
@@ -142,9 +150,9 @@ export default function ContactPage() {
               </div>
             ))}
           </div>
-          <div className="rounded-xl border border-amber-800/40 bg-amber-950/20 px-5 py-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-xl border border-[#1E1E2E] bg-[#10101A] px-5 py-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <span className="text-sm font-bold text-amber-400">Marketing Add-On</span>
+              <span className="text-sm font-bold text-[#F87171]">Marketing Add-On</span>
               <span className="ml-2 text-sm text-white font-black">$500/mo + 5% of ad spend</span>
               <span className="ml-2 text-xs text-gray-400">— AI creative & copy for Facebook & Google</span>
             </div>

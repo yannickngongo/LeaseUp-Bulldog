@@ -3,6 +3,9 @@ import { MarketingNav } from "@/components/MarketingNav";
 import { MarketingFooter } from "@/components/MarketingFooter";
 import { PricingPageWaitlist } from "@/components/marketing-addon/PricingPageWaitlist";
 import { isMarketingAddonLive } from "@/lib/feature-flags";
+import { IconBolt, IconTarget, IconRefresh, IconChart, IconCalendar, IconDashboard } from "@/components/marketing/Icons";
+
+type FeatType = { Icon: React.ComponentType<{ className?: string; size?: number }>; title: string; desc: string };
 
 // Brand tokens: #C8102E red | #08080F bg | #10101A mid | #16161F surface | #1E1E2E border
 
@@ -16,18 +19,23 @@ export default function LandingPage() {
       <section className="relative overflow-hidden px-5 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20">
 
         <div className="relative mx-auto max-w-5xl text-center">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/30 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-medium text-[#F87171]">
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F87171] backdrop-blur-sm">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#C8102E] animate-pulse" />
-            AI-powered leasing — respond in under 60 seconds
+            AI Leasing Automation
           </div>
 
-          <h1 className="mb-6 text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl md:text-7xl">
-            Fill Your Apartments
-            <br />
+          <h1
+            className="mb-6 text-5xl font-black leading-[0.95] tracking-tight sm:text-6xl md:text-7xl lg:text-[88px]"
+            style={{ textShadow: "0 2px 24px rgba(0,0,0,0.85), 0 0 60px rgba(0,0,0,0.6)" }}
+          >
+            Fill Your Apartments<br />
             <span className="text-[#C8102E]">Faster Than Ever.</span>
           </h1>
 
-          <p className="mx-auto mb-10 max-w-2xl text-base leading-relaxed text-gray-400 sm:text-lg md:text-xl">
+          <p
+            className="mx-auto mb-10 max-w-2xl text-base font-medium leading-relaxed text-gray-300 sm:text-lg md:text-xl"
+            style={{ textShadow: "0 2px 16px rgba(0,0,0,0.85)" }}
+          >
             LeaseUp Bulldog responds to every lead instantly, qualifies them with AI,
             and pushes them toward a tour — automatically. No more missed leads. No more slow follow-ups.
           </p>
@@ -35,13 +43,15 @@ export default function LandingPage() {
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/waitlist"
-              className="w-full sm:w-auto rounded-xl bg-[#C8102E] px-8 py-4 text-base font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25"
+              className="group w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-[#C8102E] px-8 py-4 text-base font-bold text-white transition-all hover:scale-105"
+              style={{ boxShadow: "0 0 40px rgba(200,16,46,0.5)" }}
             >
-              Join the Waitlist →
+              Join the Waitlist
+              <span className="transition-transform group-hover:translate-x-1">→</span>
             </Link>
             <Link
               href="/how-it-works"
-              className="w-full sm:w-auto rounded-xl border border-[#1E1E2E] bg-[#16161F] px-8 py-4 text-base font-semibold text-gray-300 hover:border-gray-500 hover:text-white transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center rounded-full border border-[#1E1E2E] bg-[#16161F]/80 px-8 py-4 text-base font-semibold text-white transition-colors hover:border-white backdrop-blur-sm"
             >
               See How It Works
             </Link>
@@ -86,7 +96,7 @@ export default function LandingPage() {
                     {[
                       { name: "Jordan Ellis",   source: "Zillow",    status: "Engaged",       statusColor: "text-violet-400 bg-violet-400/10", date: "Aug 1",  contact: "2m ago"   },
                       { name: "Maya Thompson",  source: "Website",   status: "New",           statusColor: "text-gray-400 bg-gray-400/10",     date: "Jul 15", contact: "Just now" },
-                      { name: "Carlos Reyes",   source: "Apts.com",  status: "Tour Scheduled",statusColor: "text-amber-400 bg-amber-400/10",   date: "Sep 1",  contact: "1h ago"   },
+                      { name: "Carlos Reyes",   source: "Apts.com",  status: "Tour Scheduled",statusColor: "text-[#F87171] bg-[#F87171]/10",   date: "Sep 1",  contact: "1h ago"   },
                     ].map((row) => (
                       <div key={row.name} className="grid grid-cols-5 border-b border-[#1E1E2E]/50 px-4 py-2.5 text-sm last:border-0">
                         <span className="font-medium text-white">{row.name}</span>
@@ -181,48 +191,27 @@ export default function LandingPage() {
             </h2>
           </div>
 
+          <div className="mb-10 max-w-2xl mx-auto text-center">
+            <span className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8102E]">── Capabilities</span>
+          </div>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {[
-              {
-                icon: "⚡",
-                title: "Instant AI Response",
-                desc: "Every new lead gets a personalized SMS reply in under 60 seconds — day or night, weekday or weekend.",
-              },
-              {
-                icon: "🎯",
-                title: "Smart Qualification",
-                desc: "AI collects move-in date, unit type, budget, and pet info through natural conversation — no forms required.",
-              },
-              {
-                icon: "🔁",
-                title: "Automated Follow-Up",
-                desc: "Leads that go cold get a nudge. Sequences run on schedule so no prospect falls through the cracks.",
-              },
-              {
-                icon: "📊",
-                title: "Lead Scoring",
-                desc: "Every lead gets an AI quality score so your team knows exactly who to call first.",
-              },
-              {
-                icon: "🗓️",
-                title: "Tour Scheduling",
-                desc: "AI guides warm leads toward booking a tour or starting an application at exactly the right moment.",
-              },
-              {
-                icon: "📱",
-                title: "Operator Dashboard",
-                desc: "Full pipeline visibility — response times, tour rates, application starts, and conversion at a glance.",
-              },
-            ].map((feat) => (
+            {([
+              { Icon: IconBolt, title: "Instant AI Response", desc: "Every new lead gets a personalized SMS reply in under 60 seconds — day or night, weekday or weekend." },
+              { Icon: IconTarget, title: "Smart Qualification", desc: "AI collects move-in date, unit type, budget, and pet info through natural conversation — no forms required." },
+              { Icon: IconRefresh, title: "Automated Follow-Up", desc: "Leads that go cold get a nudge. Sequences run on schedule so no prospect falls through the cracks." },
+              { Icon: IconChart, title: "Lead Scoring", desc: "Every lead gets an AI quality score so your team knows exactly who to call first." },
+              { Icon: IconCalendar, title: "Tour Scheduling", desc: "AI guides warm leads toward booking a tour or starting an application at exactly the right moment." },
+              { Icon: IconDashboard, title: "Operator Dashboard", desc: "Full pipeline visibility — response times, tour rates, application starts, and conversion at a glance." },
+            ] as FeatType[]).map((feat) => (
               <div
                 key={feat.title}
-                className="group rounded-2xl border border-[#1E1E2E] bg-[#16161F] p-6 transition-colors hover:border-[#C8102E]/40"
+                className="group rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-7 transition-all duration-300 hover:-translate-y-1 hover:border-[#C8102E]/60 hover:shadow-[0_0_40px_rgba(200,16,46,0.25),inset_0_0_20px_rgba(200,16,46,0.05)]"
               >
-                <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#C8102E]/10 text-xl">
-                  {feat.icon}
+                <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-xl border border-[#C8102E]/30 bg-[#C8102E]/10 text-[#F87171]">
+                  <feat.Icon />
                 </div>
-                <h3 className="mb-2 font-bold text-white">{feat.title}</h3>
-                <p className="text-sm leading-relaxed text-gray-500">{feat.desc}</p>
+                <h3 className="mb-2 text-lg font-bold text-white">{feat.title}</h3>
+                <p className="text-sm leading-relaxed text-gray-400">{feat.desc}</p>
               </div>
             ))}
           </div>
@@ -358,14 +347,14 @@ export default function LandingPage() {
           </div>
 
           {/* Marketing Add-On */}
-          <div className="mb-4 rounded-2xl border border-amber-800/40 bg-amber-950/20 p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mb-4 rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm font-bold text-amber-400">Marketing Add-On</p>
+                <p className="text-sm font-bold text-[#F87171]">Marketing Add-On</p>
                 {isMarketingAddonLive() ? (
-                  <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Optional</span>
+                  <span className="rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-2 py-0.5 text-[10px] font-bold text-[#F87171]">Optional</span>
                 ) : (
-                  <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">Coming Soon</span>
+                  <span className="rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-2 py-0.5 text-[10px] font-bold text-[#F87171]">Coming Soon</span>
                 )}
               </div>
               <div className="flex items-baseline gap-1.5 mb-1">
@@ -378,8 +367,8 @@ export default function LandingPage() {
               <p className="text-sm text-gray-400">AI ad strategy, creative, and copy for Facebook & Google. You approve before anything goes live.</p>
             </div>
             {isMarketingAddonLive() ? (
-              <div className="shrink-0 rounded-xl border border-amber-800/30 bg-amber-900/20 p-4 text-center min-w-[140px]">
-                <p className="text-xs text-amber-400 font-semibold mb-1">Example: $5K spend</p>
+              <div className="shrink-0 rounded-xl border border-[#1E1E2E] bg-[#16161F] p-4 text-center min-w-[140px]">
+                <p className="text-xs text-[#F87171] font-semibold mb-1">Example: $5K spend</p>
                 <p className="text-xl font-black text-white">$750/mo</p>
                 <p className="text-xs text-gray-500">$500 + $250 (5%)</p>
               </div>
@@ -390,8 +379,8 @@ export default function LandingPage() {
 
           {/* Performance fee + guarantee row */}
           <div className="mb-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-amber-800/40 bg-amber-950/20 p-6">
-              <p className="text-xs font-bold uppercase tracking-widest text-amber-500 mb-1">Performance Fee</p>
+            <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-[#F87171] mb-1">Performance Fee</p>
               <p className="text-sm text-gray-400 leading-relaxed">You only pay the per-lease fee when a LUB-managed lead signs a lease within 30 days of first AI contact. We don&apos;t win unless you win.</p>
             </div>
             <div className="rounded-2xl border border-green-800/40 bg-green-950/20 p-6 flex items-center gap-4">

@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { MarketingNav } from "@/components/MarketingNav";
 import { MarketingFooter } from "@/components/MarketingFooter";
-import { PricingPageWaitlist } from "@/components/marketing-addon/PricingPageWaitlist";
-import { isMarketingAddonLive } from "@/lib/feature-flags";
+import { Reveal } from "@/components/marketing/Reveal";
+import { PageBackground } from "@/components/marketing/PageBackground";
+import { IconArrowRight, IconCheck } from "@/components/marketing/Icons";
 
 const STEPS = [
   {
@@ -73,45 +74,54 @@ export default function HowItWorksPage() {
       <MarketingNav />
 
       {/* Hero */}
-      <section className="relative overflow-hidden px-6 pb-16 pt-20 text-center">
-        <div className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 h-[400px] w-[700px] rounded-full bg-[#C8102E]/10 blur-[100px]" />
+      <section className="relative overflow-hidden px-6 pb-20 pt-24 text-center">
+        <PageBackground variant="hero" />
         <div className="relative mx-auto max-w-3xl">
-          <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[#C8102E]">How It Works</p>
-          <h1 className="mb-6 text-5xl font-black tracking-tight md:text-6xl">
-            Set up in minutes.<br />
-            <span className="text-[#C8102E]">Convert for months.</span>
-          </h1>
-          <p className="text-lg text-gray-400 leading-relaxed">
-            From the first lead to the signed lease — here's how LeaseUp Bulldog turns your lead pipeline into a conversion machine.
-          </p>
+          <Reveal>
+            <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-[#C8102E]/40 bg-[#C8102E]/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-[#F87171] backdrop-blur-sm">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#C8102E] pulse-dot" />
+              The Product
+            </div>
+          </Reveal>
+          <Reveal delay={100}>
+            <h1 className="mb-6 text-5xl font-black leading-[0.95] tracking-tight md:text-6xl lg:text-7xl">
+              Set up in minutes.<br />
+              <span className="text-[#C8102E]">Convert for months.</span>
+            </h1>
+          </Reveal>
+          <Reveal delay={200}>
+            <p className="text-lg font-medium text-gray-300 leading-relaxed">
+              From the first lead to the signed lease — here&apos;s how LeaseUp Bulldog turns your pipeline into a conversion machine. Five steps. Fully automated. You stay in control.
+            </p>
+          </Reveal>
         </div>
       </section>
 
       {/* Steps */}
-      <section className="px-6 pb-24">
-        <div className="mx-auto max-w-5xl space-y-12">
+      <section className="relative px-6 pb-24">
+        <div className="mx-auto max-w-5xl space-y-16">
           {STEPS.map((step, i) => (
-            <div
-              key={step.step}
-              className={`grid gap-8 md:grid-cols-2 ${i % 2 === 1 ? "md:[&>*:first-child]:order-last" : ""}`}
-            >
-              {/* Content */}
-              <div className="flex flex-col justify-center">
-                <p className="mb-3 text-5xl font-black text-[#C8102E]/20">{step.step}</p>
-                <h2 className="mb-4 text-2xl font-black text-white">{step.title}</h2>
-                <p className="mb-6 text-gray-400 leading-relaxed">{step.desc}</p>
-                <ul className="space-y-2.5">
-                  {step.details.map((d) => (
-                    <li key={d} className="flex items-start gap-2.5 text-sm text-gray-400">
-                      <span className="mt-0.5 shrink-0 text-[#C8102E]">✓</span>
-                      {d}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <Reveal key={step.step}>
+              <div
+                className={`grid gap-10 md:grid-cols-2 ${i % 2 === 1 ? "md:[&>*:first-child]:order-last" : ""}`}
+              >
+                {/* Content */}
+                <div className="flex flex-col justify-center">
+                  <p className="mb-3 text-5xl font-black text-[#C8102E]/30">{step.step}</p>
+                  <h2 className="mb-4 text-3xl font-black tracking-tight text-white">{step.title}</h2>
+                  <p className="mb-6 text-base font-medium leading-relaxed text-gray-300">{step.desc}</p>
+                  <ul className="space-y-2.5">
+                    {step.details.map((d) => (
+                      <li key={d} className="flex items-start gap-2.5 text-sm text-gray-400">
+                        <span className="mt-0.5 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#C8102E]/15 text-[#F87171]"><IconCheck size={12} /></span>
+                        {d}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-              {/* Visual mock */}
-              <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-6 flex items-center justify-center min-h-[240px]">
+                {/* Visual mock */}
+                <div className="rounded-2xl border border-[#1E1E2E] bg-[#10101A] p-6 flex items-center justify-center min-h-[240px] transition-all duration-300 hover:border-[#C8102E]/40 hover:shadow-[0_0_40px_rgba(200,16,46,0.15)]">
                 {step.step === "01" && (
                   <div className="w-full space-y-3">
                     {["Sunrise Apartments · Las Vegas", "The Grove at Henderson", "Skyline Flats · Summerlin"].map((p, idx) => (
@@ -162,7 +172,7 @@ export default function HowItWorksPage() {
                   <div className="w-full space-y-2">
                     {[
                       { name: "Jordan Ellis", score: 8, status: "Engaged", color: "text-violet-400 bg-violet-400/10" },
-                      { name: "Carlos Reyes", score: 7, status: "Tour Scheduled", color: "text-amber-400 bg-amber-400/10" },
+                      { name: "Carlos Reyes", score: 7, status: "Tour Scheduled", color: "text-[#F87171] bg-[#F87171]/10" },
                       { name: "Maya Thompson", score: 5, status: "Contacted", color: "text-blue-400 bg-blue-400/10" },
                       { name: "Derek Nguyen", score: 2, status: "Lost", color: "text-gray-500 bg-gray-500/10" },
                     ].map((lead) => (
@@ -192,93 +202,39 @@ export default function HowItWorksPage() {
                     </div>
                   </div>
                 )}
+                </div>
               </div>
-            </div>
+            </Reveal>
           ))}
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="border-y border-[#1E1E2E] bg-[#10101A] px-6 py-20">
-        <div className="mx-auto max-w-5xl">
-          <div className="text-center mb-12">
-            <p className="mb-3 text-xs font-bold uppercase tracking-widest text-[#C8102E]">Pricing</p>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">Simple. Performance-based.</h2>
-            <p className="mt-3 text-gray-500">Start at $500/mo. Pay per lease only when we deliver.</p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3 mb-4">
-            {[
-              { name: "Starter",   price: "$500",   lease: "$200", range: "1–3 properties",  popular: false },
-              { name: "Pro",       price: "$1,500", lease: "$150", range: "4–20 properties", popular: true  },
-              { name: "Portfolio", price: "$3,000", lease: "$100", range: "20+ properties",  popular: false },
-            ].map((plan) => (
-              <div key={plan.name} className={`rounded-2xl border p-6 flex flex-col ${plan.popular ? "border-[#C8102E] bg-[#C8102E]/5 relative" : "border-[#1E1E2E] bg-[#16161F]"}`}>
-                {plan.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#C8102E] px-3 py-1 text-[10px] font-black text-white tracking-widest uppercase">Most Popular</span>}
-                <p className={`text-xs font-bold uppercase tracking-widest mb-1 ${plan.popular ? "text-[#C8102E]" : "text-gray-500"}`}>{plan.name}</p>
-                <div className="flex items-end gap-1 mb-0.5">
-                  <span className="text-3xl font-black text-white">{plan.price}</span>
-                  <span className="mb-1 text-sm text-gray-400">/mo</span>
-                </div>
-                <p className="text-xs text-gray-500 mb-1">+ {plan.lease}/lease signed</p>
-                <p className="text-sm text-gray-400 mb-4">{plan.range}</p>
-                <Link href="/free-trial" className={`mt-auto block w-full rounded-xl py-2.5 text-center text-sm font-bold transition-colors ${plan.popular ? "bg-[#C8102E] text-white hover:bg-[#A50D25] shadow-lg shadow-[#C8102E]/25" : "border border-[#1E1E2E] text-white hover:bg-white/5"}`}>
-                  Start Pilot →
-                </Link>
-              </div>
-            ))}
-          </div>
-          <div className="rounded-2xl border border-amber-800/40 bg-amber-950/20 p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <p className="text-sm font-bold text-amber-400">Marketing Add-On</p>
-                <span className="rounded-full border border-amber-800/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-bold text-amber-400">{isMarketingAddonLive() ? "Optional" : "Coming Soon"}</span>
-              </div>
-              <div className="flex items-baseline gap-1.5 mb-1">
-                <span className="text-2xl font-black text-white">$500</span>
-                <span className="text-sm text-gray-400">/mo</span>
-                <span className="text-sm text-gray-500">+</span>
-                <span className="text-2xl font-black text-white">5%</span>
-                <span className="text-sm text-gray-400">of ad spend</span>
-              </div>
-              <p className="text-sm text-gray-400">AI ad strategy, creative, and copy for Facebook & Google.</p>
-            </div>
-            {isMarketingAddonLive() ? (
-              <div className="shrink-0 rounded-xl border border-amber-800/30 bg-amber-900/20 p-4 text-center min-w-[140px]">
-                <p className="text-xs text-amber-400 font-semibold mb-1">Example: $5K spend</p>
-                <p className="text-xl font-black text-white">$750/mo</p>
-                <p className="text-xs text-gray-500">$500 + $250 (5%)</p>
-              </div>
-            ) : (
-              <PricingPageWaitlist />
-            )}
-          </div>
-          <p className="text-center text-xs text-gray-600">No setup fee · 14-day pilot · 30-day results guarantee · <Link href="/pricing" className="text-[#C8102E] hover:underline">Full pricing details →</Link></p>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="relative overflow-hidden bg-[#10101A] px-6 py-20 text-center border-y border-[#1E1E2E]">
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-[400px] w-[600px] rounded-full bg-[#C8102E]/10 blur-[100px]" />
-        </div>
-        <div className="relative mx-auto max-w-xl">
-          <h2 className="mb-5 text-4xl font-black">See it in action.</h2>
-          <p className="mb-8 text-gray-400">Start your 14-day pilot for $1,000 setup and have your first AI conversation live in under 10 minutes.</p>
+      {/* CTA — pricing lives only on /pricing */}
+      <section className="relative overflow-hidden px-6 py-32 text-center">
+        <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 50% 50% at 50% 50%, rgba(200,16,46,0.18) 0%, transparent 60%)" }} />
+        <Reveal className="relative mx-auto max-w-3xl">
+          <h2 className="mb-6 text-5xl font-black leading-[0.95] tracking-tight md:text-6xl">
+            See it in <span className="text-[#C8102E]">action.</span>
+          </h2>
+          <p className="mb-10 text-lg font-medium leading-relaxed text-gray-300">
+            Start your 14-day pilot and have your first AI conversation live in under 10 minutes. We&apos;ll set up your first property with you on a 15-minute call.
+          </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Link
               href="/free-trial"
-              className="rounded-xl bg-[#C8102E] px-8 py-4 text-sm font-bold text-white hover:bg-[#A50D25] transition-colors shadow-lg shadow-[#C8102E]/25"
+              className="group inline-flex items-center justify-center gap-2 rounded-full bg-[#C8102E] px-8 py-4 text-base font-bold text-white transition-all hover:scale-105"
+              style={{ boxShadow: "0 0 40px rgba(200,16,46,0.5)" }}
             >
-              Start Free Trial →
+              Start Free Trial <IconArrowRight size={16} />
             </Link>
             <Link
-              href="/contact"
-              className="rounded-xl border border-[#1E1E2E] px-8 py-4 text-sm font-semibold text-gray-300 hover:border-gray-500 hover:text-white transition-colors"
+              href="/pricing"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-[#1E1E2E] bg-[#16161F] px-8 py-4 text-base font-semibold text-white transition-colors hover:border-white"
             >
-              Talk to Sales
+              View Pricing
             </Link>
           </div>
-        </div>
+        </Reveal>
       </section>
 
       <MarketingFooter />
