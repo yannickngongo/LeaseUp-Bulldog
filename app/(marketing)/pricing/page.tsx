@@ -47,7 +47,7 @@ export default function PricingPage() {
       <MarketingNav />
 
       {/* Hero */}
-      <section className="relative overflow-hidden px-6 pb-16 pt-24 text-center">
+      <section className="relative overflow-hidden px-6 pb-12 pt-16 text-center md:pb-16 md:pt-24">
         <PageBackground variant="hero" />
         <div className="relative mx-auto max-w-3xl">
           <Reveal>
@@ -57,7 +57,7 @@ export default function PricingPage() {
             </div>
           </Reveal>
           <Reveal delay={100}>
-            <h1 className="mb-6 text-5xl font-black leading-[0.95] tracking-tight md:text-6xl lg:text-7xl">
+            <h1 className="mb-6 text-4xl font-black leading-[0.95] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
               Simple.<br />
               <span className="text-[#C8102E]">Performance-based.</span>
             </h1>

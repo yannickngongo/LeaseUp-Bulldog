@@ -37,7 +37,7 @@ export function PipelineAnim() {
 
       <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse 45% 50% at 50% 50%, ${RED}25 0%, transparent 70%)` }} />
 
-      <svg viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
+      <svg viewBox="0 0 1280 720" preserveAspectRatio="xMidYMid meet" className="absolute inset-0 h-full w-full">
         <defs>
           {sources.map((s, i) => (
             <path key={`p-in-${i}`} id={`path-in-${i}`} d={`M ${s.x + 60} ${s.y} Q ${(s.x + hubX) / 2} ${(s.y + hubY) / 2} ${hubX - 50} ${hubY}`} />

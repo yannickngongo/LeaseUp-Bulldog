@@ -63,7 +63,7 @@ export default function LandingPage() {
           </Reveal>
 
           <Reveal delay={100}>
-            <h1 className="mb-6 text-5xl font-black leading-[0.95] tracking-tight sm:text-6xl md:text-7xl lg:text-[88px]">
+            <h1 className="mb-6 text-4xl font-black leading-[0.95] tracking-tight sm:text-5xl md:text-7xl lg:text-[88px]">
               AI Leasing<br />
               <span className="text-[#C8102E]">Automation</span><br />
               for Multifamily.
@@ -98,9 +98,9 @@ export default function LandingPage() {
           </Reveal>
         </div>
 
-        {/* Pipeline animation — flows naturally below the title */}
+        {/* Pipeline animation — flows naturally below the title (aspect-locked on mobile, fixed height on desktop) */}
         <Reveal delay={400}>
-          <div className="relative z-10 mx-auto mt-16 h-[500px] max-w-7xl sm:h-[560px]">
+          <div className="relative z-10 mx-auto mt-12 aspect-[16/9] max-w-7xl sm:mt-16 sm:aspect-auto sm:h-[500px] md:h-[560px]">
             <PipelineAnim />
           </div>
         </Reveal>
@@ -125,7 +125,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Capabilities ─────────────────────────────────────────────────── */}
-      <section className="px-6 py-32">
+      <section className="px-6 py-20 md:py-32">
         <div className="mx-auto max-w-7xl">
           <Reveal className="mb-16 max-w-3xl">
             <span className="mb-4 inline-block text-xs font-semibold uppercase tracking-[0.25em] text-[#C8102E]">
@@ -159,7 +159,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Workflow Transparency (split + mock conversation) ────────────── */}
-      <section className="px-6 py-32">
+      <section className="px-6 py-20 md:py-32">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
 
@@ -271,7 +271,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── How It Works (6-step grid) ───────────────────────────────────── */}
-      <section className="px-6 py-32">
+      <section className="px-6 py-20 md:py-32">
         <div className="mx-auto max-w-7xl">
           <Reveal className="mb-16 text-center">
             <span className="mb-4 inline-block text-xs font-semibold uppercase tracking-[0.25em] text-[#C8102E]">
@@ -308,7 +308,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Testimonials ─────────────────────────────────────────────────── */}
-      <section id="testimonials" className="px-6 py-32">
+      <section id="testimonials" className="px-6 py-20 md:py-32">
         <div className="mx-auto max-w-7xl">
           <Reveal className="mb-16">
             <span className="mb-4 inline-block text-xs font-semibold uppercase tracking-[0.25em] text-[#C8102E]">
@@ -358,7 +358,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Final CTA ────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden px-6 py-32">
+      <section className="relative overflow-hidden px-6 py-20 md:py-32">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 z-0"

@@ -74,7 +74,7 @@ export default function HowItWorksPage() {
       <MarketingNav />
 
       {/* Hero */}
-      <section className="relative overflow-hidden px-6 pb-20 pt-24 text-center">
+      <section className="relative overflow-hidden px-6 pb-16 pt-16 text-center md:pb-20 md:pt-24">
         <PageBackground variant="hero" />
         <div className="relative mx-auto max-w-3xl">
           <Reveal>
@@ -84,7 +84,7 @@ export default function HowItWorksPage() {
             </div>
           </Reveal>
           <Reveal delay={100}>
-            <h1 className="mb-6 text-5xl font-black leading-[0.95] tracking-tight md:text-6xl lg:text-7xl">
+            <h1 className="mb-6 text-4xl font-black leading-[0.95] tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
               Set up in minutes.<br />
               <span className="text-[#C8102E]">Convert for months.</span>
             </h1>
@@ -210,7 +210,7 @@ export default function HowItWorksPage() {
       </section>
 
       {/* CTA — pricing lives only on /pricing */}
-      <section className="relative overflow-hidden px-6 py-32 text-center">
+      <section className="relative overflow-hidden px-6 py-20 text-center md:py-32">
         <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 50% 50% at 50% 50%, rgba(200,16,46,0.18) 0%, transparent 60%)" }} />
         <Reveal className="relative mx-auto max-w-3xl">
           <h2 className="mb-6 text-5xl font-black leading-[0.95] tracking-tight md:text-6xl">
