@@ -62,6 +62,69 @@ function IconBilling() {
     </svg>
   );
 }
+function IconGettingStarted() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <circle cx="9" cy="9" r="7.5" /><path d="M9 5v4l2.5 2.5" />
+    </svg>
+  );
+}
+function IconPortfolio() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <path d="M3 3.5h12a1 1 0 011 1v9a1 1 0 01-1 1H3a1 1 0 01-1-1v-9a1 1 0 011-1z" /><path d="M6 3.5V2a1 1 0 011-1h4a1 1 0 011 1v1.5" /><path d="M2 8h14" />
+    </svg>
+  );
+}
+function IconRenewals() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <polyline points="14 4 14 8 10 8" /><polyline points="4 14 4 10 8 10" /><path d="M3.5 7a6 6 0 019.9-2.4L14 4M14.5 11a6 6 0 01-9.9 2.4L4 14" />
+    </svg>
+  );
+}
+function IconMarketing() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <path d="M2 8.5l13-6v13l-13-6z" /><path d="M5 14.5v-7" /><path d="M5 14.5h2v2H5z" />
+    </svg>
+  );
+}
+function IconCompetitors() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <circle cx="9" cy="9" r="7.5" /><line x1="9" y1="1.5" x2="9" y2="16.5" /><path d="M2 9c2-2.5 5-4 7-4s5 1.5 7 4M2 9c2 2.5 5 4 7 4s5-1.5 7-4" />
+    </svg>
+  );
+}
+function IconAutomations() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <polygon points="10 1.5 2.5 10.5 9 10.5 8 16.5 15.5 7.5 9 7.5 10 1.5" />
+    </svg>
+  );
+}
+function IconIntegrations() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <rect x="2" y="2" width="6" height="6" rx="1" /><rect x="10" y="2" width="6" height="6" rx="1" /><rect x="2" y="10" width="6" height="6" rx="1" /><rect x="10" y="10" width="6" height="6" rx="1" />
+    </svg>
+  );
+}
+function IconReports() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <path d="M14 2H4a1 1 0 00-1 1v12a1 1 0 001 1h10a1 1 0 001-1V3a1 1 0 00-1-1z" /><line x1="6" y1="6" x2="12" y2="6" /><line x1="6" y1="9" x2="12" y2="9" /><line x1="6" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+function IconInsights() {
+  return (
+    <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
+      <path d="M9 1.5a4.5 4.5 0 014.5 4.5c0 1.5-1 3-2 4-.5.5-.5 1-.5 1.5v.5h-4v-.5c0-.5 0-1-.5-1.5-1-1-2-2.5-2-4A4.5 4.5 0 019 1.5z" /><line x1="7" y1="14.5" x2="11" y2="14.5" /><line x1="8" y1="16.5" x2="10" y2="16.5" />
+    </svg>
+  );
+}
 function IconSettings() {
   return (
     <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] shrink-0">
@@ -85,7 +148,7 @@ function IconChevronVertical() {
   );
 }
 
-// ─── Nav config (matches preview/dashboard sidebar) ──────────────────────────
+// ─── Nav config (preview/dashboard sidebar style + full LUB feature set) ─────
 
 interface NavItem {
   href: string;
@@ -94,15 +157,36 @@ interface NavItem {
   badgeKey?: "leads";
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { href: "/dashboard",     label: "Dashboard",     Icon: IconDashboard },
-  { href: "/insights",      label: "Analytics",     Icon: IconAnalytics },
-  { href: "/leads",         label: "Leads",         Icon: IconLeads, badgeKey: "leads" },
-  { href: "/properties",    label: "Properties",    Icon: IconProperties },
-  { href: "/calendar",      label: "Tours",         Icon: IconTours },
+// Top section — most-used pages
+const NAV_PRIMARY: NavItem[] = [
+  { href: "/dashboard",       label: "Dashboard",       Icon: IconDashboard },
+  { href: "/getting-started", label: "Getting Started", Icon: IconGettingStarted },
+  { href: "/leads",           label: "Leads",           Icon: IconLeads, badgeKey: "leads" },
+  { href: "/properties",      label: "Properties",      Icon: IconProperties },
+  { href: "/calendar",        label: "Tours",           Icon: IconTours },
   { href: "/leads?view=conversations", label: "Conversations", Icon: IconConversations },
-  { href: "/billing",       label: "Billing",       Icon: IconBilling },
-  { href: "/settings",      label: "Settings",      Icon: IconSettings },
+];
+
+// Operations — workflow + automation tools
+const NAV_OPERATIONS: NavItem[] = [
+  { href: "/portfolio",    label: "Portfolio",    Icon: IconPortfolio },
+  { href: "/renewals",     label: "Renewals",     Icon: IconRenewals },
+  { href: "/marketing",    label: "Marketing",    Icon: IconMarketing },
+  { href: "/competitors",  label: "Competitors",  Icon: IconCompetitors },
+  { href: "/automations",  label: "Automations",  Icon: IconAutomations },
+  { href: "/integrations", label: "Integrations", Icon: IconIntegrations },
+];
+
+// Analytics — reports + insights
+const NAV_ANALYTICS: NavItem[] = [
+  { href: "/insights", label: "Insights", Icon: IconInsights },
+  { href: "/reports",  label: "Reports",  Icon: IconReports },
+];
+
+// Account — billing + settings (rendered separately above sign-out)
+const NAV_ACCOUNT: NavItem[] = [
+  { href: "/billing",  label: "Billing",  Icon: IconBilling },
+  { href: "/settings", label: "Settings", Icon: IconSettings },
 ];
 
 function getSupabase() {
@@ -194,40 +278,41 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
         <span className="text-gray-400 dark:text-gray-500"><IconChevronVertical /></span>
       </Link>
 
-      {/* Main menu */}
-      <p className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-600">Main Menu</p>
-      <nav className="flex flex-col gap-1">
-        {NAV_ITEMS.map((item) => {
-          const active = isActive(item.href);
-          const Icon = item.Icon;
-          const badgeCount = item.badgeKey === "leads" ? activeLeads : 0;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
-              style={{
-                background: active ? "linear-gradient(90deg, rgba(200,16,46,0.18), transparent)" : "transparent",
-                color: active ? undefined : undefined,
-                borderLeft: active ? "2px solid #C8102E" : "2px solid transparent",
-              }}
-            >
-              <span className={active ? "text-[#C8102E]" : "text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"}>
-                <Icon />
-              </span>
-              <span className={`flex-1 text-left ${active ? "text-gray-900 dark:text-white font-semibold" : "text-gray-600 dark:text-gray-400"}`}>{item.label}</span>
-              {badgeCount > 0 && (
-                <span className="rounded-full bg-[#C8102E]/15 px-2 py-0.5 text-[10px] font-bold text-[#F87171]">
-                  {badgeCount}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Scrollable nav region — Main + Operations + Analytics + Account */}
+      <nav className="flex-1 overflow-y-auto">
 
-      <div className="flex-1" />
+        {/* Main menu */}
+        <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-600">Main Menu</p>
+        <div className="mb-5 flex flex-col gap-1">
+          {NAV_PRIMARY.map((item) => (
+            <SidebarLink key={item.href} item={item} active={isActive(item.href)} badgeCount={item.badgeKey === "leads" ? activeLeads : 0} onClose={onClose} />
+          ))}
+        </div>
+
+        {/* Operations */}
+        <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-600">Operations</p>
+        <div className="mb-5 flex flex-col gap-1">
+          {NAV_OPERATIONS.map((item) => (
+            <SidebarLink key={item.href} item={item} active={isActive(item.href)} onClose={onClose} />
+          ))}
+        </div>
+
+        {/* Analytics */}
+        <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-600">Analytics</p>
+        <div className="mb-5 flex flex-col gap-1">
+          {NAV_ANALYTICS.map((item) => (
+            <SidebarLink key={item.href} item={item} active={isActive(item.href)} onClose={onClose} />
+          ))}
+        </div>
+
+        {/* Account */}
+        <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-600">Account</p>
+        <div className="flex flex-col gap-1">
+          {NAV_ACCOUNT.map((item) => (
+            <SidebarLink key={item.href} item={item} active={isActive(item.href)} onClose={onClose} />
+          ))}
+        </div>
+      </nav>
 
       {/* Logout */}
       <button
@@ -260,5 +345,42 @@ export function AppSidebar({ onClose }: { onClose?: () => void }) {
         <span className="text-gray-400 dark:text-gray-500"><IconChevronVertical /></span>
       </div>
     </aside>
+  );
+}
+
+// ─── SidebarLink: shared row renderer (active highlight + optional badge) ────
+
+function SidebarLink({
+  item,
+  active,
+  badgeCount = 0,
+  onClose,
+}: {
+  item: NavItem;
+  active: boolean;
+  badgeCount?: number;
+  onClose?: () => void;
+}) {
+  const Icon = item.Icon;
+  return (
+    <Link
+      href={item.href}
+      onClick={onClose}
+      className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+      style={{
+        background: active ? "linear-gradient(90deg, rgba(200,16,46,0.18), transparent)" : "transparent",
+        borderLeft: active ? "2px solid #C8102E" : "2px solid transparent",
+      }}
+    >
+      <span className={active ? "text-[#C8102E]" : "text-gray-400 group-hover:text-gray-600 dark:text-gray-500 dark:group-hover:text-gray-300"}>
+        <Icon />
+      </span>
+      <span className={`flex-1 text-left ${active ? "text-gray-900 dark:text-white font-semibold" : "text-gray-600 dark:text-gray-400"}`}>{item.label}</span>
+      {badgeCount > 0 && (
+        <span className="rounded-full bg-[#C8102E]/15 px-2 py-0.5 text-[10px] font-bold text-[#F87171]">
+          {badgeCount}
+        </span>
+      )}
+    </Link>
   );
 }
