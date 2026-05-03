@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import IntelligenceSection from "./IntelligenceSection";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
+import { IconBuilding, IconUsers, IconCalendar, IconCheck } from "@/components/marketing/Icons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -243,56 +244,74 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* KPI strip — preview-style gradient icon tiles, theme-aware, mobile-responsive */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {[
           {
             label: "Portfolio Occupancy",
             value: loading || portfolioOccPct === null ? "—" : `${portfolioOccPct}%`,
             sub: loading ? "" : totalPortfolioUnits > 0 ? `${occupiedPortfolioUnits}/${totalPortfolioUnits} units` : "No unit data",
-            accent: portfolioOccPct !== null && portfolioOccPct >= 90 ? "bg-green-50 dark:bg-green-900/20" : "bg-amber-50 dark:bg-amber-900/20",
-            accentText: portfolioOccPct !== null && portfolioOccPct >= 90 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400",
             trend: portfolioOccPct !== null ? (portfolioOccPct >= 90 ? "At target" : `${90 - portfolioOccPct}% below target`) : "Upload rent rolls",
             trendUp: portfolioOccPct !== null && portfolioOccPct >= 90,
+            Icon: IconBuilding,
+            gradient: "linear-gradient(135deg, #C8102E, #A50D25)",
+            shadowColor: "rgba(200,16,46,0.4)",
           },
           {
             label: "Active Leads",
             value: loading ? "—" : activeLeads.length.toString(),
             sub: loading ? "" : `${newLeads.length} new · need reply`,
-            accent: "bg-indigo-50 dark:bg-indigo-900/20",
-            accentText: "text-indigo-600 dark:text-indigo-400",
             trend: newLeads.length > 0 ? `${newLeads.length} awaiting reply` : "All caught up",
             trendUp: newLeads.length === 0,
+            Icon: IconUsers,
+            gradient: "linear-gradient(135deg, #A78BFA, #7C5BE6)",
+            shadowColor: "rgba(167,139,250,0.4)",
           },
           {
             label: "Tours Scheduled",
             value: loading ? "—" : tours.length.toString(),
             sub: "pending or upcoming",
-            accent: "bg-amber-50 dark:bg-amber-900/20",
-            accentText: "text-amber-600 dark:text-amber-400",
             trend: tours.length > 0 ? `${tours.length} to confirm` : "None scheduled",
             trendUp: false,
+            Icon: IconCalendar,
+            gradient: "linear-gradient(135deg, #F59E0B, #D97706)",
+            shadowColor: "rgba(245,158,11,0.4)",
           },
           {
             label: "Leases Won",
             value: loading ? "—" : won.length.toString(),
             sub: "via LeaseUp Bulldog",
-            accent: "bg-green-50 dark:bg-green-900/20",
-            accentText: "text-green-600 dark:text-green-400",
             trend: won.length > 0 ? `${won.length} lease${won.length > 1 ? "s" : ""} signed` : "First one incoming",
             trendUp: won.length > 0,
+            Icon: IconCheck,
+            gradient: "linear-gradient(135deg, #F87171, #C8102E)",
+            shadowColor: "rgba(248,113,113,0.4)",
           },
         ].map((k) => (
-          <div key={k.label} className="rounded-2xl bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E]">
-            <p className="text-xs font-medium text-gray-400 dark:text-gray-500">{k.label}</p>
+          <div
+            key={k.label}
+            className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[#C8102E]/40 hover:shadow-[0_0_32px_rgba(200,16,46,0.18)] dark:border-[#1E1E2E] dark:bg-[#10101A] dark:hover:shadow-[0_0_40px_rgba(200,16,46,0.25)]"
+          >
+            <div className="mb-4 flex items-start justify-between">
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-lg sm:h-11 sm:w-11"
+                style={{ background: k.gradient, boxShadow: `0 8px 24px ${k.shadowColor}` }}
+              >
+                <k.Icon size={20} />
+              </div>
+              {k.trendUp && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#C8102E] pulse-dot" />
+              )}
+            </div>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-500">{k.label}</p>
             {loading
-              ? <Skeleton className="mt-2 h-9 w-20" />
-              : <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">{k.value}</p>
+              ? <Skeleton className="mt-2 h-8 w-20" />
+              : <p className="mt-1 text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100 sm:text-3xl">{k.value}</p>
             }
-            <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">{k.sub}</p>
-            <div className="mt-3">
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${k.accent} ${k.accentText}`}>
-                {k.trendUp ? "↑" : "→"} {k.trend}
+            <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-500">{k.sub}</p>
+            <div className="mt-3 flex items-center gap-1.5 text-[11px]">
+              <span className={k.trendUp ? "text-[#C8102E] dark:text-[#F87171]" : "text-gray-400 dark:text-gray-500"}>
+                {k.trendUp ? "▲" : "→"} {k.trend}
               </span>
             </div>
           </div>
@@ -313,7 +332,7 @@ export default function DashboardPage() {
               const isBad  = occ !== null && occ < 75;
               return (
                 <Link key={p.id} href={`/properties/${p.id}`}
-                  className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-[#1C1F2E] hover:shadow-[0_4px_24px_rgba(0,0,0,0.1)] transition-shadow">
+                  className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C8102E]/40 hover:shadow-[0_0_24px_rgba(200,16,46,0.15)] dark:border-[#1E1E2E] dark:bg-[#10101A]">
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
                     isGood ? "bg-green-50 text-green-600 dark:bg-green-900/20" :
                     isWarn ? "bg-amber-50 text-amber-600 dark:bg-amber-900/20" :
