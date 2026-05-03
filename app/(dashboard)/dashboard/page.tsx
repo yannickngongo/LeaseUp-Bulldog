@@ -227,6 +227,55 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      {/* Tabs row + filters (preview-style) */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="inline-flex items-center gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-[#1E1E2E] dark:bg-[#10101A]">
+          {[
+            { id: "activity", label: "Activity", icon: (
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                <polyline points="13 7 10.5 7 8.75 12 5.25 2 3.5 7 1 7" />
+              </svg>
+            )},
+            { id: "conversations", label: "Conversations", icon: (
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                <path d="M12.25 8.75c0 .35-.31.66-.66.66H4.08l-2.33 2.33V3.5c0-.35.31-.66.66-.66h9.18c.35 0 .66.31.66.66v5.25z" />
+              </svg>
+            )},
+            { id: "performance", label: "Performance", icon: (
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                <line x1="10.5" y1="11.7" x2="10.5" y2="5.83" /><line x1="7" y1="11.7" x2="7" y2="2.33" /><line x1="3.5" y1="11.7" x2="3.5" y2="8.17" />
+              </svg>
+            )},
+          ].map((tab, i) => (
+            <button
+              key={tab.id}
+              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+              style={
+                i === 0
+                  ? { background: "rgba(200,16,46,0.10)", color: "#C8102E" }
+                  : { color: "var(--tab-muted)" }
+              }
+            >
+              <span style={i === 0 ? { color: "#C8102E" } : undefined}>{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 dark:border-[#1E1E2E] dark:bg-[#10101A] dark:text-gray-300">
+            <span className="text-gray-400 dark:text-gray-500">Period:</span>
+            {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })} – {new Date(Date.now() + 30 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-3 w-3"><polyline points="3 4.5 6 7.5 9 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          <button className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 dark:border-[#1E1E2E] dark:bg-[#10101A] dark:text-gray-300">
+            All Properties
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-3 w-3"><polyline points="3 4.5 6 7.5 9 4.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+        </div>
+      </div>
+      <style jsx>{`:global(:root) { --tab-muted: #6B7280; } :global(.dark) { --tab-muted: #9CA3AF; }`}</style>
+
       {/* Getting Started banner — shown when leads count is 0 (new user) */}
       {!loading && leads.length === 0 && (
         <Link

@@ -125,8 +125,8 @@ export default function PropertiesPage() {
             <div key={p.id}
               className="group relative rounded-2xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[#C8102E]/40 hover:shadow-[0_0_32px_rgba(200,16,46,0.18)] dark:border-[#1E1E2E] dark:bg-[#10101A] dark:hover:shadow-[0_0_40px_rgba(200,16,46,0.25)]">
 
-              {/* Clickable overlay — opens property dashboard */}
-              <Link href={`/properties/${p.id}`} className="absolute inset-0 z-0 rounded-2xl" aria-label={`View ${p.name} dashboard`} />
+              {/* Clickable overlay — fills the whole card so any click opens the property */}
+              <Link href={`/properties/${p.id}`} className="absolute inset-0 z-20 rounded-2xl" aria-label={`View ${p.name} dashboard`} />
 
               {/* Header */}
               <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
@@ -204,8 +204,8 @@ export default function PropertiesPage() {
                 </a>
               )}
 
-              {/* Actions */}
-              <div className="relative z-10 mt-4 flex gap-2">
+              {/* Actions — z-30 so they sit above the absolute Link overlay and remain independently clickable */}
+              <div className="relative z-30 mt-4 flex gap-2">
                 <Link href={`/leads?propertyId=${p.id}`}
                   className="flex-1 rounded-xl border border-gray-200 py-2 text-center text-xs font-semibold text-gray-600 hover:bg-gray-50 transition-colors dark:border-white/10 dark:text-gray-300">
                   View Leads
@@ -215,7 +215,9 @@ export default function PropertiesPage() {
                   Edit / Rent Roll
                 </Link>
                 <button
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return;
                     const res = await fetch(`/api/properties/${p.id}`, { method: "DELETE" });
                     if (res.ok) setProperties(prev => prev.filter(x => x.id !== p.id));

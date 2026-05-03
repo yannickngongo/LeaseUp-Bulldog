@@ -694,9 +694,9 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-gray-50/50 dark:bg-[#0D0F1A]/60">
+    <div className="flex flex-1 flex-col overflow-hidden bg-gray-50/50 dark:bg-[#08080F]/60">
       {/* Header — compact on mobile */}
-      <div className="shrink-0 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E] px-4 py-3 sm:px-6 sm:py-3.5">
+      <div className="shrink-0 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#10101A] px-4 py-3 sm:px-6 sm:py-3.5">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative shrink-0">
@@ -812,7 +812,7 @@ function ConversationPanel({ lead, messages, messagesLoading, replyText, sending
       </div>
 
       {/* Reply */}
-      <div className="shrink-0 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E]">
+      <div className="shrink-0 border-t border-gray-100 dark:border-white/5 bg-white dark:bg-[#10101A]">
         {/* Quick actions — icon+label on desktop, icon-only on mobile */}
         <div className="flex items-center gap-1.5 overflow-x-auto border-b border-gray-50 dark:border-white/5 px-3 py-1.5 scrollbar-hide sm:gap-2 sm:px-4 sm:py-2">
           <button onClick={onSchedule} className="shrink-0 flex items-center gap-1 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-transparent px-2.5 py-1 text-[11px] font-semibold text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">
@@ -1038,7 +1038,7 @@ function PipelineView({ leads, onSelectLead, onAdvanceLead, onSwitchToInbox }: {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Funnel summary */}
-      <div className="shrink-0 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E] px-6 py-3">
+      <div className="shrink-0 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#10101A] px-6 py-3">
         <div className="flex items-center gap-6 overflow-x-auto scrollbar-hide">
           {PIPELINE_COLS.filter(c => c.status !== "lost").map((col, i) => {
             const count = leads.filter(l => l.status === col.status).length;
@@ -1119,7 +1119,7 @@ function DetailPanel({ lead, onSchedule, onDelete, onUnsubscribe }: { lead: Lead
   const theme = cardThemeFor(lead.id);
 
   return (
-    <div className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-l border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E]">
+    <div className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-l border-gray-100 dark:border-white/5 bg-white dark:bg-[#10101A]">
       {/* Profile card — gradient header like image 2 */}
       <div className="relative overflow-hidden px-5 pb-5 pt-6"
         style={{ background: `linear-gradient(135deg, ${theme.bg}22 0%, ${theme.bg}10 100%)` }}>
@@ -1501,7 +1501,7 @@ function LeadsPageInner() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden [background:linear-gradient(135deg,#f8f7ff_0%,#f0f4ff_40%,#fdf8ff_100%)] dark:[background:none] dark:bg-[#0D0F1A]">
+    <div className="flex h-full flex-col overflow-hidden bg-gray-50 dark:bg-[#08080F]">
 
       {showAddModal && <AddLeadModal onClose={() => setShowAddModal(false)} onAdded={handleAdded} />}
       {showTourPrep && selectedLead && (
@@ -1516,7 +1516,7 @@ function LeadsPageInner() {
       )}
 
       {/* Stats bar — scrollable on mobile */}
-      <div className={cn("shrink-0 border-b border-white/80 dark:border-white/5 bg-white/70 dark:bg-[#12141E]/80 px-4 py-2 backdrop-blur-sm sm:px-6 sm:py-2.5", mobileView === "conversation" && "hidden sm:block")}>
+      <div className={cn("shrink-0 border-b border-white/80 dark:border-white/5 bg-white/70 dark:bg-[#10101A]/80 px-4 py-2 backdrop-blur-sm sm:px-6 sm:py-2.5", mobileView === "conversation" && "hidden sm:block")}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-4 overflow-x-auto scrollbar-hide sm:gap-8">
             <StatChip label="Total" value={filteredLeads.length.toString()} color="#6366F1" />
@@ -1579,7 +1579,7 @@ function LeadsPageInner() {
           <div className="flex items-center gap-2 flex-1 flex-wrap">
             {(["contacted", "engaged", "tour_scheduled", "applied", "won", "lost"] as LeadStatus[]).map((s) => (
               <button key={s} disabled={bulkWorking} onClick={() => handleBulkStatus(s)}
-                className="rounded-lg border border-[#1E1E2E] bg-white dark:bg-[#12141E] px-2.5 py-1 text-[10px] font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 transition-colors disabled:opacity-50">
+                className="rounded-lg border border-[#1E1E2E] bg-white dark:bg-[#10101A] px-2.5 py-1 text-[10px] font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 transition-colors disabled:opacity-50">
                 → {s.replace("_", " ")}
               </button>
             ))}
@@ -1608,7 +1608,7 @@ function LeadsPageInner() {
 
         {/* Left panel — full width on mobile when showing list */}
         <div className={cn(
-          "flex-col border-r border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E]",
+          "flex-col border-r border-gray-100 dark:border-white/5 bg-white dark:bg-[#10101A]",
           "sm:flex sm:w-[280px] sm:shrink-0",
           mobileView === "list" ? "flex w-full" : "hidden"
         )}>
@@ -1630,7 +1630,7 @@ function LeadsPageInner() {
             mobileView === "conversation" ? "flex" : "hidden sm:flex"
           )}>
             {/* Mobile back button */}
-            <div className="flex items-center gap-2 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#12141E] px-4 py-2 sm:hidden">
+            <div className="flex items-center gap-2 border-b border-gray-100 dark:border-white/5 bg-white dark:bg-[#10101A] px-4 py-2 sm:hidden">
               <button onClick={() => setMobileView("list")}
                 className="flex items-center gap-1.5 text-xs font-semibold text-[#C8102E]">
                 <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">

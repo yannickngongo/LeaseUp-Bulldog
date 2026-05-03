@@ -134,7 +134,7 @@ function BillingContent() {
   const hasBilling    = Boolean(info?.stripe_customer_id);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#0E1017]">
+    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-[#08080F]">
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
 
         <h1 className="mb-6 text-2xl font-black text-gray-900 dark:text-gray-100">Billing & Plan</h1>
@@ -310,7 +310,7 @@ function BillingContent() {
 
 export default function BillingPage() {
   return (
-    <Suspense fallback={<div className="flex-1 bg-gray-50 dark:bg-[#0E1017]" />}>
+    <Suspense fallback={<div className="flex-1 bg-gray-50 dark:bg-[#08080F]" />}>
       <BillingContent />
     </Suspense>
   );
