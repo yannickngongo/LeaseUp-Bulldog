@@ -62,14 +62,37 @@ export async function GET(req: NextRequest) {
     .map(([status, count]) => ({ status, count }))
     .sort((a, b) => b.count - a.count);
 
-  // 5. Avg response time (created_at -> first_contact_date)
-  const responseTimes = allLeads
-    .filter(l => l.first_contact_date && l.created_at)
-    .map(l => {
-      const diff = new Date(l.first_contact_date as string).getTime() - new Date(l.created_at as string).getTime();
-      return diff / 1000;  // seconds
-    })
-    .filter(s => s >= 0);  // sanity
+  // 5. Avg AI response time — gap between every inbound SMS and the AI reply that
+  //    followed it. Measures real "Bulldog reply speed" rather than one-time
+  //    lead-creation-to-first-touch. Updates every time a reply is sent.
+  const { data: convoRows } = await db
+    .from("conversations")
+    .select("lead_id, direction, ai_generated, created_at")
+    .in("property_id", propertyIds)
+    .gte("created_at", since)
+    .order("lead_id", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  const responseTimes: number[] = [];
+  let openInbound: { lead_id: string; ts: number } | null = null;
+
+  for (const c of convoRows ?? []) {
+    const ts = new Date(c.created_at as string).getTime();
+    if (c.direction === "inbound") {
+      // Track the most recent unanswered inbound for this lead.
+      openInbound = { lead_id: c.lead_id as string, ts };
+    } else if (
+      c.direction === "outbound" &&
+      c.ai_generated &&
+      openInbound &&
+      openInbound.lead_id === c.lead_id
+    ) {
+      const diff = (ts - openInbound.ts) / 1000;
+      // Cap at 24h — a longer gap is operator catch-up, not a reply
+      if (diff > 0 && diff < 86_400) responseTimes.push(diff);
+      openInbound = null;
+    }
+  }
 
   const avgResponseSec = responseTimes.length > 0
     ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
