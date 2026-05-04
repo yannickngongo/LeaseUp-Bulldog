@@ -21,6 +21,9 @@ export interface GenerateLeadReplyInput {
   activeSpecial?: string;      // only passed if one exists — never invent one
   tourBookingUrl?: string;     // self-service tour scheduling link
   leadName: string;
+  leadEmail?: string;          // current email on file, if any
+  needsName?: boolean;         // true if lead's name is unknown/placeholder — AI must ask
+  needsEmail?: boolean;        // true if lead has no email on file — AI must ask
   moveInDate?: string;         // ISO date or undefined
   bedrooms?: number;           // 0 = studio
   budgetMin?: number;
@@ -38,6 +41,8 @@ export interface GenerateLeadReplyOutput {
   message: string;          // plain SMS text, ready to send (tags stripped)
   tourBookingAt?: string;   // ISO datetime string if the AI confirmed a tour, else undefined
   applicationCompleted?: boolean; // true if AI detected the lead said they finished applying
+  parsedName?: string;      // detected from [LEAD_NAME:...] tag — caller should write to DB
+  parsedEmail?: string;     // detected from [LEAD_EMAIL:...] tag — caller should write to DB
   model: string;
   inputTokens: number;
   outputTokens: number;
@@ -138,6 +143,35 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
     "alert the leasing team. Do not append it for half-statements like 'I will apply tonight' or " +
     "'I started filling it out' — only when they confirm it is done.\n";
 
+  // Identification block: if name/email is missing, the AI MUST ask before answering anything else.
+  if (input.needsName || input.needsEmail) {
+    const missingPieces: string[] = [];
+    if (input.needsName)  missingPieces.push("full name");
+    if (input.needsEmail) missingPieces.push("email");
+    const piecesLabel = missingPieces.join(" and ");
+
+    triggerInstructions +=
+      `\nIDENTIFICATION REQUIRED: We do not have this lead's ${piecesLabel} on file yet. ` +
+      `Your top priority for this reply is to get the missing info. Be warm and brief: thank them ` +
+      `for reaching out, then ask for their ${piecesLabel} so the leasing team can keep track. ` +
+      `Do NOT answer pricing, tour, or unit questions in detail until they share that. A short ` +
+      `acknowledgment is fine ("Definitely happy to help with that — first, mind sharing your ${piecesLabel}? ` +
+      `Just so I can keep your file straight.").\n` +
+      `\nWhen the lead provides their info in this message or any future message, capture it with tags ` +
+      `at the very end of your reply, each on its own line:\n` +
+      `  [LEAD_NAME:Their Full Name]\n` +
+      `  [LEAD_EMAIL:their.email@example.com]\n` +
+      `Only include the tag for fields they actually provided. Do not invent values or guess. ` +
+      `Use the exact spelling and casing they used. After tagging, continue the conversation normally — ` +
+      `acknowledge them by their first name and move forward with qualification.\n`;
+  } else {
+    // Always-on rule even when name/email are present — leads sometimes update them mid-thread.
+    triggerInstructions +=
+      `\nLEAD INFO UPDATE DETECTION: If the lead corrects their name (e.g. "Actually it's Sarah, not ` +
+      `Sara") or shares a new/updated email at any point, capture it with [LEAD_NAME:...] or ` +
+      `[LEAD_EMAIL:...] tags on their own lines at the end of your reply. Don't tag info we already have.\n`;
+  }
+
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in server local time
 
   return `
@@ -148,6 +182,8 @@ Lead name: ${input.leadName}
 Trigger: ${input.trigger}
 
 Known info:
+- Lead name on file: ${input.leadName}${input.needsName ? " (PLACEHOLDER — ask for real name)" : ""}
+- Lead email on file: ${input.leadEmail ?? "(none)"}${input.needsEmail ? " (MISSING — ask for email)" : ""}
 - Move-in date: ${input.moveInDate ?? "Unknown"}
 - Unit type: ${bedroomLabel}
 - Budget: ${budgetLabel}
@@ -194,9 +230,21 @@ export async function generateLeadReply(
   const appCompleteMatch = raw.match(/\[APPLICATION_COMPLETE\]/);
   const applicationCompleted = Boolean(appCompleteMatch);
 
+  // Extract [LEAD_NAME:...] and [LEAD_EMAIL:...] tags. Trim whitespace + drop quotes.
+  const nameMatch  = raw.match(/\[LEAD_NAME:([^\]]+)\]/i);
+  const emailMatch = raw.match(/\[LEAD_EMAIL:([^\]]+)\]/i);
+  const parsedName  = nameMatch  ? nameMatch[1].trim().replace(/^["']|["']$/g, "")  : undefined;
+  const parsedEmailRaw = emailMatch ? emailMatch[1].trim().replace(/^["']|["']$/g, "") : undefined;
+  // Only accept emails that look valid — don't pollute the DB with malformed strings.
+  const parsedEmail = parsedEmailRaw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(parsedEmailRaw)
+    ? parsedEmailRaw
+    : undefined;
+
   let message = raw
     .replace(/\s*\[TOUR_BOOKED:[^\]]+\]\s*/g, "")
     .replace(/\s*\[APPLICATION_COMPLETE\]\s*/g, "")
+    .replace(/\s*\[LEAD_NAME:[^\]]+\]\s*/gi, "")
+    .replace(/\s*\[LEAD_EMAIL:[^\]]+\]\s*/gi, "")
     .trim();
 
   // Safety net: real humans don't write em-dashes in SMS. Replace any that slipped through.
@@ -213,6 +261,8 @@ export async function generateLeadReply(
     message,
     tourBookingAt,
     applicationCompleted,
+    parsedName,
+    parsedEmail,
     model: response.model,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,

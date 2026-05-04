@@ -115,27 +115,57 @@ export async function POST(req: NextRequest) {
     return TWIML_OK;
   }
 
-  // ── 2. Match From → lead ──────────────────────────────────────────────────
-  const { data: leads } = await db
+  // ── 2. Match From → lead (auto-create if unknown number texts cold) ───────
+  const { data: existingLeads } = await db
     .from("leads")
-    .select("id, name, status, opt_out, human_takeover, ai_paused, move_in_date, bedrooms, budget_min, budget_max")
+    .select("id, name, email, status, opt_out, human_takeover, ai_paused, move_in_date, bedrooms, budget_min, budget_max")
     .eq("phone", from)
     .eq("property_id", property.id)
     .order("created_at", { ascending: false })
     .limit(1);
 
-  const lead = leads?.[0] ?? null;
+  let lead = existingLeads?.[0] ?? null;
 
   if (!lead) {
-    console.warn("[twilio/inbound] unknown number:", from, "on property:", property.id);
+    // Cold inbound — they texted us first, so TCPA consent is implicit. Create a placeholder
+    // record so we can chat with them and capture their info via the AI.
+    const last4 = from.slice(-4);
+    const placeholderName = `Unknown — ${last4}`;
+    const { data: created, error: createErr } = await db
+      .from("leads")
+      .insert({
+        property_id:           property.id,
+        phone:                 from,
+        name:                  placeholderName,
+        status:                "new",
+        source:                "sms_inbound",
+        preferred_contact:     "sms",
+        first_contact_date:    new Date().toISOString(),
+      })
+      .select("id, name, email, status, opt_out, human_takeover, ai_paused, move_in_date, bedrooms, budget_min, budget_max")
+      .single();
+
+    if (createErr || !created) {
+      console.error("[twilio/inbound] failed to auto-create lead:", createErr);
+      await logActivity(db, {
+        lead_id:     "00000000-0000-0000-0000-000000000000",
+        property_id: property.id,
+        action:      "inbound_sms_unmatched",
+        actor:       "system",
+        metadata:    { from, preview: body.slice(0, 100), error: createErr?.message },
+      });
+      return TWIML_OK;
+    }
+
+    lead = created;
+    console.log("[twilio/inbound] auto-created lead", lead.id, "for unknown number", from);
     await logActivity(db, {
-      lead_id:     "00000000-0000-0000-0000-000000000000",
+      lead_id:     lead.id,
       property_id: property.id,
-      action:      "inbound_sms_unmatched",
+      action:      "lead_auto_created",
       actor:       "system",
-      metadata:    { from, preview: body.slice(0, 100) },
+      metadata:    { from, source: "sms_inbound", preview: body.slice(0, 100) },
     });
-    return TWIML_OK;
   }
 
   // ── 3. Idempotency — skip if we've already processed this MessageSid ──────
@@ -356,6 +386,12 @@ export async function POST(req: NextRequest) {
   let aiMessage: string;
   let tourBookingAt: string | undefined;
   let applicationCompleted = false;
+  let parsedName: string | undefined;
+  let parsedEmail: string | undefined;
+  // A name is "missing" if it's the auto-created placeholder, blank, or generic
+  const leadEmail = (lead as Record<string, unknown>).email as string | null | undefined;
+  const needsName = !lead.name || /^Unknown\b/i.test(lead.name) || lead.name.trim().length < 2;
+  const needsEmail = !leadEmail || !/@/.test(leadEmail);
   try {
     const p = property as Record<string, unknown>;
     const addressParts = [p.address, p.city, p.state, p.zip].filter(Boolean);
@@ -365,6 +401,9 @@ export async function POST(req: NextRequest) {
       activeSpecial:       property.active_special ?? undefined,
       tourBookingUrl:      p.tour_booking_url as string | undefined,
       leadName:            lead.name,
+      leadEmail:           leadEmail ?? undefined,
+      needsName,
+      needsEmail,
       moveInDate:          lead.move_in_date ?? undefined,
       bedrooms:            lead.bedrooms ?? undefined,
       budgetMin:           lead.budget_min ?? undefined,
@@ -376,6 +415,8 @@ export async function POST(req: NextRequest) {
     aiMessage             = result.message;
     tourBookingAt         = result.tourBookingAt;
     applicationCompleted  = Boolean(result.applicationCompleted);
+    parsedName            = result.parsedName;
+    parsedEmail           = result.parsedEmail;
   } catch (err) {
     console.error("[twilio/inbound] AI generation failed:", err);
     await logActivity(db, {
@@ -448,6 +489,33 @@ export async function POST(req: NextRequest) {
 
   // Set first_contact_date if not already set (e.g. lead was created manually)
   await setFirstContactDate(lead.id);
+
+  // ── 12b. Capture lead identity if AI extracted it ─────────────────────────
+  if (parsedName || parsedEmail) {
+    const updates: Record<string, unknown> = {};
+    if (parsedName  && needsName)  updates.name  = parsedName;
+    if (parsedEmail && needsEmail) updates.email = parsedEmail;
+    // If the placeholder was the only name we had, always overwrite it
+    if (parsedName && /^Unknown\b/i.test(lead.name)) updates.name = parsedName;
+
+    if (Object.keys(updates).length > 0) {
+      const { error: updErr } = await db.from("leads").update(updates).eq("id", lead.id);
+      if (updErr) {
+        console.error("[twilio/inbound] failed to update lead identity:", updErr);
+      } else {
+        await logActivity(db, {
+          lead_id:     lead.id,
+          property_id: property.id,
+          action:      "lead_identity_captured",
+          actor:       "ai",
+          metadata:    {
+            captured_name:  updates.name  ?? null,
+            captured_email: updates.email ?? null,
+          },
+        });
+      }
+    }
+  }
 
   // ── 13. Application complete — flip status, kill follow-ups, alert operator ─
   if (applicationCompleted) {
