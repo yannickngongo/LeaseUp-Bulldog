@@ -179,18 +179,35 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
 
   // Always-on qualification capture — applies to every reply.
   triggerInstructions +=
-    `\nQUALIFICATION CAPTURE: When the lead shares any of the following, append the matching tag(s) ` +
-    `on their own lines at the very end of your reply. Tags are stripped before sending — the lead ` +
-    `never sees them. Do NOT tag info that's already on file (see "Known info" above) unless the ` +
-    `lead corrected it. Do NOT guess. If they're vague ("sometime in spring"), don't tag it.\n` +
+    `\nQUALIFICATION CAPTURE — VERY IMPORTANT: When the lead shares ANY of the following, you MUST ` +
+    `append the matching tag(s) on their own lines at the very end of your reply. Tags are stripped ` +
+    `before sending — the lead never sees them. This is how the leasing team's CRM stays accurate, ` +
+    `so missing a tag is a real failure. Do NOT guess. If they're vague ("sometime in spring"), ` +
+    `don't tag it. Do NOT re-tag values already shown in 'Known info' UNLESS the lead corrected them ` +
+    `(e.g. they previously said budget was $1500 and now say "actually it's $1800").\n` +
+    `\n` +
     `  [LEAD_MOVE_IN:YYYY-MM-DD] — exact target move-in date the lead committed to. Resolve relative ` +
     `dates against today's date (e.g. "next month" → first of that month). Only tag if they gave a ` +
     `concrete date or month they're locked on. Convert "May 1st" to that year's date.\n` +
-    `  [LEAD_BUDGET_MIN:1200] — bottom of their stated monthly rent range, in whole dollars (no $/comma).\n` +
-    `  [LEAD_BUDGET_MAX:1500] — top of their stated monthly rent range. If they gave a single number ` +
-    `("$1500"), set both MIN and MAX to that value.\n` +
-    `  [LEAD_BEDROOMS:2] — bedroom count. Use 0 for studio.\n` +
-    `  [LEAD_PETS:yes] or [LEAD_PETS:no] — only when they clearly state if they have pets.\n`;
+    `\n` +
+    `  [LEAD_BUDGET:N] — when they give a SINGLE rent number. Whole dollars, no $ sign, no commas.\n` +
+    `  [LEAD_BUDGET:MIN-MAX] — when they give a RANGE.\n` +
+    `\n` +
+    `  Budget examples (always use one of the two forms above):\n` +
+    `    "my budget is $1500" → [LEAD_BUDGET:1500]\n` +
+    `    "around 13000" → [LEAD_BUDGET:13000]\n` +
+    `    "$1300" → [LEAD_BUDGET:1300]\n` +
+    `    "between 1200 and 1500" → [LEAD_BUDGET:1200-1500]\n` +
+    `    "$2k to $2.5k" → [LEAD_BUDGET:2000-2500]\n` +
+    `    "max 1800" → [LEAD_BUDGET:1800]  (treat 'max' / 'up to' as a single number for both min and max)\n` +
+    `\n` +
+    `  [LEAD_BEDROOMS:2] — bedroom count. Use 0 for studio. "1 bed", "two bedroom", "studio".\n` +
+    `\n` +
+    `  [LEAD_PETS:yes] or [LEAD_PETS:no] — only when they clearly state if they have pets.\n` +
+    `\n` +
+    `If the lead's reply mentions ANY of these, the corresponding tag MUST appear at the bottom of ` +
+    `your message. Multiple tags are fine — one per line. Tag values verbatim from what they said, ` +
+    `do not invent or estimate.\n`;
 
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in server local time
 
@@ -264,11 +281,29 @@ export async function generateLeadReply(
   const moveInMatch  = raw.match(/\[LEAD_MOVE_IN:(\d{4}-\d{2}-\d{2})\]/i);
   const parsedMoveInDate = moveInMatch ? moveInMatch[1] : undefined;
 
-  const budgetMinMatch = raw.match(/\[LEAD_BUDGET_MIN:(\d+)\]/i);
-  const parsedBudgetMin = budgetMinMatch ? parseInt(budgetMinMatch[1], 10) : undefined;
-
-  const budgetMaxMatch = raw.match(/\[LEAD_BUDGET_MAX:(\d+)\]/i);
-  const parsedBudgetMax = budgetMaxMatch ? parseInt(budgetMaxMatch[1], 10) : undefined;
+  // Accept three formats from the AI, in priority order:
+  //   [LEAD_BUDGET:1200-1500]  → range
+  //   [LEAD_BUDGET:1500]       → single value, both min & max
+  //   [LEAD_BUDGET_MIN:1200] + [LEAD_BUDGET_MAX:1500] (split form)
+  let parsedBudgetMin: number | undefined;
+  let parsedBudgetMax: number | undefined;
+  const comboBudgetRange = raw.match(/\[LEAD_BUDGET:(\d+)\s*[-–—]\s*(\d+)\]/i);
+  const comboBudgetSingle = raw.match(/\[LEAD_BUDGET:(\d+)\]/i);
+  if (comboBudgetRange) {
+    parsedBudgetMin = parseInt(comboBudgetRange[1], 10);
+    parsedBudgetMax = parseInt(comboBudgetRange[2], 10);
+  } else if (comboBudgetSingle) {
+    parsedBudgetMin = parseInt(comboBudgetSingle[1], 10);
+    parsedBudgetMax = parsedBudgetMin;
+  } else {
+    const budgetMinMatch = raw.match(/\[LEAD_BUDGET_MIN:(\d+)\]/i);
+    const budgetMaxMatch = raw.match(/\[LEAD_BUDGET_MAX:(\d+)\]/i);
+    if (budgetMinMatch) parsedBudgetMin = parseInt(budgetMinMatch[1], 10);
+    if (budgetMaxMatch) parsedBudgetMax = parseInt(budgetMaxMatch[1], 10);
+  }
+  // Sanity: drop obviously bogus values (negative, zero, > $1M)
+  if (parsedBudgetMin != null && (parsedBudgetMin <= 0 || parsedBudgetMin > 1_000_000)) parsedBudgetMin = undefined;
+  if (parsedBudgetMax != null && (parsedBudgetMax <= 0 || parsedBudgetMax > 1_000_000)) parsedBudgetMax = undefined;
 
   const bedroomsMatch = raw.match(/\[LEAD_BEDROOMS:(\d+)\]/i);
   const parsedBedrooms = bedroomsMatch ? parseInt(bedroomsMatch[1], 10) : undefined;
@@ -282,6 +317,7 @@ export async function generateLeadReply(
     .replace(/\s*\[LEAD_NAME:[^\]]+\]\s*/gi, "")
     .replace(/\s*\[LEAD_EMAIL:[^\]]+\]\s*/gi, "")
     .replace(/\s*\[LEAD_MOVE_IN:[^\]]+\]\s*/gi, "")
+    .replace(/\s*\[LEAD_BUDGET:[^\]]+\]\s*/gi, "")
     .replace(/\s*\[LEAD_BUDGET_MIN:[^\]]+\]\s*/gi, "")
     .replace(/\s*\[LEAD_BUDGET_MAX:[^\]]+\]\s*/gi, "")
     .replace(/\s*\[LEAD_BEDROOMS:[^\]]+\]\s*/gi, "")

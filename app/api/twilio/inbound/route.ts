@@ -516,10 +516,11 @@ export async function POST(req: NextRequest) {
   // ── 12b. Capture identity + qualification fields if AI extracted any ──────
   {
     const updates: Record<string, unknown> = {};
-    if (parsedName  && needsName)  updates.name  = parsedName;
-    if (parsedEmail && needsEmail) updates.email = parsedEmail;
-    // If the placeholder was the only name we had, always overwrite it
-    if (parsedName && /^Unknown\b/i.test(lead.name)) updates.name = parsedName;
+    // Trust any tag the AI emitted. The prompt forbids re-tagging info already on
+    // file UNLESS the lead corrected it, so if a tag arrives for a field that's
+    // already populated, it's an intentional update — persist it.
+    if (parsedName  && parsedName  !== lead.name)  updates.name  = parsedName;
+    if (parsedEmail && parsedEmail !== leadEmail)  updates.email = parsedEmail;
 
     // Qualification fields — apply whenever the AI captured them. If a value
     // is already on file and the AI re-tags it, the same value is overwritten,
