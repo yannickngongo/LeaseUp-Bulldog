@@ -256,15 +256,15 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, [pollActivity]);
 
-  // Fetch avg AI response time whenever the period filter changes
+  // Avg AI response time is intentionally locked to the past 24 hours —
+  // operators care about right now, not multi-week averages that hide regressions.
   useEffect(() => {
     if (loading) return;
-    const days = periodToDays(period);
-    authFetch(`/api/analytics/performance?days=${days}`)
+    authFetch(`/api/analytics/performance?days=1`)
       .then((r) => r.json())
       .then((j) => setAvgResponseSec(typeof j.avgResponseSec === "number" ? j.avgResponseSec : null))
       .catch(() => setAvgResponseSec(null));
-  }, [period, loading]);
+  }, [loading]);
 
   // Apply period + property filters before computing any stats
   const periodCutoff = periodStartMs(period);
@@ -478,10 +478,10 @@ export default function DashboardPage() {
             shadowColor: "rgba(200,16,46,0.4)",
           },
           {
-            label: "Avg AI Response",
+            label: "Avg AI Response (24h)",
             value: avgResponseSec === null ? "—" : formatResponseTime(avgResponseSec),
             sub: avgResponseSec === null
-              ? "Awaiting first reply"
+              ? "No leads in the last 24h"
               : avgResponseSec <= 60
               ? "Under target (60s)"
               : `${avgResponseSec - 60}s above target`,
