@@ -256,11 +256,11 @@ export default function DashboardPage() {
     return () => clearInterval(timer);
   }, [pollActivity]);
 
-  // Avg AI response time is intentionally locked to the past 24 hours —
-  // operators care about right now, not multi-week averages that hide regressions.
+  // Avg AI response time is locked to the past 48 hours — wide enough to capture
+  // overnight conversations, narrow enough to exclude any pre-fix broken responses.
   useEffect(() => {
     if (loading) return;
-    authFetch(`/api/analytics/performance?days=1`)
+    authFetch(`/api/analytics/performance?days=2`)
       .then((r) => r.json())
       .then((j) => setAvgResponseSec(typeof j.avgResponseSec === "number" ? j.avgResponseSec : null))
       .catch(() => setAvgResponseSec(null));
