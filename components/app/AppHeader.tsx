@@ -105,18 +105,19 @@ function NotificationPanel({
 }) {
   const [items, setItems]     = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded]   = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // Re-fetch every time the panel opens — the previous version cached forever,
+  // so events that came in after the first open were never visible.
   useEffect(() => {
-    if (!open || loaded || !operatorId) return;
+    if (!open || !operatorId) return;
     setLoading(true);
     fetch(`/api/activity?operator_id=${operatorId}&limit=15`)
       .then(r => r.json())
-      .then(j => { setItems(j.activity ?? []); setLoaded(true); })
-      .catch(() => setLoaded(true))
+      .then(j => setItems(j.activity ?? []))
+      .catch(() => {})
       .finally(() => setLoading(false));
-  }, [open, loaded, operatorId]);
+  }, [open, operatorId]);
 
   useEffect(() => {
     if (!open) return;
@@ -243,15 +244,27 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
           setInitials(name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase());
           if (j.operator?.id) {
             setOperatorId(j.operator.id);
-            fetch(`/api/activity?operator_id=${j.operator.id}&limit=1`)
-              .then(r => r.json())
-              .then(j2 => setHasActivity((j2.activity ?? []).length > 0))
-              .catch(() => {});
           }
         })
         .catch(() => setInitials(email[0]?.toUpperCase() ?? "?"));
     });
   }, []);
+
+  // Poll the activity feed every 30s so the red dot reflects fresh events
+  // without requiring a page refresh.
+  useEffect(() => {
+    if (!operatorId) return;
+    let cancelled = false;
+    const refresh = () => {
+      fetch(`/api/activity?operator_id=${operatorId}&limit=1`)
+        .then(r => r.json())
+        .then(j => { if (!cancelled) setHasActivity((j.activity ?? []).length > 0); })
+        .catch(() => {});
+    };
+    refresh();
+    const id = setInterval(refresh, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [operatorId]);
 
   return (
     <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-white px-4 dark:border-[#1E1E2E] dark:bg-[#10101A] lg:px-6">
