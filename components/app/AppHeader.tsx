@@ -240,6 +240,7 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   const [operatorId, setOperatorId]     = useState("");
   const [notifOpen, setNotifOpen]       = useState(false);
   const [hasActivity, setHasActivity]   = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const bellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -258,19 +259,27 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
     });
   }, []);
 
-  // Poll the activity feed every 30s so the red dot reflects fresh events
-  // without requiring a page refresh.
+  // Poll every 20s for fresh activity and unresolved-takeover counts.
+  // Two parallel fetches so a slow one doesn't block the other.
   useEffect(() => {
     if (!operatorId) return;
     let cancelled = false;
     const refresh = () => {
+      // Most-recent activity, drives the generic dot
       fetch(`/api/activity?operator_id=${operatorId}&limit=1`)
         .then(r => r.json())
         .then(j => { if (!cancelled) setHasActivity((j.activity ?? []).length > 0); })
         .catch(() => {});
+      // Unresolved takeovers — the loud, must-handle indicator
+      fetch(`/api/notifications/badge`)
+        .then(r => r.json())
+        .then(j => {
+          if (!cancelled) setPendingCount(typeof j.takeoversPending === "number" ? j.takeoversPending : 0);
+        })
+        .catch(() => {});
     };
     refresh();
-    const id = setInterval(refresh, 30_000);
+    const id = setInterval(refresh, 20_000);
     return () => { cancelled = true; clearInterval(id); };
   }, [operatorId]);
 
@@ -329,16 +338,27 @@ export function AppHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         <div ref={bellRef} className="relative">
           <button
             onClick={() => setNotifOpen(prev => !prev)}
-            className="relative flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600 dark:hover:bg-white/5 dark:hover:text-gray-300"
-            aria-label="Notifications"
+            className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              pendingCount > 0
+                ? "text-[#C8102E] hover:bg-[#C8102E]/10 dark:hover:bg-[#C8102E]/15"
+                : "text-gray-400 hover:bg-gray-50 hover:text-gray-600 dark:hover:bg-white/5 dark:hover:text-gray-300"
+            }`}
+            aria-label={pendingCount > 0 ? `${pendingCount} leads need attention` : "Notifications"}
           >
             <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px]">
               <path d="M9 1.5a5 5 0 015 5v3l1.5 2.5H2.5L4 9.5v-3a5 5 0 015-5z" />
               <path d="M7 14.5a2 2 0 004 0" />
             </svg>
-            {hasActivity && (
+            {pendingCount > 0 ? (
+              <>
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-[#C8102E] px-1 text-[9px] font-bold text-white">
+                  {pendingCount > 9 ? "9+" : pendingCount}
+                </span>
+                <span className="absolute -right-0.5 -top-0.5 h-4 w-4 animate-ping rounded-full bg-[#C8102E]/60" />
+              </>
+            ) : hasActivity ? (
               <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-[#C8102E]" />
-            )}
+            ) : null}
           </button>
           <NotificationPanel
             open={notifOpen}

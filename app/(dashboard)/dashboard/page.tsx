@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import IntelligenceSection from "./IntelligenceSection";
 import { getOperatorEmail, authFetch } from "@/lib/demo-auth";
 import { IconBuilding, IconCalendar, IconCheck, IconBolt } from "@/components/marketing/Icons";
+import { TakeoverBanner } from "@/components/app/TakeoverBanner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -315,6 +316,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5 p-4 lg:p-6">
+
+      {/* Loud takeover banner — only renders when leads need attention */}
+      <TakeoverBanner />
 
       {/* Hero — preview-style big title + welcome subtitle */}
       <div>

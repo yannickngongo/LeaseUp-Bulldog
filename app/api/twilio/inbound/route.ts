@@ -376,10 +376,10 @@ export async function POST(req: NextRequest) {
       }).catch((err: unknown) => console.error("[twilio/inbound] takeover alert failed:", err));
     }
 
-    // Send a short handoff message so the lead knows a human is coming.
-    // Don't leave them in silence — that's the worst experience.
+    // Send a short handoff message so the lead knows we're on it.
+    // Soft "let me check" framing — the operator answers, then resumes the AI.
     const handoffMessage =
-      "Good question, let me connect you with the next available agent. They'll text you back shortly.";
+      "Great question, let me check on that for you and get right back to you with the answer.";
     let handoffSid: string | undefined;
     try {
       const sms = await sendSms({ to: from, body: handoffMessage, from: property.phone_number });
