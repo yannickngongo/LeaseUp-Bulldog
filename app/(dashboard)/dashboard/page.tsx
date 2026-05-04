@@ -478,10 +478,10 @@ export default function DashboardPage() {
             shadowColor: "rgba(200,16,46,0.4)",
           },
           {
-            label: "Avg AI Response (24h)",
+            label: "Avg AI Response",
             value: avgResponseSec === null ? "—" : formatResponseTime(avgResponseSec),
             sub: avgResponseSec === null
-              ? "No leads in the last 24h"
+              ? "Awaiting first reply"
               : avgResponseSec <= 60
               ? "Under target (60s)"
               : `${avgResponseSec - 60}s above target`,

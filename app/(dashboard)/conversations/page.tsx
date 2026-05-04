@@ -144,9 +144,12 @@ function ConversationsInner() {
       });
       setLeads(all);
 
-      // If no active lead is selected and we have leads, auto-pick the most recent
+      // Auto-pick the most recent lead — but only on desktop. On mobile, show the
+      // list first so the user can choose which thread to open.
       if (!activeLeadId && all.length) {
-        setActiveLeadId(all[0].id);
+        const isDesktop = typeof window !== "undefined"
+          && window.matchMedia("(min-width: 768px)").matches;
+        if (isDesktop) setActiveLeadId(all[0].id);
       }
     } finally {
       setLoadingLeads(false);
@@ -227,7 +230,9 @@ function ConversationsInner() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-[#EDEFF3] dark:bg-[#0A0B11]">
       {/* ── Left sidebar: lead list ─────────────────────────────────────── */}
-      <aside className="hidden w-80 shrink-0 flex-col border-r border-gray-200/70 bg-white dark:border-[#1E1E2E] dark:bg-[#10101A] md:flex">
+      {/* Mobile: visible when no lead is selected (so user can pick one).
+          Desktop: always visible. */}
+      <aside className={`${activeLeadId ? "hidden md:flex" : "flex"} w-full shrink-0 flex-col border-r border-gray-200/70 bg-white dark:border-[#1E1E2E] dark:bg-[#10101A] md:w-80`}>
         {/* Header */}
         <div className="flex items-center gap-2 px-5 pt-5 pb-3">
           <Link href="/dashboard" className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5">
@@ -343,7 +348,8 @@ function ConversationsInner() {
       </aside>
 
       {/* ── Center: thread ──────────────────────────────────────────────── */}
-      <main className="flex min-w-0 flex-1 flex-col bg-[#F7F8FA] dark:bg-[#0F0F18]">
+      {/* Mobile: hidden until a lead is picked. Desktop: always visible. */}
+      <main className={`${activeLeadId ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col bg-[#F7F8FA] dark:bg-[#0F0F18]`}>
         {!activeLeadId || !activeLead ? (
           <EmptyState />
         ) : (
@@ -352,6 +358,7 @@ function ConversationsInner() {
             messages={messages}
             loading={loadingThread}
             newMessageIds={newMessageIds}
+            onBack={() => setActiveLeadId(null)}
             onSendComplete={() => loadThread(activeLead.id)}
             onAiToggle={(paused) => setActiveLead({ ...activeLead, ai_paused: paused })}
           />
@@ -385,12 +392,13 @@ function EmptyState() {
 
 // ─── Chat thread ─────────────────────────────────────────────────────────────
 function ChatThread({
-  lead, messages, loading, newMessageIds, onSendComplete, onAiToggle,
+  lead, messages, loading, newMessageIds, onBack, onSendComplete, onAiToggle,
 }: {
   lead: Lead;
   messages: Message[];
   loading: boolean;
   newMessageIds: Set<string>;
+  onBack: () => void;
   onSendComplete: () => void;
   onAiToggle: (paused: boolean) => void;
 }) {
@@ -406,8 +414,19 @@ function ChatThread({
   return (
     <>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200/70 bg-white px-6 py-4 dark:border-[#1E1E2E] dark:bg-[#10101A]">
+      <div className="flex items-center justify-between border-b border-gray-200/70 bg-white px-4 py-4 dark:border-[#1E1E2E] dark:bg-[#10101A] sm:px-6">
         <div className="flex items-center gap-3">
+          {/* Mobile back-to-list button */}
+          <button
+            type="button"
+            onClick={onBack}
+            className="-ml-1 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-white/5 dark:hover:text-white md:hidden"
+            aria-label="Back to conversations list"
+          >
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.75} className="h-4 w-4">
+              <polyline points="10 13 5 8 10 3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
           <div
             className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white"
             style={{ background: avatarGradient(lead.id) }}
