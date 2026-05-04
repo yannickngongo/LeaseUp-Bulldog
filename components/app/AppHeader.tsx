@@ -107,16 +107,24 @@ function NotificationPanel({
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Re-fetch every time the panel opens — the previous version cached forever,
-  // so events that came in after the first open were never visible.
+  // Re-fetch every time the panel opens, then poll every 15s while it stays
+  // open so live events show up without the user having to close + reopen.
   useEffect(() => {
     if (!open || !operatorId) return;
-    setLoading(true);
-    fetch(`/api/activity?operator_id=${operatorId}&limit=15`)
-      .then(r => r.json())
-      .then(j => setItems(j.activity ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+
+    let cancelled = false;
+    const refresh = (showSpinner: boolean) => {
+      if (showSpinner) setLoading(true);
+      return fetch(`/api/activity?operator_id=${operatorId}&limit=15`)
+        .then(r => r.json())
+        .then(j => { if (!cancelled) setItems(j.activity ?? []); })
+        .catch(() => {})
+        .finally(() => { if (showSpinner && !cancelled) setLoading(false); });
+    };
+
+    refresh(true);
+    const id = setInterval(() => refresh(false), 15_000);
+    return () => { cancelled = true; clearInterval(id); };
   }, [open, operatorId]);
 
   useEffect(() => {

@@ -376,7 +376,31 @@ export async function POST(req: NextRequest) {
       }).catch((err: unknown) => console.error("[twilio/inbound] takeover alert failed:", err));
     }
 
-    return TWIML_OK; // AI does not reply — human takes over
+    // Send a short handoff message so the lead knows a human is coming.
+    // Don't leave them in silence — that's the worst experience.
+    const handoffMessage =
+      "Good question, let me connect you with the next available agent. They'll text you back shortly.";
+    let handoffSid: string | undefined;
+    try {
+      const sms = await sendSms({ to: from, body: handoffMessage, from: property.phone_number });
+      handoffSid = sms.sid;
+    } catch (err) {
+      console.error("[twilio/inbound] handoff SMS send failed:", err);
+    }
+    await db.from("conversations").insert({
+      lead_id:      lead.id,
+      property_id:  property.id,
+      direction:    "outbound",
+      channel:      "sms",
+      body:         handoffMessage,
+      twilio_sid:   handoffSid ?? null,
+      ai_generated: true,
+    });
+    await db.from("leads")
+      .update({ last_contacted_at: new Date().toISOString() })
+      .eq("id", lead.id);
+
+    return TWIML_OK; // AI follow-up reply will come from the human now
   }
 
   // ── 8. Build conversation history ─────────────────────────────────────────
