@@ -7,9 +7,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ManualReplyBox } from "@/components/leads/ManualReplyBox";
 import { ConsentAuditTrail } from "@/components/leads/ConsentAuditTrail";
 import { MarkLeaseSignedButton } from "@/components/leads/MarkLeaseSignedButton";
+import { authFetch } from "@/lib/demo-auth";
 import type { LeadStatus } from "@/lib/types";
 import type { Conversation } from "@/types/lead";
 
@@ -32,6 +34,7 @@ interface LeadRow {
   ai_score?: number | null;
   ai_summary?: string | null;
   ai_paused?: boolean | null;
+  human_takeover?: boolean | null;
   notes?: string | null;
   created_at: string;
   last_contacted_at?: string | null;
@@ -93,7 +96,51 @@ export function LeadProfile({
   performanceFeePerLease: number;
   operatorId: string;
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<TabKey>("contact");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [resuming, setResuming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  async function handleResumeAI() {
+    if (resuming) return;
+    setResuming(true);
+    setActionError(null);
+    try {
+      const r = await authFetch(`/api/leads/${lead.id}/resume-ai`, { method: "POST" });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error ?? `Resume failed (${r.status})`);
+      }
+      router.refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to resume AI");
+    } finally {
+      setResuming(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (deleting) return;
+    const ok = window.confirm(
+      `Delete ${lead.name}? This permanently removes the lead and all their messages, tours, follow-ups, and history. This cannot be undone.`
+    );
+    if (!ok) return;
+    setDeleting(true);
+    setActionError(null);
+    try {
+      const r = await authFetch(`/api/leads/${lead.id}`, { method: "DELETE" });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error ?? `Delete failed (${r.status})`);
+      }
+      router.push("/leads");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to delete lead");
+      setDeleting(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#F5F5F7] px-4 py-6 dark:bg-[#0A0B11] sm:px-8">
@@ -108,9 +155,19 @@ export function LeadProfile({
 
         {/* Header card */}
         <section className="relative rounded-2xl border border-gray-200/80 bg-white p-6 dark:border-white/5 dark:bg-[#10101A] sm:p-7">
-          {/* Three-dot menu */}
-          {operatorId && (
-            <div className="absolute right-5 top-5">
+          {/* Top-right action cluster */}
+          <div className="absolute right-5 top-5 flex items-center gap-2">
+            {lead.human_takeover && (
+              <button
+                type="button"
+                onClick={handleResumeAI}
+                disabled={resuming}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#C8102E] px-3 py-1.5 text-xs font-bold text-white shadow-[0_4px_14px_rgba(200,16,46,0.25)] transition-colors hover:bg-[#A50D25] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
+              >
+                {resuming ? "Resuming…" : "Resume AI"}
+              </button>
+            )}
+            {operatorId && (
               <MarkLeaseSignedButton
                 leadId={lead.id}
                 propertyId={lead.property_id}
@@ -120,7 +177,50 @@ export function LeadProfile({
                 attributionWindowEnd={lead.attribution_window_end ?? null}
                 performanceFeePerLease={performanceFeePerLease}
               />
+            )}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 dark:hover:bg-white/5"
+                aria-label="More actions"
+              >
+                <svg viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
+                  <circle cx="3" cy="8" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="13" cy="8" r="1.5" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <>
+                  {/* Backdrop closes the menu */}
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen(false)}
+                    className="fixed inset-0 z-10 cursor-default"
+                    aria-label="Close menu"
+                    tabIndex={-1}
+                  />
+                  <div className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-white/10 dark:bg-[#1A1A2E]">
+                    <button
+                      type="button"
+                      onClick={() => { setMenuOpen(false); handleDelete(); }}
+                      disabled={deleting}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-xs font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed dark:text-red-400 dark:hover:bg-red-950/30"
+                    >
+                      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+                        <polyline points="2 4 14 4" />
+                        <path d="M5.5 4V2.5a1 1 0 011-1h3a1 1 0 011 1V4" />
+                        <path d="M3 4l1 9.5a1 1 0 001 1h6a1 1 0 001-1L13 4" />
+                      </svg>
+                      {deleting ? "Deleting…" : "Delete lead"}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
+          </div>
+
+          {actionError && (
+            <p className="absolute right-5 top-16 text-[11px] text-red-600">⚠ {actionError}</p>
           )}
 
           {/* Avatar + identity */}

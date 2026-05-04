@@ -69,6 +69,10 @@ function formatAction(action: string, actor: string, meta?: Record<string, unkno
     case "follow_up_sent":            return `Follow-up sent automatically`;
     case "lead_opted_out":            return `Lead opted out (STOP)`;
     case "application_completed":     return `Application submitted ✅`;
+    case "lead_auto_created":         return `New lead from inbound text${meta?.from ? ` (${String(meta.from)})` : ""}`;
+    case "lead_identity_captured":    return `Captured lead info${meta?.captured_name ? ` — ${String(meta.captured_name)}` : ""}`;
+    case "lead_profile_updated":      return `Lead profile updated by AI`;
+    case "human_takeover_required":   return `⚠ Human takeover required${meta?.reason ? ` — ${String(meta.reason)}` : ""}`;
     // Silent-skip diagnostics — surface these so operators see why AI didn't reply
     case "ai_skipped_human_takeover": return `AI skipped — human takeover active`;
     case "ai_skipped_paused":         return `AI skipped — paused for this lead`;
@@ -85,9 +89,9 @@ function formatAction(action: string, actor: string, meta?: Record<string, unkno
 
 // Severity drives the dot color in the activity feed so operators notice failures.
 function severityOf(action: string): "success" | "info" | "warn" | "error" {
-  if (action.endsWith("_failed") || action === "ai_skipped_db_error") return "error";
+  if (action.endsWith("_failed") || action === "ai_skipped_db_error" || action === "human_takeover_required") return "error";
   if (action.startsWith("ai_skipped_") || action.startsWith("inbound_sms_no_") || action === "inbound_sms_unmatched" || action === "human_takeover") return "warn";
-  if (action === "application_completed" || action === "lead_won" || action === "tour_scheduled") return "success";
+  if (action === "application_completed" || action === "lead_won" || action === "tour_scheduled" || action === "lead_profile_updated") return "success";
   return "info";
 }
 

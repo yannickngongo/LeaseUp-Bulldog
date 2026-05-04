@@ -350,6 +350,19 @@ export async function POST(req: NextRequest) {
       console.error("[twilio/inbound] failed to create handoff:", err);
     }
 
+    // Surface in the bell + Live Activity feed (alongside the email alert)
+    await logActivity(db, {
+      lead_id:     lead.id,
+      property_id: property.id,
+      action:      "human_takeover_required",
+      actor:       "ai",
+      metadata:    {
+        reason:        escalationResult.reason,
+        lead_name:     lead.name,
+        last_message:  body.slice(0, 200),
+      },
+    });
+
     if (property.notify_email) {
       sendHumanTakeoverAlert({
         to:           property.notify_email,
@@ -388,6 +401,11 @@ export async function POST(req: NextRequest) {
   let applicationCompleted = false;
   let parsedName: string | undefined;
   let parsedEmail: string | undefined;
+  let parsedMoveInDate: string | undefined;
+  let parsedBudgetMin: number | undefined;
+  let parsedBudgetMax: number | undefined;
+  let parsedBedrooms: number | undefined;
+  let parsedPets: boolean | undefined;
   // A name is "missing" if it's the auto-created placeholder, blank, or generic
   const leadEmail = (lead as Record<string, unknown>).email as string | null | undefined;
   const needsName = !lead.name || /^Unknown\b/i.test(lead.name) || lead.name.trim().length < 2;
@@ -417,6 +435,11 @@ export async function POST(req: NextRequest) {
     applicationCompleted  = Boolean(result.applicationCompleted);
     parsedName            = result.parsedName;
     parsedEmail           = result.parsedEmail;
+    parsedMoveInDate      = result.parsedMoveInDate;
+    parsedBudgetMin       = result.parsedBudgetMin;
+    parsedBudgetMax       = result.parsedBudgetMax;
+    parsedBedrooms        = result.parsedBedrooms;
+    parsedPets            = result.parsedPets;
   } catch (err) {
     console.error("[twilio/inbound] AI generation failed:", err);
     await logActivity(db, {
@@ -490,28 +513,34 @@ export async function POST(req: NextRequest) {
   // Set first_contact_date if not already set (e.g. lead was created manually)
   await setFirstContactDate(lead.id);
 
-  // ── 12b. Capture lead identity if AI extracted it ─────────────────────────
-  if (parsedName || parsedEmail) {
+  // ── 12b. Capture identity + qualification fields if AI extracted any ──────
+  {
     const updates: Record<string, unknown> = {};
     if (parsedName  && needsName)  updates.name  = parsedName;
     if (parsedEmail && needsEmail) updates.email = parsedEmail;
     // If the placeholder was the only name we had, always overwrite it
     if (parsedName && /^Unknown\b/i.test(lead.name)) updates.name = parsedName;
 
+    // Qualification fields — apply whenever the AI captured them. If a value
+    // is already on file and the AI re-tags it, the same value is overwritten,
+    // which is fine. If the lead corrected something, the new value wins.
+    if (parsedMoveInDate)        updates.move_in_date = parsedMoveInDate;
+    if (parsedBudgetMin != null) updates.budget_min   = parsedBudgetMin;
+    if (parsedBudgetMax != null) updates.budget_max   = parsedBudgetMax;
+    if (parsedBedrooms  != null) updates.bedrooms     = parsedBedrooms;
+    if (parsedPets      != null) updates.pets         = parsedPets;
+
     if (Object.keys(updates).length > 0) {
       const { error: updErr } = await db.from("leads").update(updates).eq("id", lead.id);
       if (updErr) {
-        console.error("[twilio/inbound] failed to update lead identity:", updErr);
+        console.error("[twilio/inbound] failed to update lead profile:", updErr);
       } else {
         await logActivity(db, {
           lead_id:     lead.id,
           property_id: property.id,
-          action:      "lead_identity_captured",
+          action:      "lead_profile_updated",
           actor:       "ai",
-          metadata:    {
-            captured_name:  updates.name  ?? null,
-            captured_email: updates.email ?? null,
-          },
+          metadata:    updates,
         });
       }
     }

@@ -41,8 +41,13 @@ export interface GenerateLeadReplyOutput {
   message: string;          // plain SMS text, ready to send (tags stripped)
   tourBookingAt?: string;   // ISO datetime string if the AI confirmed a tour, else undefined
   applicationCompleted?: boolean; // true if AI detected the lead said they finished applying
-  parsedName?: string;      // detected from [LEAD_NAME:...] tag — caller should write to DB
-  parsedEmail?: string;     // detected from [LEAD_EMAIL:...] tag — caller should write to DB
+  parsedName?: string;      // [LEAD_NAME:...]
+  parsedEmail?: string;     // [LEAD_EMAIL:...]
+  parsedMoveInDate?: string;     // [LEAD_MOVE_IN:YYYY-MM-DD]
+  parsedBudgetMin?: number;      // [LEAD_BUDGET_MIN:1000]
+  parsedBudgetMax?: number;      // [LEAD_BUDGET_MAX:1500]
+  parsedBedrooms?: number;       // [LEAD_BEDROOMS:2] — 0 means studio
+  parsedPets?: boolean;          // [LEAD_PETS:yes|no]
   model: string;
   inputTokens: number;
   outputTokens: number;
@@ -172,6 +177,21 @@ function buildUserPrompt(input: GenerateLeadReplyInput): string {
       `[LEAD_EMAIL:...] tags on their own lines at the end of your reply. Don't tag info we already have.\n`;
   }
 
+  // Always-on qualification capture — applies to every reply.
+  triggerInstructions +=
+    `\nQUALIFICATION CAPTURE: When the lead shares any of the following, append the matching tag(s) ` +
+    `on their own lines at the very end of your reply. Tags are stripped before sending — the lead ` +
+    `never sees them. Do NOT tag info that's already on file (see "Known info" above) unless the ` +
+    `lead corrected it. Do NOT guess. If they're vague ("sometime in spring"), don't tag it.\n` +
+    `  [LEAD_MOVE_IN:YYYY-MM-DD] — exact target move-in date the lead committed to. Resolve relative ` +
+    `dates against today's date (e.g. "next month" → first of that month). Only tag if they gave a ` +
+    `concrete date or month they're locked on. Convert "May 1st" to that year's date.\n` +
+    `  [LEAD_BUDGET_MIN:1200] — bottom of their stated monthly rent range, in whole dollars (no $/comma).\n` +
+    `  [LEAD_BUDGET_MAX:1500] — top of their stated monthly rent range. If they gave a single number ` +
+    `("$1500"), set both MIN and MAX to that value.\n` +
+    `  [LEAD_BEDROOMS:2] — bedroom count. Use 0 for studio.\n` +
+    `  [LEAD_PETS:yes] or [LEAD_PETS:no] — only when they clearly state if they have pets.\n`;
+
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD in server local time
 
   return `
@@ -240,11 +260,32 @@ export async function generateLeadReply(
     ? parsedEmailRaw
     : undefined;
 
+  // Qualification fields — sanitize each so a malformed tag never corrupts the DB.
+  const moveInMatch  = raw.match(/\[LEAD_MOVE_IN:(\d{4}-\d{2}-\d{2})\]/i);
+  const parsedMoveInDate = moveInMatch ? moveInMatch[1] : undefined;
+
+  const budgetMinMatch = raw.match(/\[LEAD_BUDGET_MIN:(\d+)\]/i);
+  const parsedBudgetMin = budgetMinMatch ? parseInt(budgetMinMatch[1], 10) : undefined;
+
+  const budgetMaxMatch = raw.match(/\[LEAD_BUDGET_MAX:(\d+)\]/i);
+  const parsedBudgetMax = budgetMaxMatch ? parseInt(budgetMaxMatch[1], 10) : undefined;
+
+  const bedroomsMatch = raw.match(/\[LEAD_BEDROOMS:(\d+)\]/i);
+  const parsedBedrooms = bedroomsMatch ? parseInt(bedroomsMatch[1], 10) : undefined;
+
+  const petsMatch = raw.match(/\[LEAD_PETS:(yes|no|true|false)\]/i);
+  const parsedPets = petsMatch ? /^(yes|true)$/i.test(petsMatch[1]) : undefined;
+
   let message = raw
     .replace(/\s*\[TOUR_BOOKED:[^\]]+\]\s*/g, "")
     .replace(/\s*\[APPLICATION_COMPLETE\]\s*/g, "")
     .replace(/\s*\[LEAD_NAME:[^\]]+\]\s*/gi, "")
     .replace(/\s*\[LEAD_EMAIL:[^\]]+\]\s*/gi, "")
+    .replace(/\s*\[LEAD_MOVE_IN:[^\]]+\]\s*/gi, "")
+    .replace(/\s*\[LEAD_BUDGET_MIN:[^\]]+\]\s*/gi, "")
+    .replace(/\s*\[LEAD_BUDGET_MAX:[^\]]+\]\s*/gi, "")
+    .replace(/\s*\[LEAD_BEDROOMS:[^\]]+\]\s*/gi, "")
+    .replace(/\s*\[LEAD_PETS:[^\]]+\]\s*/gi, "")
     .trim();
 
   // Safety net: real humans don't write em-dashes in SMS. Replace any that slipped through.
@@ -263,6 +304,11 @@ export async function generateLeadReply(
     applicationCompleted,
     parsedName,
     parsedEmail,
+    parsedMoveInDate,
+    parsedBudgetMin,
+    parsedBudgetMax,
+    parsedBedrooms,
+    parsedPets,
     model: response.model,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
